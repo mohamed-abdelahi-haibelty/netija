@@ -8,7 +8,7 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Task 002 (next task — not yet started)
+- Task 003 (next task — not yet started)
 
 ## Completed
 
@@ -24,13 +24,24 @@ Update this file after every meaningful implementation change.
   - `README.md` with project summary, install steps, and script table
   - `worker/README.md` noting Python-only setup for a later task
 
+## Completed
+
+- **Task 002 — Development Docker Infrastructure**
+  - Created `docker-compose.yml` with pinned images: `postgres:16-alpine`, `redis:7-alpine`, `getmeili/meilisearch:v1.11.0`
+  - Named volumes for Postgres, Redis, and Meilisearch data
+  - Healthchecks on all three services (`pg_isready`, `redis-cli ping`, Meilisearch `/health` endpoint)
+  - All ports bound to `127.0.0.1` only (no external exposure)
+  - Created `.env.example` covering all env vars: DB, Redis, Meili, auth, URLs, Sentry, PostHog, Cloudflare
+  - Added "Local Infrastructure (Docker)" section to `README.md` covering start/stop, data locations, and reset flow
+  - Updated `deployment.md` with all 17 new environment variables
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 002 (check `context/tasks/` for the next spec)
+- Task 003 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 

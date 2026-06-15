@@ -28,3 +28,43 @@ scripts/    Utility and admin scripts
 uploads/    Shared volume for uploaded Excel files (gitignored)
 context/    Project specs, architecture, standards, and task definitions
 ```
+
+## Local Infrastructure (Docker)
+
+The local development infrastructure runs PostgreSQL 16, Redis 7, and Meilisearch via Docker Compose.
+
+### First-time setup
+
+```bash
+cp .env.example .env
+# Edit .env — at minimum set POSTGRES_PASSWORD and MEILI_MASTER_KEY
+docker compose up -d
+```
+
+### Starting and stopping
+
+```bash
+docker compose up -d      # start all services in the background
+docker compose down        # stop and remove containers (data is preserved)
+docker compose ps          # check running services and health status
+docker compose logs -f     # stream logs from all services
+```
+
+### Where data lives
+
+| Service      | Volume            | Host path (managed by Docker)                     |
+|--------------|-------------------|---------------------------------------------------|
+| PostgreSQL   | `postgres_data`   | `docker volume inspect netija_postgres_data`      |
+| Meilisearch  | `meilisearch_data`| `docker volume inspect netija_meilisearch_data`   |
+| Redis        | `redis_data`      | `docker volume inspect netija_redis_data`         |
+
+Volumes are local to your machine and are never committed to the repository.
+
+### Resetting all data
+
+```bash
+docker compose down -v     # stop containers and DELETE all named volumes
+docker compose up -d       # recreate fresh empty services
+```
+
+> **Warning:** `down -v` permanently deletes all local database contents, search indexes, and queue state.

@@ -13,7 +13,23 @@
 
 | Variable | Used by | Purpose | Added in task |
 | -------- | ------- | ------- | ------------- |
-| DATABASE_URL | api, worker | Postgres connection | 003 |
+| POSTGRES_DB | docker, api, worker | Postgres database name | 002 |
+| POSTGRES_USER | docker, api, worker | Postgres username | 002 |
+| POSTGRES_PASSWORD | docker | Postgres password | 002 |
+| DATABASE_URL | api, worker | Postgres connection DSN | 002 |
+| REDIS_URL | api | Redis connection URL | 002 |
+| MEILI_HOST | api, worker | Meilisearch base URL | 002 |
+| MEILI_MASTER_KEY | docker, api, worker | Meilisearch master key | 002 |
+| API_URL | web (server-side) | Internal API base URL | 002 |
+| NEXT_PUBLIC_API_URL | web (browser) | Public API base URL | 002 |
+| BETTER_AUTH_SECRET | api | Session signing secret | 002 |
+| BETTER_AUTH_URL | api, web | Auth server base URL | 002 |
+| SENTRY_DSN | api, worker | Sentry DSN (server) | 002 |
+| NEXT_PUBLIC_SENTRY_DSN | web | Sentry DSN (browser) | 002 |
+| NEXT_PUBLIC_POSTHOG_KEY | web | PostHog project key | 002 |
+| NEXT_PUBLIC_POSTHOG_HOST | web | PostHog ingest host | 002 |
+| CLOUDFLARE_API_TOKEN | api | Cloudflare cache purge token | 002 |
+| CLOUDFLARE_ZONE_ID | api | Cloudflare zone ID | 002 |
 | (append as tasks add them) | | | |
 
 ## External services & accounts needed
