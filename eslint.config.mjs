@@ -17,7 +17,10 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['api/*.config.ts'],
+          defaultProject: 'tsconfig.base.json',
+        },
       },
     },
     plugins: {
