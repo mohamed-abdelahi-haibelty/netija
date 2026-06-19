@@ -8,7 +8,7 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Task 004 (next task)
+- Task 005 (next task)
 
 ## Completed
 
@@ -47,13 +47,26 @@ Update this file after every meaningful implementation change.
   - 10 integration tests in `api/src/db/__tests__/schema.test.ts` proving uniqueness violations (pg error code 23505), leading-zero preservation, happy paths, and schema export completeness — all pass
   - `tsc --noEmit` clean
 
+## Completed
+
+- **Task 004 — Hono API Skeleton**
+  - Installed `hono`, `@hono/node-server`, `ioredis` in `api/`
+  - App/server split: `api/src/app.ts` exports `createApp()` (testable via `app.request()`); `api/src/server.ts` is the Node entry
+  - Baseline middleware: `requestId` (UUID per request, `X-Request-Id` header), `requestLogger` (structured JSON), `secureHeaders()`, `cors()` (origin from `WEB_URL` env var)
+  - Central error handling: `app.onError` — `HTTPException` → standard error shape + status, unexpected errors → `{ error: { code: "INTERNAL", message: "Internal Server Error" } }` (no internals leaked); `app.notFound` → 404 standard shape
+  - `GET /health` — liveness, no dependencies, always 200
+  - `GET /health/ready` — checks Postgres (`SELECT 1`), Redis (PING via ioredis), Meilisearch (`/health` fetch); returns 503 with per-dependency booleans when any check fails
+  - `api/src/lib/healthChecks.ts` — injectable check functions (mocked in tests)
+  - `eslint.config.mjs` — fixed pre-existing parse error for `api/*.config.ts` files using `allowDefaultProject` + `defaultProject: 'tsconfig.base.json'`
+  - 11 new tests in `api/src/__tests__/app.test.ts` (21 total in api), all passing; `tsc --noEmit`, lint, build all clean
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 004 (check `context/tasks/` for the next spec)
+- Task 005 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 
