@@ -1,0 +1,9 @@
+{
+  "common": {
+    "greeting": "مرحباً بكم في نتيجة",
+    "switchLanguage": "Français",
+    "retry": "إعادة المحاولة",
+    "errorTitle": "حدث خطأ",
+    "errorGlobal": "خطأ عام"
+  }
+}
