@@ -8,7 +8,7 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Task 005 (next task)
+- Task 006 (next task)
 
 ## Completed
 
@@ -60,13 +60,31 @@ Update this file after every meaningful implementation change.
   - `eslint.config.mjs` — fixed pre-existing parse error for `api/*.config.ts` files using `allowDefaultProject` + `defaultProject: 'tsconfig.base.json'`
   - 11 new tests in `api/src/__tests__/app.test.ts` (21 total in api), all passing; `tsc --noEmit`, lint, build all clean
 
+## Completed
+
+- **Task 005 — Next.js Skeleton with i18n**
+  - Bootstrapped Next.js 16.2.9 in `web/` via `create-next-app@latest` (App Router, TypeScript strict, Tailwind CSS v4)
+  - Initialized shadcn/ui (base-nova style, neutral base color, RSC mode, `components/ui/`, `lib/utils.ts`)
+  - i18next configured with FR/AR locales; `dictionaries/ar.json` and `dictionaries/fr.json` as translation sources
+  - `proxy.ts` (Next.js 16 renamed middleware) handles locale detection + redirect; Arabic is default locale
+  - `app/[lang]/layout.tsx` as root locale layout: dynamic `lang`/`dir` attributes, both flip with locale
+  - Language switcher (`components/LanguageSwitcher.tsx`) preserves current page path on locale switch
+  - Three Thmanyah typefaces (Sans, Serif Display, Serif Text) loaded via `next/font/local` from `public/fonts/`; Geist retained for Latin
+  - Font CSS variables exposed on `<html>` for use by design skill
+  - Route-level `app/[lang]/error.tsx` and global `app/global-error.tsx` with `unstable_retry` per Next.js 16 API
+  - `shared/src/api.ts` defines `ApiSuccessResponse<T>` and `ApiErrorResponse`; `web/lib/api.ts` implements typed `apiRequest<T>` and `ApiClientError`
+  - Jest 30 + React Testing Library + jest-axe configured via `next/jest.js`; `jest.config.ts` + `jest.setup.ts`
+  - 7 tests pass: 5 `LanguageSwitcher` tests (axe in both locales + path/hrefLang assertions) + 2 i18n key-parity tests
+  - Key-parity test fails CI if any key is missing in a locale (proven by symmetric diff check)
+  - `next build` produces `/ar` and `/fr` static pages + Proxy; all root scripts (build, typecheck, lint, test) pass
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 005 (check `context/tasks/` for the next spec)
+- Task 006 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 
