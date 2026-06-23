@@ -8,6 +8,7 @@ node_modules/
 # Build outputs
 dist/
 .next/
+.swc/
 out/
 
 # Uploads (keep directory via .gitkeep)
@@ -32,3 +33,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Claude Code agent tooling
+.agents/
+skills-lock.json

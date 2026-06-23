@@ -18,6 +18,14 @@
 
 Individual task specs live in `context/tasks/`. Work on one task at a time per `ai-workflow-rules.md`.
 
+## Next.js 16 (web/)
+
+This project uses **Next.js 16**, which has breaking changes from earlier versions — APIs, conventions, and file structure differ from training data. Before writing any code in `web/`, read the relevant guide in `web/node_modules/next/dist/docs/`. Key changes already applied:
+
+- `middleware.ts` is renamed to `proxy.ts`; the exported function is `proxy`, not `middleware`.
+- `PageProps` and `LayoutProps` are globally available TypeScript helpers (no import needed).
+- `error.tsx` uses `unstable_retry` prop instead of `reset`.
+
 ## Key Rules
 
 1. Read all of `context/tracker/` before implementing any task.

@@ -1,0 +1,9 @@
+{
+  "common": {
+    "greeting": "Bienvenue sur Netija",
+    "switchLanguage": "العربية",
+    "retry": "Réessayer",
+    "errorTitle": "Une erreur est survenue",
+    "errorGlobal": "Erreur Globale"
+  }
+}
