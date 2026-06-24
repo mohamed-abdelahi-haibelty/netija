@@ -7,7 +7,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:verify-seed": "tsx scripts/verify-seed.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.5",
@@ -21,6 +23,7 @@
     "@types/pg": "^8.11.13",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.30.6",
+    "tsx": "^4.19.2",
     "typescript": "*",
     "vitest": "^3.2.3"
   }
