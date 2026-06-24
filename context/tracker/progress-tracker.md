@@ -8,7 +8,7 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Task 006 (next task)
+- Task 007 (next task)
 
 ## Completed
 
@@ -78,13 +78,31 @@ Update this file after every meaningful implementation change.
   - Key-parity test fails CI if any key is missing in a locale (proven by symmetric diff check)
   - `next build` produces `/ar` and `/fr` static pages + Proxy; all root scripts (build, typecheck, lint, test) pass
 
+## Completed
+
+- **Task 006 — Development Seed Data**
+  - `api/src/db/match-key.ts`: exports `computeMatchKey(name, birthDate, birthPlace)` — pure SHA-256 function used by both the seed and future worker; strips case, whitespace, and combining diacritics
+  - `api/src/db/__tests__/match-key.test.ts`: 11 unit tests covering nullability, case/whitespace/diacritic normalisation, and hash stability; all pass
+  - `api/scripts/seed.ts`: idempotent seed script producing 298 attempts across 3 exam years (2022 published, 2023 published, 2024 unpublished); covers all required scenarios:
+    - Redemption: one person with Ajourné (2022) → Admis (2023), NNI-linked across years
+    - Identical-name pair with different birth places ("Mohamed Ould Ahmed", Nouakchott vs. Nouadhibou)
+    - Arabic-only, French-only, and bilingual persons
+    - All 6 normalized decision values with realistic raw source strings
+    - All 7 SERIE values (SN, LM, LO, M, TM, TS, LA)
+    - 10 cross-year NNI-linked bulk persons; 5 cross-year match_key-linked bulk persons
+    - 1 pending link_suggestion for the same-name/different-place pair
+    - Production guard: exits if APP_ENV or NODE_ENV is "production"
+  - `api/scripts/verify-seed.ts`: assertion script with 29 checks; exits 0 on pass, 1 on fail
+  - `api/package.json`: added `tsx` devDep, `db:seed`, and `db:verify-seed` scripts
+  - Done-when checklist: two consecutive runs yield identical counts ✓; all scenarios queryable (29/29 assertions pass) ✓
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 006 (check `context/tasks/` for the next spec)
+- Task 007 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 
