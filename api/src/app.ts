@@ -6,6 +6,7 @@ import type { AppEnv } from './types.js';
 import { requestId } from './middleware/requestId.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import healthRouter from './routes/health.js';
+import searchRouter from './routes/search.js';
 
 const STATUS_TO_CODE: Partial<Record<number, string>> = {
   400: 'VALIDATION_ERROR',
@@ -32,11 +33,19 @@ export function createApp() {
   );
 
   app.route('/health', healthRouter);
+  app.route('/api/search', searchRouter);
 
   app.onError((err, c) => {
     const rid = c.get('requestId');
     if (err instanceof HTTPException) {
-      const code = STATUS_TO_CODE[err.status] ?? 'INTERNAL';
+      const causeCode =
+        err.cause !== null &&
+        typeof err.cause === 'object' &&
+        'code' in err.cause &&
+        typeof (err.cause as { code: unknown }).code === 'string'
+          ? (err.cause as { code: string }).code
+          : undefined;
+      const code = causeCode ?? STATUS_TO_CODE[err.status] ?? 'INTERNAL';
       return c.json({ error: { code, message: err.message } }, err.status);
     }
     console.error(
