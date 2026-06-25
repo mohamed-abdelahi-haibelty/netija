@@ -96,13 +96,34 @@ Update this file after every meaningful implementation change.
   - `api/package.json`: added `tsx` devDep, `db:seed`, and `db:verify-seed` scripts
   - Done-when checklist: two consecutive runs yield identical counts ✓; all scenarios queryable (29/29 assertions pass) ✓
 
+## Completed
+
+- **Task 007 — Exam-Number Search API**
+  - `shared/src/search.ts`: `ExamSearchResult`, `ExamSearchResponse`, `PublishedYearsResponse` — shared types consumed by both api and web
+  - `api/src/schemas/examSearch.ts`: Zod schema validating `no` (digits-only, required) and `year` (coerced int, 1900–2100)
+  - `api/src/lib/redis.ts`: shared ioredis singleton (lazy-connect false, 2 retries)
+  - `api/src/services/examSearch.ts`: `searchByExamNo` and `getPublishedYears` with Redis cache-aside (TTL 300 s for exam lookups, 3600 s for years list); `invalidateExamCache` and `invalidateYearsCache` exported for future import/publish flow
+  - `api/src/routes/search.ts`: `GET /api/search/exam?no=&year=` and `GET /api/search/years`; zValidator on query params; STUDENT_NOT_FOUND via HTTPException cause pattern
+  - `app.ts`: `app.onError` updated to extract error code from `HTTPException.cause.code` before falling back to status-map; searchRouter mounted at `/api/search`
+  - 13 new tests (45 total in api), all passing: happy path, malformed number → 400, missing params → 400, unknown number → 404 STUDENT_NOT_FOUND, unpublished year → 404, same exam number two years → different personIds, published years endpoint, Redis cache-hit skips DB (via `vi.importActual`), DB miss writes to cache, no-rows returns null without cache write
+  - `tsc --noEmit` clean for api and shared; all 45 tests pass
+
+## Completed
+
+- **Tooling/Config — Root Dev Script & Dependency Alignment**
+  - Added `concurrently ^9.0.0` as root devDependency; installed 9.2.3
+  - Root `dev` script: `concurrently --names "web,api" --prefix-colors "green,cyan" "npm run dev --workspace=web" "npm run dev --workspace=api"` — labeled, colored, Ctrl-C stops both
+  - Pinned `typescript` in `api/package.json` and `shared/package.json` from `"*"` to `"^5.0.0"` to match root
+  - Aligned `@types/node` to `^22` in both `api/` (was `^25.9.3`) and `web/` (was `^20`) for Node 22 LTS
+  - `npm install`, `build`, `typecheck` all pass; schema integration tests fail only due to Postgres not running (pre-existing infra issue, unrelated to this change)
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 007 (check `context/tasks/` for the next spec)
+- Task 008 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 
