@@ -57,7 +57,15 @@ async function seedPerson() {
 async function seedAttempt(importId: number, examNo = '00001') {
   const [attempt] = await db
     .insert(schema.attempts)
-    .values({ examYear: 2024, examNo, nameFr: 'Test', importId })
+    .values({
+      examYear: 2024,
+      examNo,
+      nameFr: 'Test',
+      importId,
+      decision: 'Admis',
+      moyenne: '14.50',
+      serie: 'SN',
+    })
     .returning({ id: schema.attempts.id });
   if (!attempt) throw new Error('attempt insert failed');
   return attempt.id;
@@ -94,7 +102,7 @@ describe('attempts.UNIQUE(exam_year, exam_no)', () => {
     // Different year — must succeed
     const [second] = await db
       .insert(schema.attempts)
-      .values({ examYear: 2023, examNo: '00001', nameFr: 'Test', importId })
+      .values({ examYear: 2023, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
       .returning({ id: schema.attempts.id });
     expect(second?.id).toBeTypeOf('number');
   });
@@ -103,7 +111,7 @@ describe('attempts.UNIQUE(exam_year, exam_no)', () => {
     const importId = await seedImport();
     await db
       .insert(schema.attempts)
-      .values({ examYear: 2024, examNo: '00042', nameFr: 'Test', importId });
+      .values({ examYear: 2024, examNo: '00042', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' });
 
     const rows = await db
       .select({ examNo: schema.attempts.examNo })
@@ -111,6 +119,48 @@ describe('attempts.UNIQUE(exam_year, exam_no)', () => {
       .where(eq(schema.attempts.examYear, 2024));
 
     expect(rows[0]?.examNo).toBe('00042');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// attempts: required fields (decision, moyenne, serie)
+// ---------------------------------------------------------------------------
+
+describe('attempts — required and nullable fields', () => {
+  it('stores and reads back decision and serie (required) and moyenne (nullable) correctly', async () => {
+    const importId = await seedImport();
+    await seedAttempt(importId, '00001');
+
+    const rows = await db
+      .select({
+        decision: schema.attempts.decision,
+        moyenne: schema.attempts.moyenne,
+        serie: schema.attempts.serie,
+      })
+      .from(schema.attempts)
+      .where(eq(schema.attempts.examNo, '00001'));
+
+    expect(rows[0]?.decision).toBe('Admis');
+    expect(rows[0]?.moyenne).toBe('14.50');
+    expect(rows[0]?.serie).toBe('SN');
+  });
+
+  it('allows moyenne to be null (e.g. Annulé attempt has no grade)', async () => {
+    const importId = await seedImport();
+    const [attempt] = await db
+      .insert(schema.attempts)
+      .values({
+        examYear: 2024, examNo: '00002', nameFr: 'Test',
+        importId, decision: 'Annulé', moyenne: null, serie: 'SN',
+      })
+      .returning({ id: schema.attempts.id });
+
+    const rows = await db
+      .select({ moyenne: schema.attempts.moyenne })
+      .from(schema.attempts)
+      .where(eq(schema.attempts.id, attempt!.id));
+
+    expect(rows[0]?.moyenne).toBeNull();
   });
 });
 

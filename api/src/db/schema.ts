@@ -95,10 +95,10 @@ export const attempts = pgTable(
     nameAr: text('name_ar'),
     birthDate: date('birth_date'),
     birthPlace: text('birth_place'),
-    serie: text('serie'),
-    // Numeric out of 20
+    serie: text('serie').notNull(),
+    // Nullable — absent for Annulé (cancelled exam) attempts
     moyenne: numeric('moyenne', { precision: 4, scale: 2 }),
-    decision: decisionEnum('decision'),
+    decision: decisionEnum('decision').notNull(),
     decisionRaw: text('decision_raw'),
     school: text('school'),
     wilaya: text('wilaya'),
