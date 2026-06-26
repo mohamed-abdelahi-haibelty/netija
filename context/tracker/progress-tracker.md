@@ -117,13 +117,23 @@ Update this file after every meaningful implementation change.
   - Aligned `@types/node` to `^22` in both `api/` (was `^25.9.3`) and `web/` (was `^20`) for Node 22 LTS
   - `npm install`, `build`, `typecheck` all pass; schema integration tests fail only due to Postgres not running (pre-existing infra issue, unrelated to this change)
 
+## Completed
+
+- **Task 008 — Student Page API**
+  - `shared/src/student.ts`: `StudentAttempt`, `SeeAlsoEntry`, `StudentPageData`, `StudentPageResponse` — shared types consumed by api and web
+  - `api/src/services/studentPage.ts`: `getStudentPage` with Redis cache-aside (TTL 3600 s); queries published attempts newest-year-first; resolves see-also from pending link_suggestions in both directions (external attempt → our person; our attempt → other person); deduplicates by other person ID; `invalidateStudentCache` exported for future import/publish flow
+  - `api/src/routes/students.ts`: `GET /api/students/:personId`; zValidator on param (positive integer); STUDENT_NOT_FOUND via HTTPException cause pattern
+  - `app.ts`: studentsRouter mounted at `/api/students`
+  - 11 new tests (58 total in api), all passing: single-attempt happy path, multi-attempt order (newest first), see-also present for pending suggestion, see-also absent otherwise, 404 for unknown person, 404 for unpublished-only person, 400 for non-numeric id, Redis cache-hit skips DB, no-links returns null without cache write, unpublished-only returns null without cache write, DB hit writes full payload to cache
+  - `tsc --noEmit` clean for api and shared; all 58 tests pass
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 008 (check `context/tasks/` for the next spec)
+- Task 009 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 

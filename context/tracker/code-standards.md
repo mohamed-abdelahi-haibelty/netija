@@ -45,6 +45,50 @@
 - No blocking third-party scripts; PostHog initializes
   non-blocking after hydration.
 
+## Comments
+
+Comment the **hard parts** — where logic is genuinely difficult (complex
+queries, multi-step algorithms, idempotency/conflict handling, or a subtle
+domain rule). Simple, self-evident code stays uncommented, even if it uses an
+unfamiliar framework feature. The test is **both**: would a reader facing
+non-obvious logic have to pause and reverse-engineer _why_ this works? Mere
+unfamiliarity with a routine library call is not enough.
+
+Comments explain **why, not what** — assume the reader can read code but doesn't
+know the reasoning. Never add a comment that merely restates the code. Keep
+comments accurate when code changes — a stale comment is worse than none.
+
+**Comment density varies by area** (see each area note below):
+
+- **Next.js / frontend — minimal.** The maintainer is fluent here. Comment only
+  genuinely non-obvious logic or domain rules; never explain routine React/Next
+  constructs.
+- **Hono (API) — moderate.** Explain non-obvious middleware/route reasoning and
+  any domain logic; don't annotate routine handler boilerplate.
+- **Drizzle / data & storage — moderate.** Comment non-obvious queries, the
+  reasoning behind constraints, and idempotency/conflict handling (why
+  `ON CONFLICT` does what it does); skip self-evident queries.
+- **Testing (frontend and backend) — moderate.** Comment what a non-obvious test
+  is _proving_ and why (especially identity and edge cases); don't narrate
+  routine arrange-act-assert.
+- **Python / pandas (worker) — generous.** The maintainer is newest to pandas.
+  Briefly explain non-obvious pandas/library constructs (e.g. what
+  `dtype=str`, `errors="coerce"`, `.str.strip()` accomplish) in addition to the
+  domain reasoning. Still skip trivial lines, but err toward explaining where a
+  pandas newcomer would pause.
+
+### Examples
+
+```python
+# GOOD (pandas — generous): explains the construct AND the why
+# Read every column as text first so leading zeros on exam_no survive and
+# dates aren't silently reformatted; we convert each column deliberately below.
+# errors="coerce" turns an unparseable cell into NaN instead of crashing the
+# whole 50k-row import — the bad row is caught and reported, not fatal.
+df = pd.read_excel(path, dtype=str)
+df["moyenne"] = pd.to_numeric(df["moyenne"], errors="coerce")
+```
+
 ## Styling (Tailwind + shadcn/ui)
 
 - Use Tailwind utilities and shadcn/ui components; do not write
@@ -129,8 +173,7 @@
   pandas guess types for exam_no, NNI, or dates.
 - Per-year date format is explicit configuration on the import,
   not per-row guessing.
-- Every import produces a summary `{inserted, rejected,
-  new_people, duplicates_skipped}` and a reject report; silent
+- Every import produces a summary `{inserted, rejected, new_people, duplicates_skipped}` and a reject report; silent
   drops are forbidden.
 
 ## File Organization
