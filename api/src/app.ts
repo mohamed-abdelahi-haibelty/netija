@@ -7,6 +7,7 @@ import { requestId } from './middleware/requestId.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import healthRouter from './routes/health.js';
 import searchRouter from './routes/search.js';
+import studentsRouter from './routes/students.js';
 
 const STATUS_TO_CODE: Partial<Record<number, string>> = {
   400: 'VALIDATION_ERROR',
@@ -34,6 +35,7 @@ export function createApp() {
 
   app.route('/health', healthRouter);
   app.route('/api/search', searchRouter);
+  app.route('/api/students', studentsRouter);
 
   app.onError((err, c) => {
     const rid = c.get('requestId');
