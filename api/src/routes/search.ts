@@ -3,9 +3,12 @@ import { zValidator } from '@hono/zod-validator';
 import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../types.js';
 import { examSearchQuerySchema } from '../schemas/examSearch.js';
+import { nameSearchQuerySchema } from '../schemas/nameSearch.js';
 import { searchByExamNo, getPublishedYears } from '../services/examSearch.js';
+import { searchByName } from '../services/nameSearch.js';
 import { db } from '../db/client.js';
 import { redis } from '../lib/redis.js';
+import { meili } from '../lib/meili.js';
 
 const search = new Hono<AppEnv>();
 
@@ -45,5 +48,31 @@ search.get('/years', async (c) => {
   const years = await getPublishedYears(db, redis);
   return c.json({ data: { years } }, 200);
 });
+
+search.get(
+  '/name',
+  zValidator('query', nameSearchQuerySchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { q } = c.req.valid('query');
+    const suggestions = await searchByName(meili, q);
+    return c.json({ data: { suggestions } }, 200);
+  },
+);
 
 export default search;
