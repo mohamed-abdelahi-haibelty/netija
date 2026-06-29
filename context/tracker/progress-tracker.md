@@ -127,13 +127,28 @@ Update this file after every meaningful implementation change.
   - 11 new tests (58 total in api), all passing: single-attempt happy path, multi-attempt order (newest first), see-also present for pending suggestion, see-also absent otherwise, 404 for unknown person, 404 for unpublished-only person, 400 for non-numeric id, Redis cache-hit skips DB, no-links returns null without cache write, unpublished-only returns null without cache write, DB hit writes full payload to cache
   - `tsc --noEmit` clean for api and shared; all 58 tests pass
 
+## Completed
+
+- **Task 009 — Meilisearch Indexing & Name Search API**
+  - `meilisearch` v0.58.0 added to `api/` dependencies (note: class is now `Meilisearch`, not `MeiliSearch` — breaking rename in v0.40+)
+  - `shared/src/name-search.ts`: `NameSearchSuggestion`, `NameSearchResponse` — shared types consumed by api and web
+  - `api/src/lib/meili.ts`: `Meilisearch` client singleton; exports `meili`, `MeiliClient` type, and `PERSONS_INDEX` constant
+  - `api/src/services/meiliIndex.ts`: `buildNameIndex(db, meili)` — queries Postgres with `DISTINCT ON` to get one document per person (most recent published attempt); configures searchable (`nameFr`, `nameAr`) and sortable (`latestYear`) attributes; full rebuild (deleteAllDocuments → addDocuments)
+  - `api/src/schemas/nameSearch.ts`: Zod schema validating `q` (min 2 chars)
+  - `api/src/services/nameSearch.ts`: `searchByName(meili, query)` — queries `persons` index with `limit: 10`, `sort: ['latestYear:desc']`
+  - `api/src/routes/search.ts`: `GET /api/search/name?q=` added to existing search router
+  - `api/scripts/build-search-index.ts`: standalone CLI rebuild script
+  - `api/package.json`: `search:reindex` script added
+  - 11 new tests (69 total in api), all passing: route validation, happy path, empty results, Arabic input, 10-result cap, index-builder document shape + unpublished exclusion, searchByName service mapping
+  - `tsc --noEmit` clean for api and shared; all 69 tests pass
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 009 (check `context/tasks/` for the next spec)
+- Task 010 (check `context/tasks/` for the next spec)
 
 ## Open Questions
 
