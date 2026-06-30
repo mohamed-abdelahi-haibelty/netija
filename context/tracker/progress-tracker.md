@@ -150,6 +150,31 @@ Update this file after every meaningful implementation change.
 
 - Task 010 (check `context/tasks/` for the next spec)
 
+## Completed
+
+- **Harden Search Flow (NameAutocomplete + SearchTabs)**
+  - `NameAutocomplete.tsx` — added `requestIdRef` for stale-response rejection, `ApiClientError` handling with server messages, retry button on error, `maxLength={100}`, `dir="auto"` on suggestion names for RTL, `break-words` for long text overflow, `aria-owns` on combobox, RTL-aware clear button positioning, liveMessage cleanup on clear, ArrowDown guard on empty list.
+  - `SearchTabs.tsx` — added `submittingRef` for double-submit guard, `requestIdRef` for stale-response rejection, retry button on not-found state, `ApiClientError` message passthrough, RTL-aware clear button positioning, logical padding (`pe-10`).
+
+- **Design System Extraction — PageShell, PropertyRow, --nav-height**
+  - Extracted `--nav-height` CSS token (`3.5625rem` = 57px) from hardcoded values in layout + 2 pages
+  - Created `PageShell` component: reusable page wrapper providing `min-h-[calc(100vh-var(--nav-height))]` + `mx-auto max-w-2xl` centered container, with `className`/`innerClassName` for page-specific overrides
+  - Created `PropertyRow` component: reusable key-value row (icon + label + children) extracted from StudentResultCard's 3 inline uses
+  - Migrated `layout.tsx`, `page.tsx`, `student/page.tsx`, and `StudentResultCard.tsx` to use the new shared implementations
+  - TypeScript clean, zero remaining hardcoded nav-height references
+
+- **Optimize Search & Result Pages**
+  - **StudentResultCard** — Wrapped `DecisionBadge` and `HistoryEntry` in `React.memo` to prevent unnecessary re-renders on parent state changes; added `contain: layout style` to the result card to scope layout/paint work to the card subtree.
+  - **SearchTabs** — Wrapped `handleTabChange` and `handleCancel` in `useCallback` with empty deps for stable handler identities.
+  - **NameAutocomplete** — Wrapped `handleClear` and `select` in `useCallback` for stable handler identities.
+  - **PropertyRow** — Wrapped export in `React.memo`.
+
+- **Harden Search & Result Pages**
+  - **StudentResultCard** — Added decision badge icons (Check/Minus/Clock) for color-blind accessibility; replaced non-functional `wrap-break-word` with `break-words hyphens-auto` on name headings; added `break-words` to history school, SeeAlso links, and PropertyRow values.
+  - **SearchTabs** — Replaced RTL-hardcoded clear button (`lang === 'ar' ? 'left-1' : 'right-1'`) with logical `end-1`; added `break-words` to error messages.
+  - **NameAutocomplete** — Same RTL clear button fix to `end-1`; added `break-words` to birthPlace and serie metadata spans.
+  - **PropertyRow** — Added `break-words` to value container for long text protection.
+
 ## Open Questions
 
 - None yet.
