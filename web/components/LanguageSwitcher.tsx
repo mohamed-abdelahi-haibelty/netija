@@ -21,7 +21,12 @@ export function LanguageSwitcher({ currentLocale }: Props) {
 
   return (
     <nav aria-label="Language switcher">
-      <Link href={newPath} hrefLang={otherLocale} lang={otherLocale}>
+      <Link
+        href={newPath}
+        hrefLang={otherLocale}
+        lang={otherLocale}
+        className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+      >
         {label}
       </Link>
     </nav>
