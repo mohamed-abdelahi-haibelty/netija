@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -37,29 +37,26 @@ export function SearchTabs({ lang, years }: Props) {
   const [notFound, setNotFound] = useState<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const submittingRef = useRef(false);
-  const requestIdRef = useRef(0);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
 
-  const handleTabChange = useCallback((value: string) => {
+  function handleTabChange(value: string) {
     setActiveTab(value as TabId);
     setFieldError(null);
     setNotFound(null);
-  }, []);
+  }
 
-  const handleCancel = useCallback(() => {
+  function handleCancel() {
     abortRef.current?.abort();
     abortRef.current = null;
-    submittingRef.current = false;
     setLoading(false);
-  }, []);
+  }
 
   async function handleExamSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (submittingRef.current) return;
+    if (abortRef.current) return;
 
     setFieldError(null);
     setNotFound(null);
@@ -74,23 +71,18 @@ export function SearchTabs({ lang, years }: Props) {
       return;
     }
 
-    submittingRef.current = true;
-    setLoading(true);
-    const id = ++requestIdRef.current;
-
     const controller = new AbortController();
     abortRef.current = controller;
+    setLoading(true);
 
     try {
       const result = await apiRequest<ExamSearchResult>(
         `/api/search/exam?no=${encodeURIComponent(trimmed)}&year=${year}`,
         { signal: controller.signal },
       );
-      if (id !== requestIdRef.current) return;
       router.push(`/${lang}/students/${result.personId}`);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      if (id !== requestIdRef.current) return;
       if (err instanceof ApiClientError && err.code === 'STUDENT_NOT_FOUND') {
         setNotFound(Number(year));
       } else if (err instanceof TypeError) {
@@ -102,7 +94,6 @@ export function SearchTabs({ lang, years }: Props) {
       }
     } finally {
       abortRef.current = null;
-      submittingRef.current = false;
       setLoading(false);
     }
   }
