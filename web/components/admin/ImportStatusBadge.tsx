@@ -1,0 +1,49 @@
+import { cn } from '@/lib/utils';
+
+export type ImportStatus =
+  | 'pending'
+  | 'mapped'
+  | 'confirmed'
+  | 'processing'
+  | 'done'
+  | 'failed';
+
+const STATUS_STYLES: Record<ImportStatus, string> = {
+  pending:    'bg-status-neutral-bg  text-status-neutral-fg',
+  mapped:     'bg-status-pending-bg  text-status-pending-fg',
+  confirmed:  'bg-status-pending-bg  text-status-pending-fg',
+  processing: 'bg-secondary/15       text-secondary-foreground',
+  done:       'bg-status-pass-bg     text-status-pass-fg',
+  failed:     'bg-status-fail-bg     text-status-fail-fg',
+};
+
+const STATUS_DOT: Record<ImportStatus, string> = {
+  pending:    'bg-status-neutral-fg',
+  mapped:     'bg-status-pending-fg',
+  confirmed:  'bg-status-pending-fg',
+  processing: 'bg-secondary animate-pulse',
+  done:       'bg-status-pass-fg',
+  failed:     'bg-status-fail-fg',
+};
+
+interface ImportStatusBadgeProps {
+  status: ImportStatus;
+  label: string;
+}
+
+export function ImportStatusBadge({ status, label }: ImportStatusBadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+        STATUS_STYLES[status],
+      )}
+    >
+      <span
+        className={cn('size-1.5 rounded-full shrink-0', STATUS_DOT[status])}
+        aria-hidden
+      />
+      {label}
+    </span>
+  );
+}
