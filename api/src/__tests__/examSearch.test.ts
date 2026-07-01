@@ -205,7 +205,7 @@ describe('searchByExamNo service — cache-aside', () => {
     };
 
     const dbRow = {
-      personId: 1,
+      publicId: 'a1b2c3d4e5f6a1b2c3',
       nameFr: 'Ahmed',
       nameAr: null,
       examNo: '00123',
@@ -228,7 +228,7 @@ describe('searchByExamNo service — cache-aside', () => {
     const result = await realFn(mockDb as never, mockRedis as never, '00123', 2022);
 
     expect(result).not.toBeNull();
-    expect(result!.personId).toBe('1');
+    expect(result!.personId).toBe('a1b2c3d4e5f6a1b2c3');
     expect(result!.examNo).toBe('00123');
     expect(result!.decision).toBe('Admis');
     expect(result!.moyenne).toBe('14.50');
