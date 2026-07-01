@@ -161,6 +161,19 @@ Update this file after every meaningful implementation change.
   - Added `vi.mock('../lib/auth.js', ...)` to all existing test files that import `createApp` so they don't break
   - `tsc --noEmit` clean for both `api/` and `web/`
 
+## Completed
+
+- **Chore — Public Person ID (anti-enumeration)**
+  - Added `public_id text NOT NULL UNIQUE DEFAULT replace(gen_random_uuid()::text, '-', '')` to the `persons` table via migration `0004_persons_public_id.sql` (Postgres 13+ built-in, no extension required).
+  - Drizzle schema updated with `.default(sql\`replace(gen_random_uuid()::text, '-', '')\`)` so all inserts auto-generate the ID; integer `id` PK unchanged and used for all internal joins.
+  - `GET /api/students/:publicId` now accepts any URL-safe string (regex `[a-zA-Z0-9_-]+`, max 64 chars) instead of digits-only.
+  - `studentPage.ts`: resolves `public_id` → internal integer PK on the first query, then uses integer FK for all joins; Redis cache key is `student:{publicId}`; response `personId` and `seeAlso[].personId` are now the `public_id`.
+  - `examSearch.ts`: joins `persons` to return `public_id` as the response's `personId`.
+  - `meiliIndex.ts`: Meilisearch document `id` is now `persons.public_id` (not `person_id::text`).
+  - All shared types (`StudentPageData`, `SeeAlsoEntry`, `NameSearchSuggestion`, `ExamSearchResult`) remain `personId: string` — no changes needed.
+  - Frontend unchanged — personId was already treated as an opaque string in all URL construction.
+  - All 75 tests pass; `tsc --noEmit` clean for api, web, and shared.
+
 ## In Progress
 
 - None.
@@ -194,9 +207,11 @@ Update this file after every meaningful implementation change.
   - **NameAutocomplete** — Same RTL clear button fix to `end-1`; added `break-words` to birthPlace and serie metadata spans.
   - **PropertyRow** — Added `break-words` to value container for long text protection.
 
-## Open Questions
+## Design Decisions
 
-- None yet.
+- **Admin UI language is English.** The admin dashboard (`/admin/fr/...`) uses English, not French. Arabic locale (`/admin/ar/...`) stays in Arabic. This applies to: `fr.json` admin keys, hardcoded strings in admin components, field labels, aria-labels, and any future admin pages. Never add French text to the admin UI.
+
+## Open Questions
 
 ## Architecture Decisions
 

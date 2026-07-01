@@ -5,6 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Upload, FileSpreadsheet, X, Loader2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const ACCEPTED_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -219,27 +226,18 @@ export default function UploadPage() {
           <label htmlFor="examYear" className="block text-sm font-medium text-foreground">
             {t('admin.upload.yearLabel')}
           </label>
-          <select
-            id="examYear"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            className={cn(
-              'w-full h-10 px-3 rounded-md border border-border bg-background',
-              'text-sm text-foreground',
-              'outline-none focus:ring-2 focus:ring-ring focus:border-ring',
-              'transition-shadow duration-150',
-              !year && 'text-muted-foreground',
-            )}
-          >
-            <option value="" disabled>
-              {t('admin.upload.yearPlaceholder')}
-            </option>
-            {YEAR_OPTIONS.map((y) => (
-              <option key={y} value={String(y)}>
-                {y}
-              </option>
-            ))}
-          </select>
+          <Select value={year || undefined} onValueChange={(v) => { if (v) setYear(v); }}>
+            <SelectTrigger id="examYear" className="w-full h-10">
+              <SelectValue placeholder={t('admin.upload.yearPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {YEAR_OPTIONS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* ── Date format ── */}

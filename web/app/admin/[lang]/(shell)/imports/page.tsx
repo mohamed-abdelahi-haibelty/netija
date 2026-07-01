@@ -98,6 +98,197 @@ function formatCount(n: number, lang: string) {
   return new Intl.NumberFormat(lang === 'ar' ? 'ar-MR' : 'fr-FR').format(n);
 }
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function ImportRow({
+  imp,
+  striped,
+  lang,
+  statusLabel,
+  t,
+}: {
+  imp: Import;
+  striped: boolean;
+  lang: string;
+  statusLabel: Record<ImportStatus, string>;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  return (
+    <tr
+      className={cn(
+        'transition-colors duration-100',
+        striped ? 'bg-muted/20' : '',
+        'hover:bg-muted/40',
+      )}
+    >
+      {/* File + date */}
+      <td className="px-4 py-3 max-w-55">
+        <p className="font-medium text-foreground truncate" title={imp.fileName}>
+          {imp.fileName}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+          {formatDate(imp.createdAt, lang)}
+        </p>
+      </td>
+
+      {/* Year */}
+      <td className="px-4 py-3 text-foreground tabular-nums">
+        {imp.examYear ?? '—'}
+      </td>
+
+      {/* Status + progress */}
+      <td className="px-4 py-3">
+        <div className="flex flex-col gap-1.5">
+          <ImportStatusBadge
+            status={imp.status}
+            label={statusLabel[imp.status]}
+          />
+          {imp.status === 'processing' && imp.progress != null && (
+            <div className="flex items-center gap-2">
+              <div
+                className="relative h-1 w-24 rounded-full bg-border overflow-hidden"
+                role="progressbar"
+                aria-valuenow={imp.progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`${imp.progress}%`}
+              >
+                <div
+                  className="absolute inset-y-0 inset-s-0 bg-secondary rounded-full transition-all duration-500"
+                  style={{ width: `${imp.progress}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {imp.progress}%
+              </span>
+            </div>
+          )}
+          {imp.status === 'failed' && imp.failureReason && (
+            <span className="inline-flex items-center gap-1 text-xs text-status-fail-fg">
+              <AlertCircle className="size-3 shrink-0" aria-hidden />
+              {imp.failureReason}
+            </span>
+          )}
+        </div>
+      </td>
+
+      {/* Summary */}
+      <td className="px-4 py-3">
+        {imp.insertedCount != null ? (
+          <div className="flex flex-col gap-0.5 text-xs">
+            <span className="text-foreground tabular-nums">
+              {t('admin.imports.summaryInserted', { count: formatCount(imp.insertedCount, lang) })}
+            </span>
+            <span className="text-muted-foreground tabular-nums">
+              {t('admin.imports.summaryRejected', { count: formatCount(imp.rejectedCount ?? 0, lang) })}
+            </span>
+            <span className="text-muted-foreground tabular-nums">
+              {t('admin.imports.summaryNewPeople', { count: formatCount(imp.newPeopleCount ?? 0, lang) })}
+            </span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </td>
+
+      {/* Smoke */}
+      <td className="px-4 py-3">
+        {imp.smokePassed === true && (
+          <span className="text-xs font-medium text-status-pass-fg">
+            {t('admin.imports.smokePassed')}
+          </span>
+        )}
+        {imp.smokePassed === false && (
+          <span className="text-xs font-medium text-status-fail-fg">
+            {t('admin.imports.smokeFailed')}
+          </span>
+        )}
+        {imp.smokePassed === null && (
+          <span className="text-muted-foreground">
+            {t('admin.imports.smokeNone')}
+          </span>
+        )}
+      </td>
+
+      {/* Published */}
+      <td className="px-4 py-3">
+        <span
+          className={cn(
+            'text-xs font-medium',
+            imp.published
+              ? 'text-status-pass-fg'
+              : 'text-muted-foreground',
+          )}
+        >
+          {imp.published
+            ? t('admin.imports.publishedYes')
+            : t('admin.imports.publishedNo')}
+        </span>
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-2">
+          {imp.status === 'done' && imp.rejectedCount != null && imp.rejectedCount > 0 && (
+            <a
+              href={`/api/admin/imports/${imp.id}/rejects`}
+              className={cn(
+                'inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium',
+                'border border-border text-muted-foreground',
+                'hover:bg-muted hover:text-foreground transition-colors duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+              download
+            >
+              <Download className="size-3" aria-hidden />
+              {t('admin.imports.downloadRejects')}
+            </a>
+          )}
+          {(imp.status === 'mapped' || imp.status === 'pending') && (
+            <Link
+              href={`/admin/${lang}/imports/${imp.id}/mapping`}
+              className={cn(
+                'inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium',
+                'border border-border text-muted-foreground',
+                'hover:bg-muted hover:text-foreground transition-colors duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+            >
+              {t('admin.imports.openMapping')}
+              <ChevronRight className="size-3" aria-hidden />
+            </Link>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function EmptyState({ lang, t }: { lang: string; t: (key: string) => string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-card/50 py-16 text-center">
+      <p className="text-sm font-medium text-foreground mb-1">
+        {t('admin.imports.empty')}
+      </p>
+      <p className="text-sm text-muted-foreground mb-5">
+        {t('admin.imports.emptyBody')}
+      </p>
+      <Link
+        href={`/admin/${lang}/imports/upload`}
+        className={cn(
+          'inline-flex items-center gap-1.5 h-8 px-4 rounded-full',
+          'bg-primary text-primary-foreground text-sm font-medium',
+          'hover:bg-primary/85 transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+      >
+        <Plus className="size-3.5" aria-hidden />
+        {t('admin.imports.newUpload')}
+      </Link>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ImportsPage({
@@ -182,154 +373,14 @@ export default async function ImportsPage({
               </thead>
               <tbody className="divide-y divide-border">
                 {imports.map((imp, idx) => (
-                  <tr
+                  <ImportRow
                     key={imp.id}
-                    className={cn(
-                      'transition-colors duration-100',
-                      idx % 2 === 1 ? 'bg-muted/20' : '',
-                      'hover:bg-muted/40',
-                    )}
-                  >
-                    {/* File + date */}
-                    <td className="px-4 py-3 max-w-55">
-                      <p className="font-medium text-foreground truncate" title={imp.fileName}>
-                        {imp.fileName}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-                        {formatDate(imp.createdAt, lang)}
-                      </p>
-                    </td>
-
-                    {/* Year */}
-                    <td className="px-4 py-3 text-foreground tabular-nums">
-                      {imp.examYear ?? '—'}
-                    </td>
-
-                    {/* Status + progress */}
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1.5">
-                        <ImportStatusBadge
-                          status={imp.status}
-                          label={statusLabel[imp.status]}
-                        />
-                        {imp.status === 'processing' && imp.progress != null && (
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="relative h-1 w-24 rounded-full bg-border overflow-hidden"
-                              role="progressbar"
-                              aria-valuenow={imp.progress}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-label={`${imp.progress}%`}
-                            >
-                              <div
-                                className="absolute inset-y-0 inset-s-0 bg-secondary rounded-full transition-all duration-500"
-                                style={{ width: `${imp.progress}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {imp.progress}%
-                            </span>
-                          </div>
-                        )}
-                        {imp.status === 'failed' && imp.failureReason && (
-                          <span className="inline-flex items-center gap-1 text-xs text-status-fail-fg">
-                            <AlertCircle className="size-3 shrink-0" aria-hidden />
-                            {imp.failureReason}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Summary */}
-                    <td className="px-4 py-3">
-                      {imp.insertedCount != null ? (
-                        <div className="flex flex-col gap-0.5 text-xs">
-                          <span className="text-foreground tabular-nums">
-                            {t('admin.imports.summaryInserted', { count: formatCount(imp.insertedCount, lang) })}
-                          </span>
-                          <span className="text-muted-foreground tabular-nums">
-                            {t('admin.imports.summaryRejected', { count: formatCount(imp.rejectedCount ?? 0, lang) })}
-                          </span>
-                          <span className="text-muted-foreground tabular-nums">
-                            {t('admin.imports.summaryNewPeople', { count: formatCount(imp.newPeopleCount ?? 0, lang) })}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-
-                    {/* Smoke */}
-                    <td className="px-4 py-3">
-                      {imp.smokePassed === true && (
-                        <span className="text-xs font-medium text-status-pass-fg">
-                          {t('admin.imports.smokePassed')}
-                        </span>
-                      )}
-                      {imp.smokePassed === false && (
-                        <span className="text-xs font-medium text-status-fail-fg">
-                          {t('admin.imports.smokeFailed')}
-                        </span>
-                      )}
-                      {imp.smokePassed === null && (
-                        <span className="text-muted-foreground">
-                          {t('admin.imports.smokeNone')}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Published */}
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          'text-xs font-medium',
-                          imp.published
-                            ? 'text-status-pass-fg'
-                            : 'text-muted-foreground',
-                        )}
-                      >
-                        {imp.published
-                          ? t('admin.imports.publishedYes')
-                          : t('admin.imports.publishedNo')}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        {imp.status === 'done' && imp.rejectedCount != null && imp.rejectedCount > 0 && (
-                          <a
-                            href={`/api/admin/imports/${imp.id}/rejects`}
-                            className={cn(
-                              'inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium',
-                              'border border-border text-muted-foreground',
-                              'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            )}
-                            download
-                          >
-                            <Download className="size-3" aria-hidden />
-                            {t('admin.imports.downloadRejects')}
-                          </a>
-                        )}
-                        {(imp.status === 'mapped' || imp.status === 'pending') && (
-                          <Link
-                            href={`/admin/${lang}/imports/${imp.id}/mapping`}
-                            className={cn(
-                              'inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium',
-                              'border border-border text-muted-foreground',
-                              'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            )}
-                          >
-                            {t('admin.imports.openMapping')}
-                            <ChevronRight className="size-3" aria-hidden />
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                    imp={imp}
+                    striped={idx % 2 === 1}
+                    lang={lang}
+                    statusLabel={statusLabel}
+                    t={t}
+                  />
                 ))}
               </tbody>
             </table>
@@ -337,30 +388,5 @@ export default async function ImportsPage({
         </div>
       )}
     </section>
-  );
-}
-
-function EmptyState({ lang, t }: { lang: string; t: (key: string) => string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border bg-card/50 py-16 text-center">
-      <p className="text-sm font-medium text-foreground mb-1">
-        {t('admin.imports.empty')}
-      </p>
-      <p className="text-sm text-muted-foreground mb-5">
-        {t('admin.imports.emptyBody')}
-      </p>
-      <Link
-        href={`/admin/${lang}/imports/upload`}
-        className={cn(
-          'inline-flex items-center gap-1.5 h-8 px-4 rounded-full',
-          'bg-primary text-primary-foreground text-sm font-medium',
-          'hover:bg-primary/85 transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
-      >
-        <Plus className="size-3.5" aria-hidden />
-        {t('admin.imports.newUpload')}
-      </Link>
-    </div>
   );
 }
