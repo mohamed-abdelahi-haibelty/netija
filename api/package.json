@@ -11,11 +11,13 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:verify-seed": "tsx scripts/verify-seed.ts",
-    "search:reindex": "tsx scripts/build-search-index.ts"
+    "search:reindex": "tsx scripts/build-search-index.ts",
+    "auth:create-admin": "tsx --env-file=../.env scripts/create-admin.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.5",
     "@hono/zod-validator": "^0.8.0",
+    "better-auth": "^1.6.23",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.12.26",
     "ioredis": "^5.11.1",

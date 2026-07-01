@@ -14,6 +14,11 @@ function getLocale(request: NextRequest): string {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Admin routes live at /admin/[lang]/ — skip locale injection entirely.
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return;
+  }
+
   const pathnameHasLocale = (locales as readonly string[]).some(
     (locale) =>
       pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`,

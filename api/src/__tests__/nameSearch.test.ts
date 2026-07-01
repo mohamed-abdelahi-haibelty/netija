@@ -5,6 +5,13 @@ import { createApp } from '../app.js';
 // Module-level mocks (hoisted before any imports)
 // ---------------------------------------------------------------------------
 
+vi.mock('../lib/auth.js', () => ({
+  auth: {
+    handler: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })),
+    api: { getSession: vi.fn() },
+  },
+}));
+
 vi.mock('../lib/healthChecks.js', () => ({
   checkPostgres: vi.fn().mockResolvedValue(true),
   checkRedis: vi.fn().mockResolvedValue(true),

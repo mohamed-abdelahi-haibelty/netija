@@ -142,13 +142,32 @@ Update this file after every meaningful implementation change.
   - 11 new tests (69 total in api), all passing: route validation, happy path, empty results, Arabic input, 10-result cap, index-builder document shape + unpublished exclusion, searchByName service mapping
   - `tsc --noEmit` clean for api and shared; all 69 tests pass
 
+## Completed
+
+- **Task 013 — Admin Authentication (Better Auth)**
+  - Installed `better-auth@^1.6.23` in `api/`
+  - Added 4 Better Auth tables to `api/src/db/schema.ts`: `auth_user`, `auth_session`, `auth_account`, `auth_verification` (prefixed to avoid PostgreSQL reserved-word conflicts)
+  - Generated and applied migration `api/drizzle/0003_motionless_sasquatch.sql`
+  - Created `api/src/lib/auth.ts`: Better Auth instance with Drizzle adapter, email+password only, `trustedOrigins` from env
+  - Updated `api/src/types.ts`: `AuthSession` type aligned to Better Auth's response shape; `session?` added to `AppEnv.Variables`
+  - Updated `api/src/app.ts`: mounted `auth.handler` at `GET/POST/PUT/DELETE/PATCH /api/auth/*`; blocked `POST /api/auth/sign-up/email` with 403; added `credentials: true` to CORS
+  - Created `api/src/middleware/requireSession.ts`: calls `auth.api.getSession`, throws 401 if null, stores session on context
+  - Created `api/scripts/create-admin.ts`: idempotent script using `auth.api.signUpEmail`; reads `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NAME` from env; gracefully handles duplicate-email error
+  - Added `auth:create-admin` script to `api/package.json`
+  - Updated `web/app/admin/[lang]/(shell)/layout.tsx`: session check on every shell page — fetches `API_URL/api/auth/get-session` server-to-server with forwarded cookie; redirects to login if no session
+  - Fixed `web/app/admin/[lang]/(auth)/login/page.tsx`: sign-in fetch now uses `NEXT_PUBLIC_API_URL` (Hono API, not Next.js route)
+  - Fixed `web/components/admin/AdminSidebar.tsx` logout: POST to `NEXT_PUBLIC_API_URL/api/auth/sign-out` before redirect
+  - Added auth tests: 5 tests covering `requireSession` 401/200/header-forwarding, signup block 403, and auth handler delegation — all pass (74 total)
+  - Added `vi.mock('../lib/auth.js', ...)` to all existing test files that import `createApp` so they don't break
+  - `tsc --noEmit` clean for both `api/` and `web/`
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 010 (check `context/tasks/` for the next spec)
+- Task 014 (check `context/tasks/` for the next spec)
 
 ## Completed
 
