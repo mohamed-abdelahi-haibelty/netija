@@ -47,7 +47,10 @@
   name_ar, birth_date, birth_place, serie, moyenne, decision +
   decision_raw, optional school/wilaya, and a precomputed
   match_key), persons (minimal identity anchors with cached
-  display names), person_links (attempt_id UNIQUE → person_id,
+  display names; integer `id` is the internal PK used for all
+  joins; `public_id` is a random 32-char hex string used only in
+  public URLs and API responses — never in DB relations),
+  person_links (attempt_id UNIQUE → person_id,
   method 'nni' | 'match_key' | 'manual' — identity lives here
   and is reversible), link_suggestions (pending/accepted/rejected
   review queue; pending rows also power the public "other records
@@ -55,13 +58,14 @@
   summary counts, and the published flag per exam year),
   column_aliases (learned header mappings), rejects (per-import
   rejected rows with reasons), Better Auth tables.
-- **Redis**: cache of student-page payloads (TTL ≥ 300 s,
-  invalidated on import), rate-limit counters, BullMQ job state.
+- **Redis**: cache of student-page payloads keyed by `public_id`
+  (TTL ≥ 300 s, invalidated on import), rate-limit counters,
+  BullMQ job state.
 - **Meilisearch**: derived search index of persons
-  (person_id, name_fr, name_ar, latest_year, serie, birth_place
-  — the latter three shown in suggestions to disambiguate
-  identical names). Rebuildable from Postgres at any time; never
-  the source of truth; only published years are indexed.
+  (public_id as document id, name_fr, name_ar, latest_year, serie,
+  birth_place — the latter three shown in suggestions to
+  disambiguate identical names). Rebuildable from Postgres at any
+  time; never the source of truth; only published years are indexed.
 - **Filesystem volume**: original uploaded Excel files (kept —
   they are the ultimate recovery source).
 

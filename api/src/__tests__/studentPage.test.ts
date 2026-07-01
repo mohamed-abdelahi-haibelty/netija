@@ -28,11 +28,16 @@ import type { StudentPageData } from 'shared';
 const mockGetStudentPage = vi.mocked(getStudentPage);
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Fixtures — use realistic public_id strings (18-char hex, the DB default format)
 // ---------------------------------------------------------------------------
 
+const PID_SINGLE    = 'a1b2c3d4e5f6a1b2c3';
+const PID_MULTI     = 'd4e5f6a1b2c3d4e5f6';
+const PID_SEE_OTHER = 'b2c3d4e5f6a1b2c3d4';
+const PID_WITH_SA   = 'e5f6a1b2c3d4e5f6a1';
+
 const PERSON_SINGLE: StudentPageData = {
-  personId: '10',
+  personId: PID_SINGLE,
   nameFr: 'Ahmed Ould Mohamed',
   nameAr: 'أحمد ولد محمد',
   birthDate: '2002-03-15',
@@ -54,7 +59,7 @@ const PERSON_SINGLE: StudentPageData = {
 
 // Person with two attempts (redemption arc: Ajourné 2022 → Admis 2023)
 const PERSON_MULTI: StudentPageData = {
-  personId: '20',
+  personId: PID_MULTI,
   nameFr: 'Fatima Mint Ali',
   nameAr: null,
   birthDate: null,
@@ -86,7 +91,7 @@ const PERSON_MULTI: StudentPageData = {
 
 // Person with a pending see-also suggestion
 const SEE_ALSO_ENTRY = {
-  personId: '30',
+  personId: PID_SEE_OTHER,
   nameFr: 'Mohamed Ould Ahmed',
   nameAr: null,
   examYear: 2022,
@@ -94,7 +99,7 @@ const SEE_ALSO_ENTRY = {
 };
 
 const PERSON_WITH_SEE_ALSO: StudentPageData = {
-  personId: '31',
+  personId: PID_WITH_SA,
   nameFr: 'Mohamed Ould Ahmed',
   nameAr: null,
   birthDate: '2001-06-10',
@@ -122,14 +127,14 @@ beforeEach(() => {
 // Route integration tests
 // ---------------------------------------------------------------------------
 
-describe('GET /api/students/:personId', () => {
+describe('GET /api/students/:publicId', () => {
   it('returns 200 and the student payload for a known person', async () => {
     mockGetStudentPage.mockResolvedValue(PERSON_SINGLE);
     const app = createApp();
-    const res = await app.request('/api/students/10');
+    const res = await app.request(`/api/students/${PID_SINGLE}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: StudentPageData };
-    expect(body.data.personId).toBe('10');
+    expect(body.data.personId).toBe(PID_SINGLE);
     expect(body.data.attempts).toHaveLength(1);
     expect(body.data.seeAlso).toHaveLength(0);
     expect(mockGetStudentPage).toHaveBeenCalledOnce();
@@ -138,7 +143,7 @@ describe('GET /api/students/:personId', () => {
   it('returns attempts ordered newest year first (multi-attempt person)', async () => {
     mockGetStudentPage.mockResolvedValue(PERSON_MULTI);
     const app = createApp();
-    const res = await app.request('/api/students/20');
+    const res = await app.request(`/api/students/${PID_MULTI}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: StudentPageData };
     expect(body.data.attempts).toHaveLength(2);
@@ -151,26 +156,26 @@ describe('GET /api/students/:personId', () => {
   it('includes see-also when a pending suggestion exists for this person', async () => {
     mockGetStudentPage.mockResolvedValue(PERSON_WITH_SEE_ALSO);
     const app = createApp();
-    const res = await app.request('/api/students/31');
+    const res = await app.request(`/api/students/${PID_WITH_SA}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: StudentPageData };
     expect(body.data.seeAlso).toHaveLength(1);
-    expect(body.data.seeAlso[0]!.personId).toBe('30');
+    expect(body.data.seeAlso[0]!.personId).toBe(PID_SEE_OTHER);
     expect(body.data.seeAlso[0]!.examYear).toBe(2022);
   });
 
   it('returns no see-also when no pending suggestion exists', async () => {
     mockGetStudentPage.mockResolvedValue(PERSON_SINGLE);
     const app = createApp();
-    const res = await app.request('/api/students/10');
+    const res = await app.request(`/api/students/${PID_SINGLE}`);
     const body = (await res.json()) as { data: StudentPageData };
     expect(body.data.seeAlso).toHaveLength(0);
   });
 
-  it('returns 404 STUDENT_NOT_FOUND for an unknown person ID', async () => {
+  it('returns 404 STUDENT_NOT_FOUND for an unknown public ID', async () => {
     mockGetStudentPage.mockResolvedValue(null);
     const app = createApp();
-    const res = await app.request('/api/students/99999');
+    const res = await app.request('/api/students/c0ffeec0ffeec0ffeec0');
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('STUDENT_NOT_FOUND');
@@ -180,15 +185,15 @@ describe('GET /api/students/:personId', () => {
     // Service returns null when every attempt is unpublished
     mockGetStudentPage.mockResolvedValue(null);
     const app = createApp();
-    const res = await app.request('/api/students/42');
+    const res = await app.request('/api/students/deadbeefdeadbeef42');
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('STUDENT_NOT_FOUND');
   });
 
-  it('returns 400 VALIDATION_ERROR when personId is not numeric', async () => {
+  it('returns 400 VALIDATION_ERROR when publicId exceeds the length limit', async () => {
     const app = createApp();
-    const res = await app.request('/api/students/abc');
+    const res = await app.request('/api/students/' + 'a'.repeat(65));
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
@@ -199,6 +204,26 @@ describe('GET /api/students/:personId', () => {
 // ---------------------------------------------------------------------------
 // Service unit tests — cache-aside logic
 // ---------------------------------------------------------------------------
+
+// makeChain produces a mock query builder whose terminal calls (.limit and
+// .orderBy) both resolve to `resolved`. This covers both the person-lookup
+// query (.limit) and the multi-row queries (.orderBy).
+function makeChain(resolved: unknown[]) {
+  const q: Record<string, unknown> = {
+    from: vi.fn(() => q),
+    innerJoin: vi.fn(() => q),
+    where: vi.fn(() => q),
+    limit: vi.fn().mockResolvedValue(resolved),
+    orderBy: vi.fn().mockResolvedValue(resolved),
+    then: (onfulfilled: (v: unknown[]) => unknown) =>
+      Promise.resolve(resolved).then(onfulfilled),
+    catch: (onrejected: (e: Error) => unknown) =>
+      Promise.resolve(resolved).catch(onrejected),
+    finally: (onfinally?: () => void) =>
+      Promise.resolve(resolved).finally(onfinally),
+  };
+  return q;
+}
 
 describe('getStudentPage service — cache-aside', () => {
   it('serves from Redis cache without hitting the DB', async () => {
@@ -213,14 +238,30 @@ describe('getStudentPage service — cache-aside', () => {
     };
     const mockDb = { select: vi.fn() };
 
-    const result = await realFn(mockDb as never, mockRedis as never, 10);
+    const result = await realFn(mockDb as never, mockRedis as never, PID_SINGLE);
 
     expect(result).toEqual(PERSON_SINGLE);
-    expect(mockRedis.get).toHaveBeenCalledWith('student:10');
+    expect(mockRedis.get).toHaveBeenCalledWith(`student:${PID_SINGLE}`);
     expect(mockDb.select).not.toHaveBeenCalled();
   });
 
-  it('returns null and skips cache write when person has no links (unknown id)', async () => {
+  it('returns null and skips cache write when publicId does not resolve to any person', async () => {
+    const { getStudentPage: realFn } =
+      await vi.importActual<typeof import('../services/studentPage.js')>(
+        '../services/studentPage.js',
+      );
+
+    const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
+    // Person lookup returns empty — unknown publicId.
+    const mockDb = { select: vi.fn().mockReturnValue(makeChain([])) };
+
+    const result = await realFn(mockDb as never, mockRedis as never, 'unknownpublicid00');
+
+    expect(result).toBeNull();
+    expect(mockRedis.set).not.toHaveBeenCalled();
+  });
+
+  it('returns null and skips cache write when person has no attempt links', async () => {
     const { getStudentPage: realFn } =
       await vi.importActual<typeof import('../services/studentPage.js')>(
         '../services/studentPage.js',
@@ -228,13 +269,16 @@ describe('getStudentPage service — cache-aside', () => {
 
     const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
 
-    const selectMock = vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockResolvedValue([]),
+    let callCount = 0;
+    const selectMock = vi.fn().mockImplementation(() => {
+      callCount++;
+      // Call 1: person lookup → found (id 42)
+      // Call 2: allLinks → empty (no links)
+      return makeChain(callCount === 1 ? [{ id: 42 }] : []);
     });
     const mockDb = { select: selectMock };
 
-    const result = await realFn(mockDb as never, mockRedis as never, 99999);
+    const result = await realFn(mockDb as never, mockRedis as never, 'nolinkspublicid00');
 
     expect(result).toBeNull();
     expect(mockRedis.set).not.toHaveBeenCalled();
@@ -248,32 +292,16 @@ describe('getStudentPage service — cache-aside', () => {
 
     const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
 
-    // Build a thenable chain so both `await chain.where()` and
-    // `await chain.where().orderBy()` work without separate mocks.
-    const makeChain = (resolved: unknown[]) => {
-      const q = {
-        from: vi.fn(() => q),
-        innerJoin: vi.fn(() => q),
-        where: vi.fn(() => q),
-        orderBy: vi.fn().mockResolvedValue(resolved),
-        then: (onfulfilled: (v: unknown[]) => unknown) =>
-          Promise.resolve(resolved).then(onfulfilled),
-        catch: (onrejected: (e: Error) => unknown) =>
-          Promise.resolve(resolved).catch(onrejected),
-        finally: (onfinally?: () => void) =>
-          Promise.resolve(resolved).finally(onfinally),
-      };
-      return q;
-    };
-
     let callCount = 0;
     const selectMock = vi.fn().mockImplementation(() => {
       callCount++;
-      return makeChain(callCount === 1 ? [{ attemptId: 5 }] : []);
+      if (callCount === 1) return makeChain([{ id: 42 }]);          // person lookup
+      if (callCount === 2) return makeChain([{ attemptId: 5 }]);    // allLinks
+      return makeChain([]);                                           // rawAttempts (unpublished filtered)
     });
     const mockDb = { select: selectMock };
 
-    const result = await realFn(mockDb as never, mockRedis as never, 42);
+    const result = await realFn(mockDb as never, mockRedis as never, 'unpublishedpid00');
 
     expect(result).toBeNull();
     expect(mockRedis.set).not.toHaveBeenCalled();
@@ -302,40 +330,25 @@ describe('getStudentPage service — cache-aside', () => {
       birthPlace: null,
     };
 
-    const makeChain = (resolved: unknown[]) => {
-      const q = {
-        from: vi.fn(() => q),
-        innerJoin: vi.fn(() => q),
-        where: vi.fn(() => q),
-        orderBy: vi.fn().mockResolvedValue(resolved),
-        then: (onfulfilled: (v: unknown[]) => unknown) =>
-          Promise.resolve(resolved).then(onfulfilled),
-        catch: (onrejected: (e: Error) => unknown) =>
-          Promise.resolve(resolved).catch(onrejected),
-        finally: (onfinally?: () => void) =>
-          Promise.resolve(resolved).finally(onfinally),
-      };
-      return q;
-    };
-
     let callCount = 0;
     const selectMock = vi.fn().mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return makeChain([{ attemptId: 7 }]); // allLinks
-      if (callCount === 2) return makeChain([dbAttemptRow]);       // rawAttempts (published)
-      return makeChain([]);                                         // dir1, dir2: no suggestions
+      if (callCount === 1) return makeChain([{ id: 7 }]);           // person lookup
+      if (callCount === 2) return makeChain([{ attemptId: 7 }]);    // allLinks
+      if (callCount === 3) return makeChain([dbAttemptRow]);         // rawAttempts (published)
+      return makeChain([]);                                           // dir1, dir2: no suggestions
     });
     const mockDb = { select: selectMock };
 
-    const result = await realFn(mockDb as never, mockRedis as never, 7);
+    const result = await realFn(mockDb as never, mockRedis as never, PID_SINGLE);
 
     expect(result).not.toBeNull();
-    expect(result!.personId).toBe('7');
+    expect(result!.personId).toBe(PID_SINGLE);
     expect(result!.attempts).toHaveLength(1);
     expect(result!.attempts[0]!.decision).toBe('Admis');
     expect(result!.seeAlso).toHaveLength(0);
     expect(mockRedis.set).toHaveBeenCalledWith(
-      'student:7',
+      `student:${PID_SINGLE}`,
       expect.any(String),
       'EX',
       3600,

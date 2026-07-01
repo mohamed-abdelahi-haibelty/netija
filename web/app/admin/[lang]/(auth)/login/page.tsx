@@ -136,7 +136,7 @@ export default function AdminLoginPage() {
                 />
                 <button
                   type="button"
-                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute inset-e-0 inset-y-0 px-3 text-muted-foreground hover:text-foreground transition-colors duration-150"
                 >
@@ -173,7 +173,7 @@ export default function AdminLoginPage() {
             href={`/${lang}`}
             className="hover:text-foreground transition-colors duration-150"
           >
-            {lang === 'ar' ? '← العودة للموقع' : '← Retour au site'}
+            {lang === 'ar' ? '← العودة للموقع' : '← Back to site'}
           </a>
         </p>
       </div>

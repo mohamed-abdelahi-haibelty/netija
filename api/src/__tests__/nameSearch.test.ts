@@ -182,11 +182,11 @@ describe('buildNameIndex service', () => {
         '../services/meiliIndex.js',
       );
 
-    // DB mock returns two persons — person '3' (unpublished-only) is absent
+    // DB mock returns two persons — a third unpublished-only person is absent
     // because the SQL WHERE i.published = true filtered it out.
     const dbRows = [
-      { personId: '1', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', latestYear: 2023, serie: 'SN', birthPlace: 'Nouakchott' },
-      { personId: '2', nameFr: 'Fatima Mint Ali', nameAr: null, latestYear: 2022, serie: 'LM', birthPlace: null },
+      { publicId: 'a1b2c3d4e5f6a1b2c3', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', latestYear: 2023, serie: 'SN', birthPlace: 'Nouakchott' },
+      { publicId: 'd4e5f6a1b2c3d4e5f6', nameFr: 'Fatima Mint Ali', nameAr: null, latestYear: 2022, serie: 'LM', birthPlace: null },
     ];
     const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
 
@@ -221,21 +221,18 @@ describe('buildNameIndex service', () => {
     // Full rebuild: clear before pushing
     expect(deleteAllMock).toHaveBeenCalledOnce();
 
-    // Verify the two published persons are in the documents
+    // Verify the two published persons are in the documents (by their public_id)
     const [capturedDocs] = addDocumentsMock.mock.calls[0] as [
       Array<{ id: string; nameFr: string | null; nameAr: string | null; latestYear: number; serie: string; birthPlace: string | null }>,
       ...unknown[]
     ];
     expect(capturedDocs).toHaveLength(2);
-    expect(capturedDocs.map((d) => d.id)).toEqual(['1', '2']);
-
-    // Person '3' (unpublished-only) is absent
-    expect(capturedDocs.map((d) => d.id)).not.toContain('3');
+    expect(capturedDocs.map((d) => d.id)).toEqual(['a1b2c3d4e5f6a1b2c3', 'd4e5f6a1b2c3d4e5f6']);
 
     // Document shape carries all disambiguators
     const firstDoc = capturedDocs[0]!;
     expect(firstDoc).toMatchObject({
-      id: '1',
+      id: 'a1b2c3d4e5f6a1b2c3',
       nameFr: 'Ahmed Ould Mohamed',
       nameAr: 'أحمد ولد محمد',
       latestYear: 2023,

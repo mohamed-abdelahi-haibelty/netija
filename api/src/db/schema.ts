@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   bigserial,
@@ -52,6 +53,12 @@ export const suggestionStatusEnum = pgEnum('suggestion_status', [
 
 export const persons = pgTable('persons', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
+  // Random unguessable identifier used in public URLs and API responses only.
+  // The integer `id` remains the internal join key for all DB relations.
+  publicId: text('public_id')
+    .notNull()
+    .unique()
+    .default(sql`replace(gen_random_uuid()::text, '-', '')`),
   nameFr: text('name_fr'),
   nameAr: text('name_ar'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

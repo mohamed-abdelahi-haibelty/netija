@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import type { RedisClient } from '../lib/redis.js';
-import { attempts, imports, personLinks } from '../db/schema.js';
+import { attempts, imports, personLinks, persons } from '../db/schema.js';
 import type { ExamSearchResult } from 'shared';
 
 const EXAM_CACHE_TTL = 300;
@@ -27,7 +27,7 @@ export async function searchByExamNo(
 
   const rows = await db
     .select({
-      personId: personLinks.personId,
+      publicId: persons.publicId,
       nameFr: attempts.nameFr,
       nameAr: attempts.nameAr,
       examNo: attempts.examNo,
@@ -38,6 +38,7 @@ export async function searchByExamNo(
     })
     .from(attempts)
     .innerJoin(personLinks, eq(personLinks.attemptId, attempts.id))
+    .innerJoin(persons, eq(persons.id, personLinks.personId))
     .innerJoin(imports, eq(imports.id, attempts.importId))
     .where(
       and(
@@ -52,7 +53,7 @@ export async function searchByExamNo(
 
   const row = rows[0]!;
   const result: ExamSearchResult = {
-    personId: String(row.personId),
+    personId: row.publicId,
     nameFr: row.nameFr,
     nameAr: row.nameAr,
     examNo: row.examNo,

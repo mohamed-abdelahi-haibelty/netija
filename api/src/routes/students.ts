@@ -8,16 +8,17 @@ import { db } from '../db/client.js';
 import { redis } from '../lib/redis.js';
 
 const paramsSchema = z.object({
-  personId: z
+  publicId: z
     .string()
-    .regex(/^\d+$/, 'personId must be a positive integer')
-    .transform(Number),
+    .min(1)
+    .max(64)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'publicId must contain only URL-safe characters'),
 });
 
 const students = new Hono<AppEnv>();
 
 students.get(
-  '/:personId',
+  '/:publicId',
   zValidator('param', paramsSchema, (result, c) => {
     if (!result.success) {
       return c.json(
@@ -36,8 +37,8 @@ students.get(
     }
   }),
   async (c) => {
-    const { personId } = c.req.valid('param');
-    const result = await getStudentPage(db, redis, personId);
+    const { publicId } = c.req.valid('param');
+    const result = await getStudentPage(db, redis, publicId);
     if (result === null) {
       throw new HTTPException(404, {
         message: 'Student not found.',

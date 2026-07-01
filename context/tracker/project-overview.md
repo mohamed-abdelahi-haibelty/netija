@@ -27,6 +27,10 @@ site must survive results-day traffic spikes (~20,000 requests in
 5. The site is fast (Core Web Vitals green), SEO-optimized on
    public pages, and accessible (WCAG 2.1 AA), with correct
    Arabic (RTL) and French (LTR) text rendering.
+   The admin dashboard is in English (not French): all admin UI
+   strings, labels, and hardcoded text use English regardless of
+   the URL locale prefix. Arabic locale (/admin/ar/) stays in
+   Arabic. Future admin UI work must follow this rule.
 6. Results-day speed: from receiving the new Excel file to
    published, automatically verified, publicly searchable
    results in 5–10 minutes.

@@ -33,18 +33,18 @@ interface DetectedColumn {
 // ─── Mock preview data (TODO task 018: GET /api/admin/imports/:id/preview) ───
 
 const FIELD_LABELS: Record<CanonicalField, string> = {
-  nom_fr:          'Nom complet (FR)',
-  nom_ar:          'Nom complet (AR)',
-  no_examen:       'N° d\'examen',
-  moyenne:         'Moyenne',
-  decision:        'Décision',
-  serie:           'Série',
+  nom_fr:          'Full name (FR)',
+  nom_ar:          'Full name (AR)',
+  no_examen:       'Exam number',
+  moyenne:         'Score',
+  decision:        'Decision',
+  serie:           'Serie',
   wilaya:          'Wilaya',
-  etablissement:   'Établissement',
-  date_naissance:  'Date de naissance',
-  lieu_naissance:  'Lieu de naissance',
+  etablissement:   'School',
+  date_naissance:  'Date of birth',
+  lieu_naissance:  'Place of birth',
   nni:             'NNI',
-  __ignore__:      'Ignorer',
+  __ignore__:      'Ignore',
 };
 
 const REQUIRED_FIELDS: CanonicalField[] = ['no_examen', 'decision', 'serie'];
@@ -158,7 +158,7 @@ export default function MappingPage() {
       {!hasFloorViolation && (
         <div className="mb-5 flex items-center gap-2 text-sm text-status-pass-fg">
           <CheckCircle className="size-4 shrink-0" aria-hidden />
-          <span>Tous les champs obligatoires sont mappés.</span>
+          <span>All required fields are mapped.</span>
         </div>
       )}
 
@@ -202,7 +202,7 @@ export default function MappingPage() {
                       </code>
                       {col.required && (
                         <span className="ms-1.5 text-[10px] font-semibold text-status-fail-fg uppercase tracking-wide">
-                          requis
+                          required
                         </span>
                       )}
                       {isUnrecognized && (

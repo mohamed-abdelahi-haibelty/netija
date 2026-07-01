@@ -191,12 +191,12 @@ function ConfidencePip({ confidence }: { confidence: Suggestion['confidence'] })
     medium: 'bg-status-pending-fg',
     low:    'bg-status-neutral-fg',
   };
-  const labels = { high: 'forte', medium: 'moyenne', low: 'faible' };
+  const labels = { high: 'high', medium: 'medium', low: 'low' };
 
   return (
     <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
       <span className={cn('size-1.5 rounded-full', colors[confidence])} aria-hidden />
-      Correspondance {labels[confidence]}
+      {labels[confidence]} match
     </span>
   );
 }
@@ -235,7 +235,7 @@ function SuggestionCard({
   return (
     <article
       className="bg-card rounded-lg border border-border overflow-hidden transition-opacity duration-200"
-      aria-label={`Suggestion de fusion ${suggestion.person1.nameFr ?? ''} / ${suggestion.person2.nameFr ?? ''}`}
+      aria-label={`Merge suggestion: ${suggestion.person1.nameFr ?? ''} / ${suggestion.person2.nameFr ?? ''}`}
     >
       {/* ── Persons ── */}
       <div className="px-5 pt-5 pb-4">
