@@ -19,7 +19,7 @@ interface PersonDocument {
 // so "most recent" is guaranteed without a subquery.
 const PUBLISHED_PERSONS_SQL = sql`
   SELECT DISTINCT ON (pl.person_id)
-    pl.person_id::text   AS "personId",
+    p.public_id          AS "publicId",
     p.name_fr            AS "nameFr",
     p.name_ar            AS "nameAr",
     a.exam_year          AS "latestYear",
@@ -37,7 +37,7 @@ export async function buildNameIndex(db: Db, meili: MeiliClient): Promise<number
   const result = await db.execute(PUBLISHED_PERSONS_SQL);
 
   const docs: PersonDocument[] = result.rows.map((row) => ({
-    id: row['personId'] as string,
+    id: row['publicId'] as string,
     nameFr: (row['nameFr'] as string | null) ?? null,
     nameAr: (row['nameAr'] as string | null) ?? null,
     latestYear: row['latestYear'] as number,

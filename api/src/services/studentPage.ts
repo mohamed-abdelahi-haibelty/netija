@@ -6,21 +6,32 @@ import type { StudentPageData, SeeAlsoEntry } from 'shared';
 
 const STUDENT_CACHE_TTL = 3600;
 
-function studentCacheKey(personId: number): string {
-  return `student:${personId}`;
+function studentCacheKey(publicId: string): string {
+  return `student:${publicId}`;
 }
 
 export async function getStudentPage(
   db: Db,
   redis: RedisClient,
-  personId: number,
+  publicId: string,
 ): Promise<StudentPageData | null> {
-  const cacheKey = studentCacheKey(personId);
+  const cacheKey = studentCacheKey(publicId);
   const cached = await redis.get(cacheKey);
   if (cached !== null) return JSON.parse(cached) as StudentPageData;
 
-  // Fetch all attempt IDs for this person (published and unpublished) for
-  // suggestion direction-2 lookup and for existence check.
+  // Resolve the public-facing id to the internal integer primary key used for
+  // all joins. A lookup miss means the publicId doesn't correspond to any person.
+  const personRows = await db
+    .select({ id: persons.id })
+    .from(persons)
+    .where(eq(persons.publicId, publicId))
+    .limit(1);
+
+  if (personRows.length === 0) return null;
+  const personId = personRows[0]!.id;
+
+  // Fetch all attempt IDs linked to this person (published and unpublished) for
+  // the suggestion direction-2 lookup and for the existence check.
   const allLinks = await db
     .select({ attemptId: personLinks.attemptId })
     .from(personLinks)
@@ -59,7 +70,7 @@ export async function getStudentPage(
   // "Other person" = the current owner of the suggestion's attempt.
   const dir1 = await db
     .select({
-      otherPersonId: personLinks.personId,
+      otherPublicId: persons.publicId,
       otherNameFr: persons.nameFr,
       otherNameAr: persons.nameAr,
       examYear: attempts.examYear,
@@ -77,7 +88,7 @@ export async function getStudentPage(
   // "Other person" = suggestion.person_id.
   const dir2 = await db
     .select({
-      otherPersonId: linkSuggestions.personId,
+      otherPublicId: persons.publicId,
       otherNameFr: persons.nameFr,
       otherNameAr: persons.nameAr,
       examYear: attempts.examYear,
@@ -90,14 +101,14 @@ export async function getStudentPage(
       and(inArray(linkSuggestions.attemptId, attemptIds), eq(linkSuggestions.status, 'pending')),
     );
 
-  // Deduplicate see-also entries by other person's ID.
-  const seenIds = new Set<number>();
+  // Deduplicate see-also entries by the other person's public id.
+  const seenIds = new Set<string>();
   const seeAlso: SeeAlsoEntry[] = [];
   for (const entry of [...dir1, ...dir2]) {
-    if (entry.otherPersonId !== personId && !seenIds.has(entry.otherPersonId)) {
-      seenIds.add(entry.otherPersonId);
+    if (entry.otherPublicId !== publicId && !seenIds.has(entry.otherPublicId)) {
+      seenIds.add(entry.otherPublicId);
       seeAlso.push({
-        personId: String(entry.otherPersonId),
+        personId: entry.otherPublicId,
         nameFr: entry.otherNameFr,
         nameAr: entry.otherNameAr,
         examYear: entry.examYear,
@@ -107,7 +118,7 @@ export async function getStudentPage(
   }
 
   const result: StudentPageData = {
-    personId: String(personId),
+    personId: publicId,
     nameFr: first.nameFr,
     nameAr: first.nameAr,
     birthDate: first.birthDate,
@@ -129,6 +140,6 @@ export async function getStudentPage(
   return result;
 }
 
-export async function invalidateStudentCache(redis: RedisClient, personId: number): Promise<void> {
-  await redis.del(studentCacheKey(personId));
+export async function invalidateStudentCache(redis: RedisClient, publicId: string): Promise<void> {
+  await redis.del(studentCacheKey(publicId));
 }
