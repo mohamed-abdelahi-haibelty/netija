@@ -8,7 +8,7 @@
     "shared"
   ],
   "scripts": {
-    "dev": "concurrently --names \"web,api\" --prefix-colors \"green,cyan\" \"npm run dev --workspace=web\" \"npm run dev --workspace=api\"",
+    "dev": "concurrently --names \"web,api,queue\" --prefix-colors \"green,cyan,yellow\" \"npm run dev --workspace=web\" \"npm run dev --workspace=api\" \"npm run queue:worker --workspace=api\"",
     "build": "npm run build --workspaces --if-present",
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",

@@ -33,9 +33,7 @@ async function main() {
     // Better Auth throws when the email is already registered.
     // Any "already exists" condition is treated as success for idempotency.
     const code =
-      err !== null && typeof err === 'object' && 'code' in err
-        ? String((err as { code: unknown }).code)
-        : '';
+      err !== null && typeof err === 'object' && 'code' in err ? String(err.code) : '';
     const message =
       err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
 
@@ -49,4 +47,4 @@ async function main() {
   }
 }
 
-main();
+main().catch((e: unknown) => { console.error(e); process.exit(1); });

@@ -19,6 +19,12 @@ export function proxy(request: NextRequest) {
     return;
   }
 
+  // Next.js API route handlers (e.g. app/api/internal/*) are never
+  // locale-prefixed — skip them the same way admin routes are skipped.
+  if (pathname === '/api' || pathname.startsWith('/api/')) {
+    return;
+  }
+
   const pathnameHasLocale = (locales as readonly string[]).some(
     (locale) =>
       pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`,

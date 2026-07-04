@@ -1,32 +1,19 @@
-export interface StudentAttempt {
+// A "result" is a single attempt. There is no person concept, no cross-year
+// history, and no "other records with this name" section. The public result
+// page is addressed by `slug` (a random, non-enumerable handle); the internal
+// identity remains (examYear, examNo).
+export interface StudentResult {
+  slug: string;
   examYear: number;
   examNo: string;
+  nameFr: string | null;
+  nameAr: string | null;
   serie: string;
   moyenne: string | null;
   decision: string;
   decisionRaw: string | null;
-  school: string | null;
-  wilaya: string | null;
-}
-
-export interface SeeAlsoEntry {
-  personId: string;
-  nameFr: string | null;
-  nameAr: string | null;
-  examYear: number;
-  examNo: string;
-}
-
-export interface StudentPageData {
-  personId: string;
-  nameFr: string | null;
-  nameAr: string | null;
-  birthDate: string | null;
-  birthPlace: string | null;
-  attempts: StudentAttempt[];
-  seeAlso: SeeAlsoEntry[];
 }
 
 export interface StudentPageResponse {
-  data: StudentPageData;
+  data: StudentResult;
 }

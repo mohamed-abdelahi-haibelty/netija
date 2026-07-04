@@ -39,3 +39,7 @@ Thumbs.db
 skills-lock.json
 
 .walkthrough
+
+# design-skill scratch output (critique reports, live-preview config) —
+# tooling artifacts, not project source
+.impeccable/

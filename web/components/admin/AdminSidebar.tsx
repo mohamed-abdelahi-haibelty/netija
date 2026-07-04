@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FileText, GitMerge, LogOut, ExternalLink } from 'lucide-react';
+import { FileText, LogOut, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Locale = 'ar' | 'fr';
@@ -60,11 +60,6 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
       label: lang === 'ar' ? 'الاستيرادات' : 'Imports',
       icon: FileText,
     },
-    {
-      href: `/admin/${lang}/suggestions`,
-      label: lang === 'ar' ? 'اقتراحات الدمج' : 'Suggestions',
-      icon: GitMerge,
-    },
   ];
 
   const isActive = (href: string) =>
@@ -86,10 +81,7 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
     >
       {/* ── Brand ── */}
       <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
-        <Link
-          href={`/admin/${lang}`}
-          className="flex flex-col gap-0.5 group"
-        >
+        <Link href={`/admin/${lang}`} className="flex flex-col gap-0.5 group">
           <span className="text-sm font-semibold text-sidebar-foreground group-hover:text-sidebar-primary transition-colors duration-150">
             Netija
           </span>
@@ -100,9 +92,16 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5" aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}>
+      <nav
+        className="flex-1 px-2 py-3 space-y-0.5"
+        aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
+      >
         {navItems.map((item) => (
-          <SidebarNavItem key={item.href} item={item} active={isActive(item.href)} />
+          <SidebarNavItem
+            key={item.href}
+            item={item}
+            active={isActive(item.href)}
+          />
         ))}
       </nav>
 
@@ -117,7 +116,9 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
         </Link>
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => {
+            void handleLogout();
+          }}
           className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           <LogOut className="size-4 shrink-0" aria-hidden />

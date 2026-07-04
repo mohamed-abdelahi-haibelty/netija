@@ -3,22 +3,27 @@
 ## Overview
 
 A public website where anyone can look up Mauritanian Baccalauréat
-(Bac) results. Visitors search by exam number (Numéro Bac)
-for a specific year, or by student name with instant autocomplete.
-A student's page shows their decision (Admis, Ajourné, Sessionnaire,
-etc.), their Moyenne Générale (out of 20), and their full attempt
-history across years (e.g. Ajourné in 2021, Admis in 2022). Admins
-upload the yearly Excel result files through an authenticated
-dashboard; a Python/pandas pipeline cleans and imports them. The
-site must survive results-day traffic spikes (~20,000 requests in
-1 minute).
+(Bac) results. Visitors search by exam number (Numéro Bac) for a
+specific year, or by student name with instant autocomplete. A
+result page shows the candidate's decision (Admis, Ajourné,
+Sessionnaire, etc.), their Moyenne Générale (out of 20), the SERIE
+(track), and the year. Admins upload the yearly Excel result files
+through an authenticated dashboard; a Python/pandas pipeline cleans
+and imports them. The site must survive results-day traffic spikes
+(~20,000 requests in 1 minute).
+
+The project deliberately stores and displays the minimum personal
+data — name, exam number, year, serie, decision, moyenne — and never
+stores or shows the NNI, birth date, or birth place. There is no
+identity linking across years: each result is an independent record.
 
 ## Goals
 
 1. A visitor finds any result in under 5 seconds via exam number +
    year, or via typo-tolerant name autocomplete (7–10 suggestions).
-2. One student = one record across years: multiple attempts are
-   linked to the same person and shown together.
+2. Each result is a single, independent record. When a name appears
+   in several years, those results are shown as separate,
+   year-labeled rows — never merged into one "person".
 3. An admin imports a 50,000-row Excel file of any historical
    format (2015–2025 column variants) through a preview/confirm
    flow, with the import running as a background job.
@@ -42,23 +47,17 @@ site must survive results-day traffic spikes (~20,000 requests in
 2. Exam-number tab: enter the exam number + select the year
    (a select input, defaulting to the most recent year).
 3. Name tab: type a name (no year selector); typo-tolerant
-   autocomplete shows up to 10 student suggestions. Every
-   suggestion is disambiguated with its latest year, SERIE, and
-   birth place when available (e.g. "Mohamed Abdellahi — Bac
-   2020 · SN · Néma"), sorted most-recent-first, so identical
-   names are always distinguishable.
-4. Clicking a suggestion or submitting a valid exam-number search
-   opens the student page.
-5. Student page shows: name (French and Arabic when available),
-   latest decision, Moyenne Générale, SERIE (track), and the number
-   of attempts. Each attempt is clickable to view that year's
-   result (year, exam number, moyenne, decision). Optional fields
-   (school/centre, wilaya) appear when present in the data.
-6. If pending link suggestions exist for this person, the page
-   shows a neutral "Other records with this name" section
-   linking to those pages (phrased as "with this name", never
-   asserting it is the same person). Accepted suggestions merge
-   the pages; rejected ones remove the section.
+   autocomplete shows up to 10 matching results. Each suggestion
+   is a single result labeled with its year and SERIE (e.g.
+   "Mohamed Abdellahi — Bac 2024 · SN"), sorted most-recent-first.
+   A name that appears in several years shows as several separate
+   rows — the site does not claim they are the same person.
+4. Clicking a suggestion, or submitting a valid exam-number
+   search, opens that result's page.
+5. Result page shows: name (French and Arabic when available),
+   decision, Moyenne Générale (out of 20), SERIE (track), and the
+   exam year. There is no multi-attempt history and no "other
+   records with this name" section.
 
 ## Core User Flow (admin)
 
@@ -66,7 +65,7 @@ site must survive results-day traffic spikes (~20,000 requests in
    accounts are provisioned manually/seeded).
 2. Dashboard shows the list of previously uploaded files with
    their status (processing, completed, failed) and import
-   summaries (rows inserted, rejected, new people).
+   summaries (rows inserted, rejected).
 3. Admin uploads a new Excel file → sees a column-mapping preview
    (detected columns, sample values, unrecognized columns flagged)
    → corrects mappings via dropdowns → confirms.
@@ -75,11 +74,6 @@ site must survive results-day traffic spikes (~20,000 requests in
 5. The automated smoke verification result is shown; once it
    passes, the admin can click Publish (atomic, reversible) to
    make the year publicly visible.
-6. The dashboard's suggestion queue lists pending identity link
-   suggestions (sortable; exact-name + same-SERIE matches first
-   for fast bulk review). Accepting merges the persons;
-   rejecting dismisses the suggestion. Reviewed after
-   publishing, never blocking it.
 
 ## Release Flow
 
@@ -98,8 +92,8 @@ complete in 5 minutes (10 worst case):
    remap only if a new column format appears — the main risk
    the time buffer exists for).
 3. The import job runs with the new exam year UNPUBLISHED:
-   clean → load → link (NNI pass) → Meilisearch index.
-   Hard budget: under 2 minutes for 50k rows.
+   clean → load attempts → Meilisearch index. Hard budget:
+   under 2 minutes for 50k rows. (There is no linking step.)
 4. Automated smoke verification runs: the system samples ~20
    random imported rows and asserts the admin-preview pages/API
    return the matching name, moyenne, and decision; total counts
@@ -107,10 +101,6 @@ complete in 5 minutes (10 worst case):
    is blocked until the smoke check passes.
 5. The admin clicks Publish: an atomic flag flip makes the year
    public and purges the Cloudflare cache. Reversible.
-6. Identity link suggestions are reviewed AFTER publishing —
-   they never block going live. If the new file lacks NNI/birth
-   data, cross-year linking simply degrades to suggestions;
-   every result is still individually searchable immediately.
 
 ### Staging
 
@@ -128,8 +118,9 @@ for the new file.
 - Exam-number search requires a year (default: latest year with
   data); exam numbers are only unique within a year.
 - Name autocomplete via Meilisearch: typo-tolerant, supports
-  French and Arabic names, returns up to 10 suggestions.
-- Student page with multi-year attempt history.
+  French and Arabic names, returns up to 10 results, each labeled
+  with year + SERIE, newest first. No merging across years.
+- A result page per attempt.
 
 ### Admin Dashboard
 
@@ -141,21 +132,20 @@ for the new file.
 - Background import (BullMQ → Python/pandas worker) with progress,
   per-file import history, and a downloadable reject report
   (rows that failed validation, with reasons).
-- Publish control per exam year (gated by the smoke check) and
-  the identity suggestion review queue.
+- Publish control per exam year (gated by the smoke check).
 
 ### Data Pipeline
 
-- Pandas cleaning: trim, normalize decisions, parse per-year date
-  formats, coerce numerics, preserve leading zeros on exam numbers
-  and NNI.
-- Identity linking (attempt-first): every row imports as its own
-  attempt; a post-import job links attempts to persons using
-  whatever signals the file happened to provide — NNI when
-  present, name + birth date + birth place when present, human
-  review suggestions otherwise. Only the exam number and one
-  name (FR or AR) are ever assumed to exist; any other column
-  may vanish in a future year (2022 has no NNI; 2021/2023 do).
+- Pandas cleaning: trim, normalize decisions, coerce numerics,
+  preserve leading zeros on exam numbers.
+- Minimal storage: only exam number, name(s), year, serie,
+  decision, and moyenne are stored. If a file contains NNI, birth
+  date, birth place, school, or wilaya columns, they are ignored
+  and never written to the database.
+- Only the exam number and one name (FR or AR) are ever assumed to
+  exist; any other column may be absent or renamed in a future
+  year (e.g. 2022's columns differ from 2021's). Field
+  availability is detected per file, never hardcoded by year.
 - Idempotent loads: re-running an import never duplicates data.
 - Meilisearch reindex after each successful import.
 
@@ -167,37 +157,53 @@ for the new file.
 - PostHog (anonymous-only) product analytics; Sentry error
   monitoring on frontend, API, and worker.
 
+## Privacy
+
+- The site publishes officially-released national exam results
+  and stores only the minimum needed to display them.
+- It never stores or displays the NNI, birth date, or birth place.
+- A public privacy/about page states what is stored, that data is
+  not used commercially or shared with third parties, and provides
+  a contact for correction or removal of a specific result
+  (identified by name + exam number + year). Removal requests are
+  honored: the row is deleted and purged from search and cache.
+
 ## Scope
 
 ### In Scope
 
-- Public search (name + exam number/year) and student pages.
-- Admin auth, upload, preview/mapping, background import, history.
+- Public search (name + exam number/year) and result pages.
+- Admin auth, upload, preview/mapping, background import, history,
+  publish.
 - Staging environment mirroring production on the same VPS.
 - Performance, SEO (public pages), accessibility, bilingual
-  (FR/AR) display.
+  (FR/AR) display; privacy/about page + removal contact.
 
 ### Out of Scope
 
 - Public user accounts, favorites, or notifications.
+- Identity linking, cross-year merging, or "same person" grouping.
+- Storing or displaying NNI, birth date, or birth place.
 - Editing individual results through the UI (data changes go
-  through re-import).
+  through re-import or a removal request).
 - Mobile apps.
 - Statistics/analytics pages for the public (may come later).
-- Payment or monetization features.
+- Payment features.
 
 ## Success Criteria
 
 1. Searching exam number `00573` for year 2024 returns the correct
-   student page; the same number for 2025 returns a different
-   (correct) student.
+   result; the same number for 2025 returns a different (correct)
+   result.
 2. Typing a partial/typo'd name (e.g. "fatimto") returns relevant
-   suggestions including "Fatimetou ..." within 300 ms.
-3. A student who sat the Bac in two years appears as one person
-   with two attempts, both viewable.
+   suggestions including "Fatimetou ..." within 300 ms, each
+   labeled with year + SERIE.
+3. A name appearing in three years shows as three separate
+   year-labeled results in search; no merging is claimed.
 4. An admin can import each historical file format (2015–2025
    samples) end to end; unrecognized columns are flagged in the
-   preview and can be remapped manually.
+   preview and can be remapped manually; any NNI/birth columns in
+   the file are ignored and never stored.
 5. Re-uploading the same file changes nothing (idempotent).
 6. Lighthouse on the home page: Performance ≥ 90, Accessibility
    ≥ 95, SEO ≥ 95 (mobile).

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApp } from '../app.js';
 
+function assertFound<T>(value: T | null): asserts value is T {
+  expect(value).not.toBeNull();
+}
+
 vi.mock('../lib/auth.js', () => ({
   auth: {
     handler: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })),
@@ -16,184 +20,117 @@ vi.mock('../lib/healthChecks.js', () => ({
 
 vi.mock('../services/studentPage.js', () => ({
   getStudentPage: vi.fn(),
+  getAdminResultPreview: vi.fn(),
   invalidateStudentCache: vi.fn(),
+  resultCacheKey: (slug: string) => `result:${slug}`,
 }));
 
 vi.mock('../db/client.js', () => ({ db: {} }));
 vi.mock('../lib/redis.js', () => ({ redis: {} }));
 
-import { getStudentPage } from '../services/studentPage.js';
-import type { StudentPageData } from 'shared';
+import { auth } from '../lib/auth.js';
+import { getStudentPage, getAdminResultPreview } from '../services/studentPage.js';
+import type { StudentResult } from 'shared';
 
+const mockGetSession = vi.mocked(auth.api.getSession);
 const mockGetStudentPage = vi.mocked(getStudentPage);
+const mockGetAdminResultPreview = vi.mocked(getAdminResultPreview);
+
+const VALID_SESSION = {
+  user: {
+    id: 'u1',
+    email: 'admin@test.com',
+    name: 'Admin',
+    emailVerified: true,
+    image: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  session: {
+    id: 's1',
+    userId: 'u1',
+    expiresAt: new Date(Date.now() + 3_600_000),
+    token: 'tok',
+    ipAddress: null,
+    userAgent: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+};
 
 // ---------------------------------------------------------------------------
-// Fixtures — use realistic public_id strings (18-char hex, the DB default format)
+// Fixtures — the public result page is addressed by a random slug; internal
+// identity remains (examYear, examNo).
 // ---------------------------------------------------------------------------
 
-const PID_SINGLE    = 'a1b2c3d4e5f6a1b2c3';
-const PID_MULTI     = 'd4e5f6a1b2c3d4e5f6';
-const PID_SEE_OTHER = 'b2c3d4e5f6a1b2c3d4';
-const PID_WITH_SA   = 'e5f6a1b2c3d4e5f6a1';
+const SLUG = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
 
-const PERSON_SINGLE: StudentPageData = {
-  personId: PID_SINGLE,
+const RESULT: StudentResult = {
+  slug: SLUG,
+  examYear: 2023,
+  examNo: '00101',
   nameFr: 'Ahmed Ould Mohamed',
   nameAr: 'أحمد ولد محمد',
-  birthDate: '2002-03-15',
-  birthPlace: 'Nouakchott',
-  attempts: [
-    {
-      examYear: 2023,
-      examNo: '00101',
-      serie: 'SN',
-      moyenne: '14.50',
-      decision: 'Admis',
-      decisionRaw: 'Admis Sn',
-      school: 'Lycée Chiva',
-      wilaya: 'Nouakchott Ouest',
-    },
-  ],
-  seeAlso: [],
-};
-
-// Person with two attempts (redemption arc: Ajourné 2022 → Admis 2023)
-const PERSON_MULTI: StudentPageData = {
-  personId: PID_MULTI,
-  nameFr: 'Fatima Mint Ali',
-  nameAr: null,
-  birthDate: null,
-  birthPlace: null,
-  attempts: [
-    {
-      examYear: 2023,
-      examNo: '00202',
-      serie: 'LM',
-      moyenne: '12.00',
-      decision: 'Admis',
-      decisionRaw: 'Admis',
-      school: null,
-      wilaya: null,
-    },
-    {
-      examYear: 2022,
-      examNo: '00202',
-      serie: 'LM',
-      moyenne: '08.75',
-      decision: 'Ajourné',
-      decisionRaw: 'Ajourné(e)',
-      school: null,
-      wilaya: null,
-    },
-  ],
-  seeAlso: [],
-};
-
-// Person with a pending see-also suggestion
-const SEE_ALSO_ENTRY = {
-  personId: PID_SEE_OTHER,
-  nameFr: 'Mohamed Ould Ahmed',
-  nameAr: null,
-  examYear: 2022,
-  examNo: '00303',
-};
-
-const PERSON_WITH_SEE_ALSO: StudentPageData = {
-  personId: PID_WITH_SA,
-  nameFr: 'Mohamed Ould Ahmed',
-  nameAr: null,
-  birthDate: '2001-06-10',
-  birthPlace: 'Nouadhibou',
-  attempts: [
-    {
-      examYear: 2022,
-      examNo: '00304',
-      serie: 'SN',
-      moyenne: '13.25',
-      decision: 'Admis',
-      decisionRaw: 'Admis',
-      school: null,
-      wilaya: null,
-    },
-  ],
-  seeAlso: [SEE_ALSO_ENTRY],
+  serie: 'SN',
+  moyenne: '14.50',
+  decision: 'Admis',
+  decisionRaw: 'Admis Sn',
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetSession.mockResolvedValue(VALID_SESSION);
 });
 
 // ---------------------------------------------------------------------------
 // Route integration tests
 // ---------------------------------------------------------------------------
 
-describe('GET /api/students/:publicId', () => {
-  it('returns 200 and the student payload for a known person', async () => {
-    mockGetStudentPage.mockResolvedValue(PERSON_SINGLE);
+describe('GET /api/results/:slug', () => {
+  it('returns 200 and the result payload for a known slug', async () => {
+    mockGetStudentPage.mockResolvedValue(RESULT);
     const app = createApp();
-    const res = await app.request(`/api/students/${PID_SINGLE}`);
+    const res = await app.request(`/api/results/${SLUG}`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: StudentPageData };
-    expect(body.data.personId).toBe(PID_SINGLE);
-    expect(body.data.attempts).toHaveLength(1);
-    expect(body.data.seeAlso).toHaveLength(0);
+    const body = (await res.json()) as { data: StudentResult };
+    expect(body.data.slug).toBe(SLUG);
+    expect(body.data.examYear).toBe(2023);
+    expect(body.data.decision).toBe('Admis');
     expect(mockGetStudentPage).toHaveBeenCalledOnce();
+    expect(mockGetStudentPage).toHaveBeenCalledWith({}, {}, SLUG);
   });
 
-  it('returns attempts ordered newest year first (multi-attempt person)', async () => {
-    mockGetStudentPage.mockResolvedValue(PERSON_MULTI);
-    const app = createApp();
-    const res = await app.request(`/api/students/${PID_MULTI}`);
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: StudentPageData };
-    expect(body.data.attempts).toHaveLength(2);
-    expect(body.data.attempts[0]!.examYear).toBe(2023);
-    expect(body.data.attempts[1]!.examYear).toBe(2022);
-    expect(body.data.attempts[0]!.decision).toBe('Admis');
-    expect(body.data.attempts[1]!.decision).toBe('Ajourné');
-  });
-
-  it('includes see-also when a pending suggestion exists for this person', async () => {
-    mockGetStudentPage.mockResolvedValue(PERSON_WITH_SEE_ALSO);
-    const app = createApp();
-    const res = await app.request(`/api/students/${PID_WITH_SA}`);
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: StudentPageData };
-    expect(body.data.seeAlso).toHaveLength(1);
-    expect(body.data.seeAlso[0]!.personId).toBe(PID_SEE_OTHER);
-    expect(body.data.seeAlso[0]!.examYear).toBe(2022);
-  });
-
-  it('returns no see-also when no pending suggestion exists', async () => {
-    mockGetStudentPage.mockResolvedValue(PERSON_SINGLE);
-    const app = createApp();
-    const res = await app.request(`/api/students/${PID_SINGLE}`);
-    const body = (await res.json()) as { data: StudentPageData };
-    expect(body.data.seeAlso).toHaveLength(0);
-  });
-
-  it('returns 404 STUDENT_NOT_FOUND for an unknown public ID', async () => {
+  it('returns 404 STUDENT_NOT_FOUND for an unknown slug', async () => {
     mockGetStudentPage.mockResolvedValue(null);
     const app = createApp();
-    const res = await app.request('/api/students/c0ffeec0ffeec0ffeec0');
+    const res = await app.request('/api/results/deadbeefdeadbeefdeadbeefdeadbeef');
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('STUDENT_NOT_FOUND');
   });
 
-  it('returns 404 STUDENT_NOT_FOUND when all attempts are unpublished', async () => {
-    // Service returns null when every attempt is unpublished
+  it('returns 404 STUDENT_NOT_FOUND when the attempt is unpublished', async () => {
+    // Service returns null when the slug's attempt belongs to an unpublished import
     mockGetStudentPage.mockResolvedValue(null);
     const app = createApp();
-    const res = await app.request('/api/students/deadbeefdeadbeef42');
+    const res = await app.request('/api/results/c0ffeec0ffeec0ffeec0ffeec0ffee00');
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('STUDENT_NOT_FOUND');
   });
 
-  it('returns 400 VALIDATION_ERROR when publicId exceeds the length limit', async () => {
+  it('returns 400 VALIDATION_ERROR when the slug contains illegal characters', async () => {
     const app = createApp();
-    const res = await app.request('/api/students/' + 'a'.repeat(65));
+    const res = await app.request('/api/results/not%2Fa%2Fslug');
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockGetStudentPage).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 VALIDATION_ERROR when the slug exceeds the length limit', async () => {
+    const app = createApp();
+    const res = await app.request('/api/results/' + 'a'.repeat(65));
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
@@ -202,156 +139,149 @@ describe('GET /api/students/:publicId', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Service unit tests — cache-aside logic
+// Admin preview route — auth-gated, bypasses the published filter
 // ---------------------------------------------------------------------------
 
-// makeChain produces a mock query builder whose terminal calls (.limit and
-// .orderBy) both resolve to `resolved`. This covers both the person-lookup
-// query (.limit) and the multi-row queries (.orderBy).
+describe('GET /api/results/:slug/admin', () => {
+  it('returns 401 without a session', async () => {
+    mockGetSession.mockResolvedValue(null);
+    const app = createApp();
+    const res = await app.request(`/api/results/${SLUG}/admin`);
+    expect(res.status).toBe(401);
+    expect(mockGetAdminResultPreview).not.toHaveBeenCalled();
+  });
+
+  it('returns 200 with the result payload for an unpublished attempt (bypasses the published filter)', async () => {
+    mockGetAdminResultPreview.mockResolvedValue(RESULT);
+    const app = createApp();
+    const res = await app.request(`/api/results/${SLUG}/admin`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    const body = (await res.json()) as { data: StudentResult };
+    expect(body.data.slug).toBe(SLUG);
+    expect(mockGetAdminResultPreview).toHaveBeenCalledWith({}, SLUG);
+  });
+
+  it('returns 404 STUDENT_NOT_FOUND for an unknown slug', async () => {
+    mockGetAdminResultPreview.mockResolvedValue(null);
+    const app = createApp();
+    const res = await app.request('/api/results/deadbeefdeadbeefdeadbeefdeadbeef/admin');
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('STUDENT_NOT_FOUND');
+  });
+
+  it('returns 400 VALIDATION_ERROR for an illegal slug', async () => {
+    const app = createApp();
+    const res = await app.request('/api/results/not%2Fa%2Fslug/admin');
+    expect(res.status).toBe(400);
+    expect(mockGetAdminResultPreview).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Service unit tests — cache-aside logic (keyed by slug)
+// ---------------------------------------------------------------------------
+
+// makeChain produces a mock query builder whose terminal call (.limit) resolves
+// to `resolved`.
 function makeChain(resolved: unknown[]) {
   const q: Record<string, unknown> = {
     from: vi.fn(() => q),
     innerJoin: vi.fn(() => q),
     where: vi.fn(() => q),
     limit: vi.fn().mockResolvedValue(resolved),
-    orderBy: vi.fn().mockResolvedValue(resolved),
-    then: (onfulfilled: (v: unknown[]) => unknown) =>
-      Promise.resolve(resolved).then(onfulfilled),
-    catch: (onrejected: (e: Error) => unknown) =>
-      Promise.resolve(resolved).catch(onrejected),
-    finally: (onfinally?: () => void) =>
-      Promise.resolve(resolved).finally(onfinally),
   };
   return q;
 }
 
 describe('getStudentPage service — cache-aside', () => {
-  it('serves from Redis cache without hitting the DB', async () => {
+  it('serves from Redis cache (keyed by slug) without hitting the DB', async () => {
     const { getStudentPage: realFn } =
       await vi.importActual<typeof import('../services/studentPage.js')>(
         '../services/studentPage.js',
       );
 
     const mockRedis = {
-      get: vi.fn().mockResolvedValue(JSON.stringify(PERSON_SINGLE)),
+      get: vi.fn().mockResolvedValue(JSON.stringify(RESULT)),
       set: vi.fn(),
     };
     const mockDb = { select: vi.fn() };
 
-    const result = await realFn(mockDb as never, mockRedis as never, PID_SINGLE);
+    const result = await realFn(mockDb as never, mockRedis as never, SLUG);
 
-    expect(result).toEqual(PERSON_SINGLE);
-    expect(mockRedis.get).toHaveBeenCalledWith(`student:${PID_SINGLE}`);
+    expect(result).toEqual(RESULT);
+    expect(mockRedis.get).toHaveBeenCalledWith(`result:${SLUG}`);
     expect(mockDb.select).not.toHaveBeenCalled();
   });
 
-  it('returns null and skips cache write when publicId does not resolve to any person', async () => {
+  it('returns null and skips cache write when no published attempt matches the slug', async () => {
     const { getStudentPage: realFn } =
       await vi.importActual<typeof import('../services/studentPage.js')>(
         '../services/studentPage.js',
       );
 
     const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
-    // Person lookup returns empty — unknown publicId.
     const mockDb = { select: vi.fn().mockReturnValue(makeChain([])) };
 
-    const result = await realFn(mockDb as never, mockRedis as never, 'unknownpublicid00');
+    const result = await realFn(mockDb as never, mockRedis as never, 'unknownslug00000000000000000000');
 
     expect(result).toBeNull();
     expect(mockRedis.set).not.toHaveBeenCalled();
   });
 
-  it('returns null and skips cache write when person has no attempt links', async () => {
-    const { getStudentPage: realFn } =
-      await vi.importActual<typeof import('../services/studentPage.js')>(
-        '../services/studentPage.js',
-      );
-
-    const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
-
-    let callCount = 0;
-    const selectMock = vi.fn().mockImplementation(() => {
-      callCount++;
-      // Call 1: person lookup → found (id 42)
-      // Call 2: allLinks → empty (no links)
-      return makeChain(callCount === 1 ? [{ id: 42 }] : []);
-    });
-    const mockDb = { select: selectMock };
-
-    const result = await realFn(mockDb as never, mockRedis as never, 'nolinkspublicid00');
-
-    expect(result).toBeNull();
-    expect(mockRedis.set).not.toHaveBeenCalled();
-  });
-
-  it('returns null and skips cache write when all attempts are unpublished', async () => {
-    const { getStudentPage: realFn } =
-      await vi.importActual<typeof import('../services/studentPage.js')>(
-        '../services/studentPage.js',
-      );
-
-    const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
-
-    let callCount = 0;
-    const selectMock = vi.fn().mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) return makeChain([{ id: 42 }]);          // person lookup
-      if (callCount === 2) return makeChain([{ attemptId: 5 }]);    // allLinks
-      return makeChain([]);                                           // rawAttempts (unpublished filtered)
-    });
-    const mockDb = { select: selectMock };
-
-    const result = await realFn(mockDb as never, mockRedis as never, 'unpublishedpid00');
-
-    expect(result).toBeNull();
-    expect(mockRedis.set).not.toHaveBeenCalled();
-  });
-
-  it('writes to cache on DB hit and returns full payload', async () => {
+  it('writes to cache on DB hit and returns the full payload including the slug', async () => {
     const { getStudentPage: realFn } =
       await vi.importActual<typeof import('../services/studentPage.js')>(
         '../services/studentPage.js',
       );
 
     const mockRedis = { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue('OK') };
+    const mockDb = { select: vi.fn().mockReturnValue(makeChain([RESULT])) };
 
-    const dbAttemptRow = {
-      examYear: 2023,
-      examNo: '00101',
-      serie: 'SN',
-      moyenne: '14.50',
-      decision: 'Admis',
-      decisionRaw: 'Admis',
-      school: null,
-      wilaya: null,
-      nameFr: 'Ahmed',
-      nameAr: null,
-      birthDate: null,
-      birthPlace: null,
-    };
+    const result = await realFn(mockDb as never, mockRedis as never, SLUG);
 
-    let callCount = 0;
-    const selectMock = vi.fn().mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) return makeChain([{ id: 7 }]);           // person lookup
-      if (callCount === 2) return makeChain([{ attemptId: 7 }]);    // allLinks
-      if (callCount === 3) return makeChain([dbAttemptRow]);         // rawAttempts (published)
-      return makeChain([]);                                           // dir1, dir2: no suggestions
-    });
-    const mockDb = { select: selectMock };
-
-    const result = await realFn(mockDb as never, mockRedis as never, PID_SINGLE);
-
-    expect(result).not.toBeNull();
-    expect(result!.personId).toBe(PID_SINGLE);
-    expect(result!.attempts).toHaveLength(1);
-    expect(result!.attempts[0]!.decision).toBe('Admis');
-    expect(result!.seeAlso).toHaveLength(0);
+    assertFound(result);
+    expect(result.slug).toBe(SLUG);
+    expect(result.examNo).toBe('00101');
     expect(mockRedis.set).toHaveBeenCalledWith(
-      `student:${PID_SINGLE}`,
+      `result:${SLUG}`,
       expect.any(String),
       'EX',
       3600,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAdminResultPreview service — no published filter, no cache
+// ---------------------------------------------------------------------------
+
+describe('getAdminResultPreview service', () => {
+  it('returns an attempt even when its import is unpublished (no published filter in the query)', async () => {
+    const { getAdminResultPreview: realFn } =
+      await vi.importActual<typeof import('../services/studentPage.js')>(
+        '../services/studentPage.js',
+      );
+
+    const mockDb = { select: vi.fn().mockReturnValue(makeChain([RESULT])) };
+
+    const result = await realFn(mockDb as never, SLUG);
+
+    expect(result).toEqual(RESULT);
+  });
+
+  it('returns null for an unknown slug', async () => {
+    const { getAdminResultPreview: realFn } =
+      await vi.importActual<typeof import('../services/studentPage.js')>(
+        '../services/studentPage.js',
+      );
+
+    const mockDb = { select: vi.fn().mockReturnValue(makeChain([])) };
+
+    const result = await realFn(mockDb as never, 'unknownslug00000000000000000000');
+
+    expect(result).toBeNull();
   });
 });

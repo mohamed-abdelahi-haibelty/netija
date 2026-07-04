@@ -1,5 +1,6 @@
 export interface ExamSearchResult {
-  personId: string;
+  // Public URL handle for the matched result page.
+  slug: string;
   nameFr: string | null;
   nameAr: string | null;
   examNo: string;

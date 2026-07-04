@@ -1,23 +1,28 @@
 # 017 — Cleaning & Normalization Module
 
 **Depends on:** 016
-**Context:** architecture.md (decision enum, date rules, match_key), testing.md (cleaning/identity unit tests).
+**Context:** architecture.md (decision enum), testing.md.
 
 ## Goal
-Turn a raw mapped DataFrame into clean, typed, normalized rows ready for loading — deterministically and without silent drops.
+Turn a raw mapped DataFrame into clean, typed, minimal rows ready to load.
 
 ## Requirements
-- Everything read as text first; conversions are explicit per column.
-- Trimming/whitespace normalization on all text fields; exam numbers and NNI keep leading zeros and are validated as digit strings.
-- Decision normalization to the fixed enum with the raw value preserved; every variant present in the fixtures maps correctly; unknown variants are flagged (row keeps the raw value with a warning recorded) — never silently passed or dropped.
-- Date parsing driven by the per-import format configuration (day-first, month-first, month-name); unparseable or unconfigured-ambiguous dates yield a null plus a recorded reason, never a guess.
+- Read everything as text first; convert deliberately.
+- Trim/normalize text fields; exam_no keeps leading zeros and is validated as a
+  digit string (sane length bound, not hardcoded to 5).
+- Decision normalization to the fixed enum with decision_raw preserved; every
+  observed variant maps; unknown variants flagged, never silently passed.
 - Moyenne coerced to numeric (out of 20); impossible values flagged.
-- Name normalization and match_key computation exactly per architecture.md, applied only when name + birth date + birth place are all present; Arabic names pass through normalization consistently.
-- Row classification: importable (has year, exam number, ≥1 name) vs rejected-with-reason; counts of both are part of the module's output.
+- NO match_key computation. NO birth_date / birth_place parsing (those fields
+  are not stored). If present in the file, they are dropped, not processed.
+- Row classification: importable (has exam_year, exam_no, >=1 name, serie,
+  decision) vs rejected-with-reason; counts of both in the output.
 
 ## Out of scope
-- Database writes (020), linking (021).
+- Database writes (020), any identity/linking (removed from the project).
 
 ## Done when
-- [ ] Unit tests cover every decision variant, all three date styles, leading-zero preservation, match_key presence/absence rules, and the importable-vs-rejected split with reasons.
-- [ ] Running the module twice on the same fixture yields identical output (determinism).
+- [ ] Unit tests cover every decision variant, leading-zero preservation, the
+      importable-vs-rejected split with reasons, and that birth/nni data is
+      dropped if present.
+- [ ] Running twice on the same fixture yields identical output (determinism).

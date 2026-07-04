@@ -10,7 +10,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const rawParams = useParams();
-  const lang = (rawParams?.lang as string) ?? 'fr';
+  const lang = rawParams.lang as string;
 
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -19,7 +19,7 @@ export default function AdminLoginPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const email = emailRef.current?.value.trim() ?? '';
     const password = passwordRef.current?.value ?? '';
@@ -43,7 +43,9 @@ export default function AdminLoginPage() {
         return;
       }
 
-      const body = await res.json().catch(() => null);
+      const body = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
       if (res.status === 401 || res.status === 400) {
         setError(t('admin.login.errorInvalid'));
       } else if (body?.error?.message) {
@@ -61,16 +63,14 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-sm">
-
         {/* ── Card ── */}
-        <div className="bg-card rounded-xl shadow-level-1 px-8 py-9">
-
+        <div className="rounded-lg border border-border px-8 py-9">
           {/* ── Header ── */}
-          <header className="mb-7 text-center">
-            <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-2">
+          <header className="mb-7">
+            <p className="text-sm font-semibold text-foreground mb-0.5">
               Netija
             </p>
-            <h1 className="text-xl font-semibold text-foreground">
+            <h1 className="text-sm text-muted-foreground">
               {t('admin.login.subtitle')}
             </h1>
           </header>
@@ -86,7 +86,13 @@ export default function AdminLoginPage() {
           )}
 
           {/* ── Form ── */}
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(e);
+            }}
+            noValidate
+            className="space-y-4"
+          >
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
@@ -137,7 +143,9 @@ export default function AdminLoginPage() {
                 <button
                   type="button"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((v) => !v)}
+                  onClick={() => {
+                    setShowPassword((v) => !v);
+                  }}
                   className="absolute inset-e-0 inset-y-0 px-3 text-muted-foreground hover:text-foreground transition-colors duration-150"
                 >
                   {showPassword ? (
@@ -153,7 +161,7 @@ export default function AdminLoginPage() {
               type="submit"
               disabled={submitting}
               className={cn(
-                'w-full h-10 rounded-full bg-primary text-primary-foreground text-sm font-medium',
+                'w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-medium',
                 'transition-colors duration-150',
                 'hover:bg-primary/85 active:bg-primary/70',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -161,8 +169,12 @@ export default function AdminLoginPage() {
                 'flex items-center justify-center gap-2 mt-2',
               )}
             >
-              {submitting && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              {submitting ? t('admin.login.submitting') : t('admin.login.submit')}
+              {submitting && (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              )}
+              {submitting
+                ? t('admin.login.submitting')
+                : t('admin.login.submit')}
             </button>
           </form>
         </div>

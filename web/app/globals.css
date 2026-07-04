@@ -4,12 +4,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * --font-sans and --font-heading live in a plain (non-inline) @theme block on purpose:
+ * @theme inline bakes each variable's declared value directly into the utilities it
+ * generates, which would permanently erase the [dir="ltr"] override further down this
+ * file the moment Tailwind compiles it. A plain @theme block keeps the var(--font-sans)/
+ * var(--font-heading) indirection so the per-locale override still works at runtime.
+ */
+@theme {
+  --font-sans: var(--font-thmanyah-sans);
+  --font-heading: var(--font-thmanyah-serif-display);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-thmanyah-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-thmanyah-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -68,10 +78,10 @@
   /* Layout — nav bar height (h-14.25 = 3.5625rem = 57px including border) */
   --nav-height: 3.5625rem;
 
-  /* Surface — warm paper canvas (canvas-soft) as page bg; pure white for cards */
+  /* Surface — one flat warm-paper canvas everywhere; no white card lift */
   --background:         oklch(0.975 0.003 80);   /* #f6f5f4 warm paper */
-  --card:               oklch(1 0 0);             /* #ffffff pure white */
-  --popover:            oklch(1 0 0);
+  --card:               oklch(0.975 0.003 80);
+  --popover:            oklch(0.975 0.003 80);
 
   /* Type */
   --foreground:         oklch(0.13 0.004 80);    /* near-black with slight warmth */
@@ -145,10 +155,10 @@
 }
 
 .dark {
-  /* Surface */
+  /* Surface — one flat dark canvas, mirroring the flat light system */
   --background:         oklch(0.10 0.002 0);
-  --card:               oklch(0.15 0.002 0);
-  --popover:            oklch(0.15 0.002 0);
+  --card:               oklch(0.10 0.002 0);
+  --popover:            oklch(0.10 0.002 0);
 
   /* Type */
   --foreground:         oklch(0.95 0.002 80);
@@ -240,15 +250,6 @@
 
 /* ── Student result page ── */
 
-/* Level-1 barely-there layered shadow (result card) */
-.shadow-level-1 {
-  box-shadow:
-    rgba(0, 0, 0, 0.01)  0   0.175px  1.041px,
-    rgba(0, 0, 0, 0.02)  0   0.8px    2.925px,
-    rgba(0, 0, 0, 0.027) 0   2.025px  7.847px,
-    rgba(0, 0, 0, 0.04)  0   4px     18px;
-}
-
 @keyframes netija-badge-spring {
   from { transform: scale(0.85); opacity: 0; }
   to   { transform: scale(1);    opacity: 1; }
@@ -259,18 +260,15 @@
   to   { opacity: 1; }
 }
 
-@keyframes netija-confetti {
-  from {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: translate(var(--confetti-dx), var(--confetti-dy)) scale(0);
-    opacity: 0;
-  }
+/* Decision tag entrance — spring for Admis, quiet fade otherwise */
+.netija-tag-spring {
+  animation: netija-badge-spring 400ms var(--ease-spring) both;
 }
-
-/* Suppress confetti burst for users who prefer reduced motion */
+.netija-tag-fade {
+  animation: netija-badge-fade 200ms ease-out both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .netija-confetti { display: none; }
+  .netija-tag-spring {
+    animation: netija-badge-fade 200ms linear both;
+  }
 }

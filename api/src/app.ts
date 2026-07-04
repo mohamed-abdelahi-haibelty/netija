@@ -8,7 +8,8 @@ import { requestLogger } from './middleware/requestLogger.js';
 import { auth } from './lib/auth.js';
 import healthRouter from './routes/health.js';
 import searchRouter from './routes/search.js';
-import studentsRouter from './routes/students.js';
+import resultsRouter from './routes/results.js';
+import importsRouter from './routes/imports.js';
 
 const STATUS_TO_CODE: Partial<Record<number, string>> = {
   400: 'VALIDATION_ERROR',
@@ -53,7 +54,8 @@ export function createApp() {
 
   app.route('/health', healthRouter);
   app.route('/api/search', searchRouter);
-  app.route('/api/students', studentsRouter);
+  app.route('/api/results', resultsRouter);
+  app.route('/api/imports', importsRouter);
 
   app.onError((err, c) => {
     const rid = c.get('requestId');
@@ -62,8 +64,8 @@ export function createApp() {
         err.cause !== null &&
         typeof err.cause === 'object' &&
         'code' in err.cause &&
-        typeof (err.cause as { code: unknown }).code === 'string'
-          ? (err.cause as { code: string }).code
+        typeof err.cause.code === 'string'
+          ? err.cause.code
           : undefined;
       const code = causeCode ?? STATUS_TO_CODE[err.status] ?? 'INTERNAL';
       return c.json({ error: { code, message: err.message } }, err.status);

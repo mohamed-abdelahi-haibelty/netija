@@ -3,10 +3,10 @@
 import { useState, useRef, useEffect, useId, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { ClearButton } from '@/components/ClearButton';
 import type { NameSearchSuggestion } from 'shared';
 
 interface Props {
@@ -42,7 +42,7 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
       }
     }
     document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
+    return () => { document.removeEventListener('pointerdown', onPointerDown); };
   }, [close]);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
       );
       if (id !== requestIdRef.current) return;
 
-      const hits = (data.suggestions ?? []).slice(0, 10);
+      const hits = data.suggestions.slice(0, 10);
       setSuggestions(hits);
       setActiveIndex(-1);
       setStatus('done');
@@ -106,7 +106,7 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
 
     setStatus('loading');
     setOpen(true);
-    debounceRef.current = setTimeout(() => fetchSuggestions(val.trim()), 300);
+    debounceRef.current = setTimeout(() => { void fetchSuggestions(val.trim()); }, 300);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -150,7 +150,7 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
 
   const select = useCallback((s: NameSearchSuggestion) => {
     close();
-    router.push(`/${lang}/students/${s.personId}`);
+    router.push(`/${lang}/results/${s.slug}`);
   }, [close, lang, router]);
 
   const displayName = (s: NameSearchSuggestion) =>
@@ -163,16 +163,18 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
     if (parts.length === 1) return text;
     return parts.map((part, i) =>
       i % 2 === 1
-        ? <mark key={i} className="bg-transparent font-semibold text-accent p-0">{part}</mark>
+        ? <mark key={i} className="bg-transparent font-semibold text-foreground p-0">{part}</mark>
         : part,
     );
   }
 
-  const activeOptionId = activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined;
+  const activeOptionId = activeIndex >= 0 ? `${listboxId}-opt-${String(activeIndex)}` : undefined;
 
   return (
     <div ref={wrapperRef} className="flex flex-col gap-1.5">
-      <Label htmlFor="name-search">{t('home.nameSearchInputLabel')}</Label>
+      <Label htmlFor="name-search" className="text-sm font-normal text-muted-foreground">
+        {t('home.nameSearchInputLabel')}
+      </Label>
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {liveMessage}
@@ -196,23 +198,17 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={t('home.nameSearchPlaceholder')}
-          className="h-12 text-base bg-card pe-10"
+          className="h-12 rounded-md bg-transparent text-base pe-12"
         />
 
-        <button
-          type="button"
-          aria-label={t('home.inputClear')}
-          aria-hidden={query ? undefined : 'true'}
-          tabIndex={query ? 0 : -1}
-          onPointerDown={(e) => e.preventDefault()}
+        <ClearButton
+          label={t('home.inputClear')}
+          visible={!!query}
           onClick={handleClear}
-          className={`absolute end-1 top-1/2 -translate-y-1/2 p-2 rounded-sm text-muted-foreground hover:text-foreground active:opacity-60 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${query ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-        >
-          <X className="size-4" aria-hidden="true" />
-        </button>
+        />
 
         {open && (
-          <div className="absolute inset-x-0 top-full mt-1 z-50 rounded-lg border border-border shadow-md bg-card overflow-hidden animate-in fade-in-0 slide-in-from-top-1 duration-150">
+          <div className="absolute inset-x-0 top-full mt-1 z-50 rounded-md border border-border shadow-md bg-background overflow-hidden animate-in fade-in-0 slide-in-from-top-1 duration-150">
             <div
               id={listboxId}
               role="listbox"
@@ -228,8 +224,8 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
                   </p>
                   <button
                     type="button"
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => { setStatus('loading'); fetchSuggestions(query.trim()); }}
+                    onPointerDown={(e) => { e.preventDefault(); }}
+                    onClick={() => { setStatus('loading'); void fetchSuggestions(query.trim()); }}
                     className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                   >
                     {t('common.retry')}
@@ -246,7 +242,7 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
                   {onSwitchToExam && (
                     <button
                       type="button"
-                      onPointerDown={(e) => e.preventDefault()}
+                      onPointerDown={(e) => { e.preventDefault(); }}
                       onClick={onSwitchToExam}
                       className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                     >
@@ -257,18 +253,17 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
               ) : (
                 suggestions.map((s, i) => (
                   <div
-                    key={s.personId}
-                    id={`${listboxId}-opt-${i}`}
+                    key={`${String(s.examYear)}-${s.examNo}`}
+                    id={`${listboxId}-opt-${String(i)}`}
                     role="option"
                     aria-selected={i === activeIndex}
                     onPointerDown={(e) => {
                       e.preventDefault();
                       select(s);
                     }}
-                    onMouseEnter={() => setActiveIndex(i)}
+                    onMouseEnter={() => { setActiveIndex(i); }}
                     className={[
                       'flex flex-col gap-0.5 px-4 py-3 cursor-pointer select-none',
-                      'border-b border-border last:border-b-0',
                       'transition-colors active:bg-muted',
                       i === activeIndex ? 'bg-muted' : 'hover:bg-muted/60',
                     ].join(' ')}
@@ -280,27 +275,18 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
                       {highlightText(displayName(s), query)}
                     </span>
                     <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground" dir="ltr">
-                      {(s.birthPlace ?? '') && (
-                        <span className="break-words">
-                          <span className="font-medium">{t('home.nameSearchMetaWilaya')}</span>
-                          {': '}
-                          {s.birthPlace}
-                        </span>
-                      )}
-                      {(s.serie ?? '') && (
+                      {s.serie && (
                         <span>
                           <span className="font-medium shrink-0">{t('home.nameSearchMetaSerie')}</span>
                           {': '}
                           <span className="break-words">{s.serie}</span>
                         </span>
                       )}
-                      {s.latestYear != null && (
-                        <span>
-                          <span className="font-medium">{t('home.nameSearchMetaYear')}</span>
-                          {': '}
-                          {s.latestYear}
-                        </span>
-                      )}
+                      <span>
+                        <span className="font-medium">{t('home.nameSearchMetaYear')}</span>
+                        {': '}
+                        {s.examYear}
+                      </span>
                     </span>
                   </div>
                 ))
@@ -317,10 +303,10 @@ function SkeletonRows() {
   return (
     <>
       {[72, 56, 64].map((w, i) => (
-        <div key={i} className="px-4 py-3 border-b border-border last:border-b-0">
+        <div key={i} className="px-4 py-3">
           <div
             className="h-3.5 rounded-sm bg-muted animate-pulse mb-1.5"
-            style={{ width: `${w}%` }}
+            style={{ width: `${String(w)}%` }}
           />
           <div className="h-3 rounded-sm bg-muted/60 animate-pulse" style={{ width: '40%' }} />
         </div>

@@ -1,20 +1,30 @@
-# 009 — Meilisearch Indexing & Name Search API
+# 009 — Name Search API (grouped by year)
 
 **Depends on:** 007
-**Context:** architecture.md (Meilisearch as derived index, disambiguators), project-overview.md (autocomplete behavior).
+**Context:** architecture.md (Meilisearch as derived index), project-overview.md (name search behavior).
 
 ## Goal
-Typo-tolerant name autocomplete: the index builder and the public search endpoint.
+Global, typo-tolerant name search where each matching ATTEMPT appears as its own
+year-labeled suggestion — no identity linking, no merged persons.
 
 ## Requirements
-- Index builder: indexes persons having at least one published attempt, as documents carrying person id, both names, and the disambiguators (latest year, serie, birth place when present). Searchable on both names; full rebuild command exists; the post-import/publish contract is a rebuild or batched sync.
-- Search endpoint: query of at least 2 characters (validated), returns at most 10 persons sorted most-recent-first, supporting French and Arabic input.
-- Responses carry the disambiguators so the UI can render distinguishable suggestions.
+- Index builder: index one document PER PUBLISHED ATTEMPT (not per person),
+  each carrying attempt id / (exam_year, exam_no), name, exam_year, serie.
+  Rebuildable from Postgres; only published years indexed.
+- Search endpoint: query >= 2 chars, typo-tolerant, French and Arabic input,
+  returns up to ~10 matching attempts.
+- Ordering: results for the same/similar name are returned newest year first,
+  so a name that appears in 2025, 2024, 2023 shows those as three separate
+  rows, latest at top. Each row carries year + serie so the user can pick.
+- No claim that same-name rows are the same person — they are independent
+  results that happen to share a name.
 
 ## Out of scope
-- Frontend combobox (011); reindex triggering from the pipeline (019/022 wire it).
+- The autocomplete UI (011); reindex triggering from the pipeline (022 wires it).
 
 ## Done when
-- [ ] Index-builder test: seeded data produces the expected documents (unpublished-only persons excluded).
-- [ ] Endpoint tests (Meili client mocked): validation, limit of 10, response shape with disambiguators.
-- [ ] Manual check against the real local Meilisearch: an Arabic query and a typo'd French query both return the seeded person.
+- [ ] Index builder test: a name appearing in 3 years produces 3 documents.
+- [ ] Endpoint tests (Meili mocked): validation, limit, newest-first ordering,
+      each row carries year + serie.
+- [ ] Manual check on real local Meilisearch: an Arabic query and a typo'd
+      French query both return the expected attempts.

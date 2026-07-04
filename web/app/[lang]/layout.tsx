@@ -45,7 +45,7 @@ export default async function LocaleLayout({
     >
       <body className="min-h-screen flex flex-col antialiased">
         <I18nProvider locale={lang}>
-          <header className="border-b px-4 h-(--nav-height) flex items-center justify-between">
+          <header className="px-4 h-(--nav-height) flex items-center justify-between">
             <Link
               href={`/${lang}`}
               className="text-sm font-semibold text-foreground hover:text-muted-foreground transition-colors duration-150"

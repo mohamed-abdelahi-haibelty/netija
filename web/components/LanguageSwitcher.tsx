@@ -18,9 +18,10 @@ export function LanguageSwitcher({ currentLocale }: Props) {
   );
 
   const label = otherLocale === 'ar' ? 'العربية' : 'Français';
+  const switcherLabel = currentLocale === 'ar' ? 'تبديل اللغة' : 'Changer de langue';
 
   return (
-    <nav aria-label="Language switcher">
+    <nav aria-label={switcherLabel}>
       <Link
         href={newPath}
         hrefLang={otherLocale}
