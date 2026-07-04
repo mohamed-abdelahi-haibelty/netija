@@ -22,7 +22,7 @@ export default async function AdminShellLayout({
       headers: { cookie: reqHeaders.get('cookie') ?? '' },
       cache: 'no-store',
     });
-    const sessionData = await sessionRes.json().catch(() => null);
+    const sessionData = (await sessionRes.json().catch(() => null)) as { user?: unknown } | null;
     if (!sessionData?.user) {
       redirect(`/admin/${lang}/login`);
     }

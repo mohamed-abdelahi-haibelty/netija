@@ -64,8 +64,8 @@ export function createApp() {
         err.cause !== null &&
         typeof err.cause === 'object' &&
         'code' in err.cause &&
-        typeof (err.cause as { code: unknown }).code === 'string'
-          ? (err.cause as { code: string }).code
+        typeof err.cause.code === 'string'
+          ? err.cause.code
           : undefined;
       const code = causeCode ?? STATUS_TO_CODE[err.status] ?? 'INTERNAL';
       return c.json({ error: { code, message: err.message } }, err.status);
