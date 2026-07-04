@@ -157,6 +157,24 @@
       "unsupportedFileType": "This file could not be read. Make sure it is a valid, uncorrupted .xlsx or .xls file, then re-upload it.",
       "notFound": "This import could not be found.",
       "confirmError": "Something went wrong confirming this import. Please try again."
+    },
+    "publish": {
+      "pageTitle": "Publish",
+      "subtitle": "Review the smoke check result, then publish or unpublish this year.",
+      "refresh": "Refresh",
+      "loading": "Loading the import status…",
+      "loadError": "Could not load the import status. Please try again.",
+      "notFound": "This import could not be found.",
+      "statusPending": "Pending",
+      "statusProcessing": "Processing",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "failureReasonLabel": "Failure reason",
+      "publishButton": "Publish",
+      "unpublishButton": "Unpublish",
+      "smokeBlockedNote": "Publishing is blocked until the smoke check passes.",
+      "publishError": "Something went wrong publishing this year. Please try again.",
+      "unpublishError": "Something went wrong unpublishing this year. Please try again."
     }
   }
 }

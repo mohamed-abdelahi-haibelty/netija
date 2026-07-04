@@ -470,9 +470,24 @@ Update this file after every meaningful implementation change.
     db/meili/redis chains proving the atomic conditional flip, cache
     pipeline keys, and reindex), `cloudflare.test.ts` (3: no-op when
     unconfigured, purges when configured, throws on a non-OK response).
-  - **Deliberately out of scope (per task spec)**: rate limiting (025); the
-    admin publish/unpublish UI page and wiring it from the imports LIST
-    page (both separate commits below — one web, one 024).
+  - **Admin UI**: new page `imports/[importId]/page.tsx` — fetches `GET
+    /api/imports/:id/status` once (loading/notFound/error states matching
+    the mapping page's pattern, plus a manual refresh button since live
+    polling while processing is task 024's job, not this one's), renders
+    year/status/progress/summary/smoke/published via the shared
+    `PropertyRow` component, and shows Publish (disabled with an inline
+    note until `smokePassed === true`) or Unpublish (once published) — one
+    reversible click, no confirmation dialog. **Deliberately not wired from
+    the imports LIST page**: that page still renders `MOCK_IMPORTS` and
+    task 024 explicitly owns linking to this page from there.
+  - **Tests** (`imports/[importId]/__tests__/page.test.tsx`, 7 new): loaded
+    state, axe-clean, not-found, publish enabled/disabled on smoke result,
+    unpublish shown once published, no controls before completion.
+  - i18n: new `admin.publish` block (pageTitle, statuses, publish/unpublish
+    buttons, smoke-blocked note, error copy). FR/AR parity preserved.
+  - **Deliberately out of scope (per task spec)**: rate limiting (025);
+    wiring the imports LIST page off `MOCK_IMPORTS` and linking to this
+    page from there (024).
 
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
