@@ -85,3 +85,23 @@ export interface ImportPublishResult {
 export interface ImportPublishResponse {
   data: ImportPublishResult;
 }
+
+// One row per uploaded file for the admin imports dashboard (task 024) —
+// the same lifecycle fields as ImportStatusResult, plus the identity and
+// upload metadata a list view (rather than a single-import lookup) needs.
+export interface ImportListItem {
+  id: number;
+  originalFilename: string;
+  examYear: number | null;
+  status: ImportStatus;
+  progress: number | null;
+  summary: ImportSummary | null;
+  smokePassed: boolean | null;
+  published: boolean;
+  failureReason: string | null;
+  createdAt: string;
+}
+
+export interface ImportListResponse {
+  data: ImportListItem[];
+}

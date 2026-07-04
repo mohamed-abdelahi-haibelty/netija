@@ -489,6 +489,22 @@ Update this file after every meaningful implementation change.
     wiring the imports LIST page off `MOCK_IMPORTS` and linking to this
     page from there (024).
 
+- **Task 024 (api side) — Imports Dashboard Listing Endpoint**
+  - `GET /api/imports` (session-protected, added to the existing `imports`
+    router as the final route — the admin's single view of every uploaded
+    file). `api/src/services/importList.ts`: `listImports(db)` selects
+    every `imports` row ordered newest-created-first and maps it to the
+    same lifecycle shape `getImportStatus` already exposes per-import
+    (`status`, `progress`, `summary`, `smokePassed`, `published`,
+    `failureReason`), plus `id`/`originalFilename`/`createdAt` for the list
+    view. `shared/src/imports.ts`: `ImportListItem`/`ImportListResponse` —
+    the last addition to this file, which now carries every task's
+    upload/preview/confirm/status/publish/list types in one place.
+  - **Tests** (5 new, api total 165/165): 401 without a session, empty
+    array, full-lifecycle shape via the mocked service, and a service-level
+    test against a fake `select().from().orderBy()` chain proving the row
+    mapping and that ordering is actually requested.
+
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
   - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.

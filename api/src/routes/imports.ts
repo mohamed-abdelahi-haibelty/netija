@@ -14,6 +14,7 @@ import {
 import { previewImport, UnsupportedFileTypeError } from '../services/preview.js';
 import { confirmImport, MissingRequiredColumnsError } from '../services/confirm.js';
 import { getImportStatus } from '../services/importStatus.js';
+import { listImports } from '../services/importList.js';
 import { getRejectReport, toRejectReportCsv } from '../services/rejects.js';
 import { publishImport, unpublishImport, SmokeNotPassedError } from '../services/publish.js';
 import { importQueue } from '../lib/queue.js';
@@ -30,6 +31,11 @@ const UPLOADS_DIR = process.env['UPLOADS_DIR'] ?? resolve(process.cwd(), '../upl
 const imports = new Hono<AppEnv>();
 
 imports.use('*', requireSession);
+
+imports.get('/', async (c) => {
+  const rows = await listImports(db);
+  return c.json({ data: rows }, 200);
+});
 
 imports.post('/', async (c) => {
   const body = await c.req.parseBody({ all: true });
