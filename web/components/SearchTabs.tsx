@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ApiClientError, apiRequest } from '@/lib/api';
+import { ApiClientError, apiRequest, DEFAULT_RATE_LIMIT_RETRY_SECONDS } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/NameAutocomplete';
 import { ClearButton } from '@/components/ClearButton';
@@ -38,11 +38,25 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [rateLimitedFor, setRateLimitedFor] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  // Ticks the rate-limit countdown down to zero, one second at a time.
+  useEffect(() => {
+    if (rateLimitedFor === null) return;
+    if (rateLimitedFor <= 0) {
+      setRateLimitedFor(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setRateLimitedFor((seconds) => (seconds === null ? null : seconds - 1));
+    }, 1000);
+    return () => { clearTimeout(timer); };
+  }, [rateLimitedFor]);
 
   function handleTabChange(value: string) {
     setActiveTab(value as TabId);
@@ -87,6 +101,8 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       if (err instanceof ApiClientError && err.code === 'STUDENT_NOT_FOUND') {
         setNotFound(Number(year));
+      } else if (err instanceof ApiClientError && err.code === 'RATE_LIMITED') {
+        setRateLimitedFor(err.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_RETRY_SECONDS);
       } else if (err instanceof TypeError) {
         setFieldError(t('home.errorNetwork'));
       } else if (err instanceof ApiClientError) {
@@ -207,7 +223,9 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
           <Button
             type={loading ? 'button' : 'submit'}
             onClick={loading ? handleCancel : undefined}
-            disabled={loading ? false : years.length === 0}
+            disabled={
+              loading ? false : years.length === 0 || (rateLimitedFor !== null && rateLimitedFor > 0)
+            }
             className="w-full h-12 text-base rounded-md"
           >
             <span className="inline-flex items-center gap-2">
@@ -215,6 +233,13 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
               {loading ? t('home.cancel') : t('home.submit')}
             </span>
           </Button>
+
+          {rateLimitedFor !== null && (
+            <p role="alert" className="text-sm text-destructive break-words">
+              {t('home.rateLimited')}
+              {rateLimitedFor > 0 && ` — ${t('home.rateLimitedRetry', { seconds: rateLimitedFor })}`}
+            </p>
+          )}
 
           <button
             type="button"

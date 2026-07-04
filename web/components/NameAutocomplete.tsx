@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { ApiClientError, apiRequest } from '@/lib/api';
+import { ApiClientError, apiRequest, DEFAULT_RATE_LIMIT_RETRY_SECONDS } from '@/lib/api';
 import { ClearButton } from '@/components/ClearButton';
 import type { NameSearchSuggestion } from 'shared';
 
@@ -29,11 +29,25 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [liveMessage, setLiveMessage] = useState('');
+  const [rateLimitedFor, setRateLimitedFor] = useState<number | null>(null);
 
   const close = useCallback(() => {
     setOpen(false);
     setActiveIndex(-1);
   }, []);
+
+  // Ticks the rate-limit countdown down to zero, one second at a time.
+  useEffect(() => {
+    if (rateLimitedFor === null) return;
+    if (rateLimitedFor <= 0) {
+      setRateLimitedFor(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setRateLimitedFor((seconds) => (seconds === null ? null : seconds - 1));
+    }, 1000);
+    return () => { clearTimeout(timer); };
+  }, [rateLimitedFor]);
 
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
@@ -53,6 +67,10 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
   }, []);
 
   async function fetchSuggestions(q: string) {
+    // Skip firing another request while cooling down — avoids re-triggering
+    // the same limit on every remaining debounced keystroke.
+    if (rateLimitedFor !== null && rateLimitedFor > 0) return;
+
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -80,7 +98,10 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
       if (id !== requestIdRef.current) return;
       setStatus('error');
       setSuggestions([]);
-      if (err instanceof ApiClientError) {
+      if (err instanceof ApiClientError && err.code === 'RATE_LIMITED') {
+        setRateLimitedFor(err.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_RETRY_SECONDS);
+        setLiveMessage(t('home.rateLimited'));
+      } else if (err instanceof ApiClientError) {
         setLiveMessage(err.message);
       } else if (err instanceof TypeError) {
         setLiveMessage(t('home.nameSearchErrorNetwork'));
@@ -220,16 +241,22 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
               ) : status === 'error' ? (
                 <div className="px-4 py-4 flex flex-col gap-3 items-center text-center">
                   <p className="text-sm text-muted-foreground">
-                    {t('home.nameSearchErrorNetwork')}
+                    {rateLimitedFor !== null
+                      ? rateLimitedFor > 0
+                        ? t('home.rateLimitedRetry', { seconds: rateLimitedFor })
+                        : t('home.rateLimited')
+                      : t('home.nameSearchErrorNetwork')}
                   </p>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => { e.preventDefault(); }}
-                    onClick={() => { setStatus('loading'); void fetchSuggestions(query.trim()); }}
-                    className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-                  >
-                    {t('common.retry')}
-                  </button>
+                  {!(rateLimitedFor !== null && rateLimitedFor > 0) && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => { e.preventDefault(); }}
+                      onClick={() => { setStatus('loading'); void fetchSuggestions(query.trim()); }}
+                      className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                    >
+                      {t('common.retry')}
+                    </button>
+                  )}
                 </div>
               ) : suggestions.length === 0 ? (
                 <div className="px-4 py-4 flex flex-col gap-2 text-center">
