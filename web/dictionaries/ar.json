@@ -19,9 +19,6 @@
     "searching": "جاري البحث…",
     "notFound": "لم يتم العثور على نتيجة لهذا الرقم في {{year}}",
     "notFoundSuggestion": "تحقق من الرقم أو جرب سنة أخرى",
-    "nameSoonBadge": "قريباً",
-    "nameSoonPlaceholder": "ابحث بالاسم",
-    "nameSoonBody": "هذه الميزة ستكون متاحة قريباً",
     "examHelp": "موجود في استدعائك",
     "cancel": "إلغاء",
     "errorRequired": "يرجى إدخال رقم الامتحان",
@@ -29,6 +26,8 @@
     "errorNetwork": "تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مرة أخرى.",
     "errorGeneric": "واجه الخادم خطأ. يرجى المحاولة مرة أخرى بعد قليل.",
     "noYears": "لا توجد سنوات منشورة حالياً",
+    "yearsError": "تعذر التحقق من السنوات المنشورة. تحقق من اتصالك وحاول مرة أخرى.",
+    "examSwitchToName": "لا تملك رقم الامتحان؟ ابحث بالاسم",
     "nameSearchLabel": "البحث بالاسم",
     "nameSearchInputLabel": "اسم المترشح",
     "nameSearchPlaceholder": "ابحث باسم الطالب...",
@@ -38,10 +37,10 @@
     "nameSearchErrorNetwork": "تعذّر الاتصال. تحقق من اتصالك وحاول مرة أخرى.",
     "nameSearchAnnounceResults": "{{count}} نتيجة",
     "nameSearchMetaSerie": "الشعبة",
-    "nameSearchMetaWilaya": "الولاية",
     "nameSearchMetaYear": "السنة",
     "inputClear": "مسح",
-    "examExample": "مثال: 04938"
+    "examExample": "مثال: 04938",
+    "footerDisclaimer": "نتيجة منصة مستقلة — غير تابعة لأي وزارة أو جهة رسمية."
   },
   "student": {
     "decisionAdmis": "ناجح",
@@ -57,20 +56,16 @@
     "serieColumn": "الشعبة",
     "moyenneColumn": "المعدل",
     "decisionColumn": "النتيجة",
-    "schoolLabel": "المؤسسة",
-    "wilayaLabel": "الولاية",
-    "seeAlsoTitle": "سجلات أخرى بهذا الاسم",
-    "seeAlsoBody": "هذه السجلات تحمل الاسم ذاته. قد تعود إلى نفس المترشح أو إلى مترشحين مختلفين.",
-    "seeAlsoLink": "سجل {{year}}",
-    "seeAlsoShowMore": "+ {{count}} أخرى",
-    "noAttempts": "لا توجد نتائج مسجلة",
+    "decisionLabel": "القرار",
+    "copyLink": "نسخ الرابط",
+    "linkCopied": "تم النسخ ✓",
+    "newSearch": "بحث جديد",
     "backHome": "العودة للبحث"
   },
   "admin": {
     "siteTitle": "نتيجة — الإدارة",
     "nav": {
       "imports": "الاستيرادات",
-      "suggestions": "اقتراحات الدمج",
       "logout": "تسجيل الخروج",
       "backToSite": "العودة للموقع"
     },
@@ -150,22 +145,6 @@
       "confirmBlocked": "أصلح الانتهاكات للمتابعة",
       "yearLabel": "سنة الامتحان",
       "dateFormatLabel": "تنسيق التاريخ"
-    },
-    "suggestions": {
-      "pageTitle": "اقتراحات الدمج",
-      "subtitle": "قبول أو رفض اقتراحات الهوية المولّدة تلقائياً.",
-      "empty": "لا توجد اقتراحات معلقة",
-      "emptyBody": "تمت معالجة جميع الاقتراحات. عد بعد الاستيراد التالي.",
-      "person1": "السجل أ",
-      "person2": "السجل ب",
-      "accept": "قبول",
-      "reject": "رفض",
-      "accepting": "جارٍ الدمج…",
-      "rejecting": "جارٍ الرفض…",
-      "labelYear": "السنة",
-      "labelSerie": "الشعبة",
-      "labelBirth": "تاريخ الميلاد",
-      "labelScore": "المعدل"
     }
   }
 }

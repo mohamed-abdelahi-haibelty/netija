@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createApp } from '../app.js';
 
+function assertFound<T>(value: T | null): asserts value is T {
+  expect(value).not.toBeNull();
+}
+
 // Module-level mocks for route integration tests
 vi.mock('../lib/auth.js', () => ({
   auth: {
@@ -32,7 +36,7 @@ const mockSearchByExamNo = vi.mocked(searchByExamNo);
 const mockGetPublishedYears = vi.mocked(getPublishedYears);
 
 const RESULT_2022: ExamSearchResult = {
-  personId: '1',
+  slug: 'aaaa1111bbbb2222cccc3333dddd4444',
   nameFr: 'Ahmed Ould Mohamed',
   nameAr: 'أحمد ولد محمد',
   examNo: '00123',
@@ -43,7 +47,7 @@ const RESULT_2022: ExamSearchResult = {
 };
 
 const RESULT_2023: ExamSearchResult = {
-  personId: '2',
+  slug: 'eeee5555ffff6666aaaa7777bbbb8888',
   nameFr: 'Fatima Mint Ali',
   nameAr: null,
   examNo: '00123',
@@ -69,7 +73,7 @@ describe('GET /api/search/exam', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: ExamSearchResult };
     expect(body.data).toMatchObject({
-      personId: '1',
+      slug: 'aaaa1111bbbb2222cccc3333dddd4444',
       examNo: '00123',
       examYear: 2022,
       decision: 'Admis',
@@ -130,7 +134,7 @@ describe('GET /api/search/exam', () => {
     expect(body.error.code).toBe('STUDENT_NOT_FOUND');
   });
 
-  it('same exam number in two published years returns two different personIds', async () => {
+  it('same exam number in two published years returns two different results', async () => {
     const app = createApp();
 
     mockSearchByExamNo.mockResolvedValueOnce(RESULT_2022);
@@ -143,9 +147,9 @@ describe('GET /api/search/exam', () => {
 
     expect(res2022.status).toBe(200);
     expect(res2023.status).toBe(200);
-    expect(body2022.data.personId).toBe('1');
-    expect(body2023.data.personId).toBe('2');
-    expect(body2022.data.personId).not.toBe(body2023.data.personId);
+    expect(body2022.data.examYear).toBe(2022);
+    expect(body2023.data.examYear).toBe(2023);
+    expect(body2022.data.nameFr).not.toBe(body2023.data.nameFr);
   });
 });
 
@@ -205,7 +209,7 @@ describe('searchByExamNo service — cache-aside', () => {
     };
 
     const dbRow = {
-      publicId: 'a1b2c3d4e5f6a1b2c3',
+      slug: 'aaaa1111bbbb2222cccc3333dddd4444',
       nameFr: 'Ahmed',
       nameAr: null,
       examNo: '00123',
@@ -227,12 +231,12 @@ describe('searchByExamNo service — cache-aside', () => {
 
     const result = await realFn(mockDb as never, mockRedis as never, '00123', 2022);
 
-    expect(result).not.toBeNull();
-    expect(result!.personId).toBe('a1b2c3d4e5f6a1b2c3');
-    expect(result!.examNo).toBe('00123');
-    expect(result!.decision).toBe('Admis');
-    expect(result!.moyenne).toBe('14.50');
-    expect(result!.serie).toBe('SN');
+    assertFound(result);
+    expect(result.slug).toBe('aaaa1111bbbb2222cccc3333dddd4444');
+    expect(result.examNo).toBe('00123');
+    expect(result.decision).toBe('Admis');
+    expect(result.moyenne).toBe('14.50');
+    expect(result.serie).toBe('SN');
     expect(mockRedis.set).toHaveBeenCalledWith(
       'exam:2022:00123',
       expect.any(String),

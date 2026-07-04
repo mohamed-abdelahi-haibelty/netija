@@ -1,10 +1,13 @@
+// One suggestion per published attempt. A name appearing in several years
+// yields several separate, year-labeled suggestions — never merged.
 export interface NameSearchSuggestion {
-  personId: string;
+  // Public URL handle for this result page.
+  slug: string;
+  examYear: number;
+  examNo: string;
   nameFr: string | null;
   nameAr: string | null;
-  latestYear: number;
   serie: string;
-  birthPlace: string | null;
 }
 
 export interface NameSearchResponse {

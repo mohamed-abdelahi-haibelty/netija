@@ -10,7 +10,7 @@ Mauritanian students and their families, looking up Baccalauréat results in the
 
 ## Product Purpose
 
-Netija is an independent platform for looking up Mauritanian Baccalauréat results — built privately, not affiliated with any government body. A student types their exam number or name and immediately sees their decision, their average, and their full attempt history across years. It exists because the official experience is poor and people deserve something genuinely beautiful and easy to use. Success: finding a result feels effortless, and seeing it feels special. The result page is something people screenshot and share — not because the news is good, but because the page itself is worth looking at.
+Netija is an independent platform for looking up Mauritanian Baccalauréat results — built privately, not affiliated with any government body. A student types their exam number or name and immediately sees their decision and their average. It exists because the official experience is poor and people deserve something genuinely beautiful and easy to use. Success: finding a result feels effortless, and seeing it feels special. The result page is something people screenshot and share — not because the news is good, but because the page itself is worth looking at.
 
 ## Brand Personality
 
@@ -22,6 +22,7 @@ Calm is the baseline — it protects the fail case, which is always possible. Be
 
 - **Government-portal aesthetic**: heavy borders, institutional blues, dated visual vocabulary, dense form layouts
 - **SaaS/startup template**: hero sections, feature cards, gradient CTAs, metric dashboards
+- **Card-and-shadow chrome**: white cards floating on a tinted page, layered drop shadows, pill buttons — decoration standing between the person and the result
 - **Generic shadcn grayscale**: no-chroma tokens, visually indistinct, reads as a skeleton or a dev build
 - **Arabic-as-afterthought**: LTR layouts patched for RTL, Latin fonts stretched over Arabic characters
 - **Clinical / sterile**: technically correct but cold. Results are a human moment, not a database query.
@@ -33,7 +34,8 @@ Calm is the baseline — it protects the fail case, which is always possible. Be
 3. **Emotional intelligence, not emotional neutrality.** Passing the Bac is one of the biggest moments in a young person's life. A pass (Admis) gets a genuine, tasteful celebration — a small animation, a moment of joy. A fail (Ajourné) or resit (Sessionnaire) stays calm, warm, and deeply respectful. The interface knows the difference and responds accordingly. Never festive about a fail.
 4. **Bilingual by design, not by override.** Arabic and French are equal first-class citizens. RTL/LTR are not accessibility modes — they are the two native dialects of the same product.
 5. **Speed as respect.** A fast result is more dignified than a beautiful loader. Performance is part of the experience, not separate from it.
+6. **A document, not an app.** Every page sits flat on one warm paper canvas, structured by typography, whitespace, and hairlines — Notion-calm. No cards, no shadows at rest, no pills, no elevation theater. The result page reads like a well-kept record: name, properties, one big number.
 
 ## Accessibility & Inclusion
 
-WCAG 2.1 AA throughout. Correct RTL rendering for Arabic on all components. `prefers-reduced-motion` honored on all transitions — including the Admis celebration (crossfade only, no motion). Decision badges must not rely on color alone — pair color with text and shape. Mobile-first responsive. Large tap targets for non-technical users.
+WCAG 2.1 AA throughout. Correct RTL rendering for Arabic on all components. `prefers-reduced-motion` honored on all transitions — including the Admis celebration (crossfade only, no motion). Decision tags must not rely on color alone — the localized decision text is always part of the tag. Mobile-first responsive. Large tap targets for non-technical users.

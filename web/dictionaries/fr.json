@@ -19,9 +19,6 @@
     "searching": "Recherche en cours…",
     "notFound": "Aucun résultat pour ce numéro en {{year}}",
     "notFoundSuggestion": "Vérifiez le numéro ou essayez une autre année",
-    "nameSoonBadge": "Bientôt",
-    "nameSoonPlaceholder": "Rechercher par nom",
-    "nameSoonBody": "Cette fonctionnalité sera disponible prochainement",
     "examHelp": "Trouvable sur votre convocation",
     "cancel": "Annuler",
     "errorRequired": "Veuillez saisir votre numéro d'examen",
@@ -29,6 +26,8 @@
     "errorNetwork": "Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.",
     "errorGeneric": "Le serveur a rencontré une erreur. Veuillez réessayer dans quelques instants.",
     "noYears": "Aucune année publiée pour le moment",
+    "yearsError": "Impossible de vérifier les années publiées. Vérifiez votre connexion et réessayez.",
+    "examSwitchToName": "Vous n'avez pas votre numéro d'examen ? Recherchez par nom",
     "nameSearchLabel": "Recherche par nom",
     "nameSearchInputLabel": "Nom du candidat",
     "nameSearchPlaceholder": "Rechercher un candidat…",
@@ -38,10 +37,10 @@
     "nameSearchErrorNetwork": "Impossible de se connecter. Vérifiez votre connexion et réessayez.",
     "nameSearchAnnounceResults": "{{count}} résultat(s)",
     "nameSearchMetaSerie": "Série",
-    "nameSearchMetaWilaya": "Wilaya",
     "nameSearchMetaYear": "Année",
     "inputClear": "Effacer",
-    "examExample": "Ex: 04938"
+    "examExample": "Ex: 04938",
+    "footerDisclaimer": "Netija est une plateforme indépendante — non affiliée au ministère ni à aucune institution officielle."
   },
   "student": {
     "decisionAdmis": "Admis",
@@ -57,20 +56,16 @@
     "serieColumn": "Série",
     "moyenneColumn": "Moyenne",
     "decisionColumn": "Décision",
-    "schoolLabel": "Établissement",
-    "wilayaLabel": "Wilaya",
-    "seeAlsoTitle": "Autres dossiers avec ce nom",
-    "seeAlsoBody": "Ces dossiers portent le même nom. Ils pourraient appartenir au même candidat ou à des candidats différents.",
-    "seeAlsoLink": "Dossier de {{year}}",
-    "seeAlsoShowMore": "+ {{count}} autres",
-    "noAttempts": "Aucun résultat enregistré",
+    "decisionLabel": "Décision",
+    "copyLink": "Copier le lien",
+    "linkCopied": "Lien copié ✓",
+    "newSearch": "Nouvelle recherche",
     "backHome": "Retour à la recherche"
   },
   "admin": {
     "siteTitle": "Netija Admin",
     "nav": {
       "imports": "Imports",
-      "suggestions": "Suggestions",
       "logout": "Sign out",
       "backToSite": "Back to site"
     },
@@ -150,22 +145,6 @@
       "confirmBlocked": "Resolve the violations to continue",
       "yearLabel": "Exam year",
       "dateFormatLabel": "Date format"
-    },
-    "suggestions": {
-      "pageTitle": "Merge suggestions",
-      "subtitle": "Accept or reject automatically generated identity suggestions.",
-      "empty": "No pending suggestions",
-      "emptyBody": "All suggestions have been reviewed. Check back after the next import.",
-      "person1": "Record A",
-      "person2": "Record B",
-      "accept": "Accept",
-      "reject": "Reject",
-      "accepting": "Merging…",
-      "rejecting": "Rejecting…",
-      "labelYear": "Year",
-      "labelSerie": "Serie",
-      "labelBirth": "Birth",
-      "labelScore": "Score"
     }
   }
 }

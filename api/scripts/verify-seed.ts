@@ -2,6 +2,9 @@
  * Verifies that the seed data is installed and all documented scenarios are
  * queryable. Exits with code 0 if all assertions pass, 1 if any fail.
  *
+ * The model is attempts-only: a result is a single attempt row, with no person
+ * concept and no identity linking.
+ *
  * Usage (from the project root):
  *   npx tsx api/scripts/verify-seed.ts
  * Or (from api/):
@@ -15,7 +18,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../src/db/schema.js';
 
-const { attempts, imports, linkSuggestions, personLinks, persons } = schema;
+const { attempts, imports } = schema;
 
 // Load environment
 for (const path of [resolve(process.cwd(), '.env'), resolve(process.cwd(), '../.env')]) {
@@ -56,14 +59,14 @@ async function main(): Promise<void> {
   // ---- Imports ------------------------------------------------------------
   console.log('Imports:');
   const allImports = await db.select().from(imports);
-  assert('3 import rows exist', allImports.length === 3, `found ${allImports.length}`);
+  assert('3 import rows exist', allImports.length === 3, `found ${String(allImports.length)}`);
 
-  const published = allImports.filter(i => i.published);
-  const unpublished = allImports.filter(i => !i.published);
-  assert('2 published imports', published.length === 2, `found ${published.length}`);
-  assert('1 unpublished import', unpublished.length === 1, `found ${unpublished.length}`);
+  const published = allImports.filter((i) => i.published);
+  const unpublished = allImports.filter((i) => !i.published);
+  assert('2 published imports', published.length === 2, `found ${String(published.length)}`);
+  assert('1 unpublished import', unpublished.length === 1, `found ${String(unpublished.length)}`);
 
-  const years = allImports.map(i => i.examYear).sort();
+  const years = allImports.map((i) => i.examYear).sort();
   assert(
     'Exam years are 2022, 2023, 2024',
     JSON.stringify(years) === JSON.stringify([2022, 2023, 2024]),
@@ -72,15 +75,17 @@ async function main(): Promise<void> {
 
   // ---- Attempt totals -----------------------------------------------------
   console.log('\nAttempt totals:');
-  const [{ n: totalAttempts }] = await db.select({ n: sql<string>`count(*)` }).from(attempts);
+  const [totalRow] = await db.select({ n: sql<string>`count(*)` }).from(attempts);
+  const totalAttempts = totalRow?.n ?? '0';
   assert('≥ 200 attempts total', Number(totalAttempts) >= 200, `found ${totalAttempts}`);
 
   for (const year of [2022, 2023, 2024]) {
-    const [{ n }] = await db
+    const [yearRow] = await db
       .select({ n: sql<string>`count(*)` })
       .from(attempts)
       .where(eq(attempts.examYear, year));
-    assert(`≥ 90 attempts in ${year}`, Number(n) >= 90, `found ${n}`);
+    const n = yearRow?.n ?? '0';
+    assert(`≥ 90 attempts in ${String(year)}`, Number(n) >= 90, `found ${n}`);
   }
 
   // ---- Decision coverage --------------------------------------------------
@@ -89,7 +94,7 @@ async function main(): Promise<void> {
     .select({ d: attempts.decision })
     .from(attempts)
     .groupBy(attempts.decision);
-  const decisions = new Set(decisionRows.map(r => r.d).filter(Boolean));
+  const decisions = new Set(decisionRows.map((r) => r.d).filter(Boolean));
   for (const d of ['Admis', 'Ajourné', 'Sessionnaire', 'Absent', 'Délibérable', 'Annulé']) {
     assert(`Decision "${d}" present`, decisions.has(d as typeof attempts.decision._.data));
   }
@@ -100,97 +105,69 @@ async function main(): Promise<void> {
     .select({ s: attempts.serie })
     .from(attempts)
     .groupBy(attempts.serie);
-  const series = new Set(serieRows.map(r => r.s).filter(Boolean));
+  const series = new Set(serieRows.map((r) => r.s).filter(Boolean));
   for (const s of ['SN', 'LM', 'LO', 'M', 'TM', 'TS', 'LA']) {
     assert(`SERIE "${s}" present`, series.has(s));
   }
 
-  // ---- Redemption scenario ------------------------------------------------
-  console.log('\nRedemption scenario (Ajourné → Admis across years):');
-  const redemptionLinks = await db
-    .select({ personId: personLinks.personId, year: attempts.examYear, dec: attempts.decision })
-    .from(personLinks)
-    .innerJoin(attempts, eq(personLinks.attemptId, attempts.id))
-    .where(eq(personLinks.method, 'nni'));
-
-  // Group by personId and check for persons with both Ajourné and Admis
-  const byPerson = new Map<number, Set<string>>();
-  for (const row of redemptionLinks) {
-    if (!byPerson.has(row.personId)) byPerson.set(row.personId, new Set());
-    if (row.dec) byPerson.get(row.personId)!.add(row.dec);
-  }
-  const redemptionPersons = [...byPerson.values()].filter(
-    decs => decs.has('Ajourné') && decs.has('Admis'),
-  );
-  assert(
-    'At least 1 person with Ajourné then Admis (NNI-linked)',
-    redemptionPersons.length >= 1,
-    `found ${redemptionPersons.length}`,
-  );
-
-  // ---- Identical-name, different birth place ------------------------------
-  console.log('\nIdentical-name persons (different birth place):');
-  const sameNameAttempts = await db
-    .select({ nameFr: attempts.nameFr, bp: attempts.birthPlace })
+  // ---- Same name across years as SEPARATE rows ----------------------------
+  console.log('\nSame name across years (independent rows):');
+  const repeated = await db
+    .select({ year: attempts.examYear, decision: attempts.decision })
     .from(attempts)
-    .where(eq(attempts.nameFr, 'Mohamed Ould Ahmed'));
-  const uniquePlaces = new Set(sameNameAttempts.map(r => r.bp));
+    .where(eq(attempts.nameFr, 'Ahmed Ould Mohamed'));
+  const repeatedYears = new Set(repeated.map((r) => r.year));
   assert(
-    '"Mohamed Ould Ahmed" appears with ≥ 2 different birth places',
-    uniquePlaces.size >= 2,
-    `found places: ${[...uniquePlaces].join(', ')}`,
+    '"Ahmed Ould Mohamed" appears in ≥ 2 years as separate rows',
+    repeatedYears.size >= 2,
+    `found years: ${[...repeatedYears].join(', ')}`,
+  );
+
+  // ---- Same name, same year, different exam numbers -----------------------
+  const sameYear = await db
+    .select({ examNo: attempts.examNo })
+    .from(attempts)
+    .where(and(eq(attempts.nameFr, 'Mohamed Ould Ahmed'), eq(attempts.examYear, 2022)));
+  assert(
+    '"Mohamed Ould Ahmed" appears ≥ 2 times in 2022 (distinct exam numbers)',
+    new Set(sameYear.map((r) => r.examNo)).size >= 2,
+    `found ${String(sameYear.length)}`,
   );
 
   // ---- Name type coverage -------------------------------------------------
   console.log('\nName type coverage:');
-  const [{ n: arOnlyCount }] = await db
+  const [arOnlyRow] = await db
     .select({ n: sql<string>`count(*)` })
-    .from(persons)
+    .from(attempts)
     .where(and(sql`name_fr IS NULL`, sql`name_ar IS NOT NULL`));
-  assert('Arabic-only persons exist', Number(arOnlyCount) >= 1, `found ${arOnlyCount}`);
+  const arOnlyCount = arOnlyRow?.n ?? '0';
+  assert('Arabic-only attempts exist', Number(arOnlyCount) >= 1, `found ${arOnlyCount}`);
 
-  const [{ n: frOnlyCount }] = await db
+  const [frOnlyRow] = await db
     .select({ n: sql<string>`count(*)` })
-    .from(persons)
+    .from(attempts)
     .where(and(sql`name_fr IS NOT NULL`, sql`name_ar IS NULL`));
-  assert('French-only persons exist', Number(frOnlyCount) >= 1, `found ${frOnlyCount}`);
+  const frOnlyCount = frOnlyRow?.n ?? '0';
+  assert('French-only attempts exist', Number(frOnlyCount) >= 1, `found ${frOnlyCount}`);
 
-  const [{ n: bilingualCount }] = await db
+  const [bilingualRow] = await db
     .select({ n: sql<string>`count(*)` })
-    .from(persons)
+    .from(attempts)
     .where(and(sql`name_fr IS NOT NULL`, sql`name_ar IS NOT NULL`));
-  assert('Bilingual persons exist', Number(bilingualCount) >= 1, `found ${bilingualCount}`);
+  const bilingualCount = bilingualRow?.n ?? '0';
+  assert('Bilingual attempts exist', Number(bilingualCount) >= 1, `found ${bilingualCount}`);
 
-  // ---- match_key cross-year links -----------------------------------------
-  console.log('\nmatch_key cross-year linking:');
-  const [{ n: mkLinkCount }] = await db
+  // ---- Nullable moyenne (Annulé) ------------------------------------------
+  console.log('\nNullable moyenne:');
+  const [nullMoyenneRow] = await db
     .select({ n: sql<string>`count(*)` })
-    .from(personLinks)
-    .where(eq(personLinks.method, 'match_key'));
-  assert('match_key person_links exist', Number(mkLinkCount) >= 1, `found ${mkLinkCount}`);
-
-  // ---- Pending link_suggestion --------------------------------------------
-  console.log('\nLink suggestions:');
-  const [{ n: pendingCount }] = await db
-    .select({ n: sql<string>`count(*)` })
-    .from(linkSuggestions)
-    .where(eq(linkSuggestions.status, 'pending'));
-  assert('At least 1 pending link_suggestion', Number(pendingCount) >= 1, `found ${pendingCount}`);
-
-  // ---- Every attempt has a person_link ------------------------------------
-  console.log('\nData integrity:');
-  const [{ n: unlinkedCount }] = await db.select({ n: sql<string>`count(*)` }).from(
-    db
-      .select({ id: attempts.id })
-      .from(attempts)
-      .leftJoin(personLinks, eq(attempts.id, personLinks.attemptId))
-      .where(sql`person_links.id IS NULL`)
-      .as('unlinked'),
-  );
-  assert('Every attempt has a person_link', Number(unlinkedCount) === 0, `${unlinkedCount} unlinked`);
+    .from(attempts)
+    .where(sql`moyenne IS NULL`);
+  const nullMoyenne = nullMoyenneRow?.n ?? '0';
+  assert('At least 1 attempt with a null moyenne', Number(nullMoyenne) >= 1, `found ${nullMoyenne}`);
 
   // ---- Summary ------------------------------------------------------------
-  console.log(`\n${passed} passed · ${failed} failed`);
+  console.log(`\n${String(passed)} passed · ${String(failed)} failed`);
 }
 
 main()

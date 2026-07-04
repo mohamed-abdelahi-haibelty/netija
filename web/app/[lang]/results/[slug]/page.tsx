@@ -3,15 +3,14 @@ import { notFound } from 'next/navigation';
 import { hasLocale } from '@/lib/i18n/settings';
 import type { StudentPageResponse } from 'shared';
 import { StudentResultCard } from '@/components/StudentResultCard';
-import { PageShell } from '@/components/PageShell';
 
-async function fetchStudent(personId: string) {
+async function fetchResult(slug: string) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-  const res = await fetch(`${baseUrl}/api/students/${encodeURIComponent(personId)}`, {
+  const res = await fetch(`${baseUrl}/api/results/${encodeURIComponent(slug)}`, {
     next: { revalidate: 3600 },
   });
   if (res.status === 404 || res.status === 400) return null;
-  if (!res.ok) throw new Error(`Student API returned ${res.status}`);
+  if (!res.ok) throw new Error(`Result API returned ${String(res.status)}`);
   const body = (await res.json()) as StudentPageResponse;
   return body.data;
 }
@@ -19,11 +18,11 @@ async function fetchStudent(personId: string) {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ lang: string; personId: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { lang, personId } = await params;
+  const { lang, slug } = await params;
   if (!hasLocale(lang)) return {};
-  const student = await fetchStudent(personId);
+  const student = await fetchResult(slug);
   if (!student) return {};
   const name =
     lang === 'ar'
@@ -32,20 +31,22 @@ export async function generateMetadata({
   return { title: name ? `${name} — Netija` : 'Netija' };
 }
 
-export default async function StudentPage({
+export default async function ResultPage({
   params,
 }: {
-  params: Promise<{ lang: string; personId: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }) {
-  const { lang, personId } = await params;
+  const { lang, slug } = await params;
   if (!hasLocale(lang)) notFound();
 
-  const student = await fetchStudent(personId);
+  const student = await fetchResult(slug);
   if (!student) notFound();
 
   return (
-    <PageShell className="px-6 sm:px-10 py-10 sm:py-14">
-      <StudentResultCard student={student} lang={lang} />
-    </PageShell>
+    <div className="min-h-[calc(100vh-var(--nav-height))]">
+      <div className="mx-auto max-w-140 px-6 pt-[9vh] pb-20">
+        <StudentResultCard student={student} lang={lang} />
+      </div>
+    </div>
   );
 }

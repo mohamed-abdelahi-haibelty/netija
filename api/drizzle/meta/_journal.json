@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781537708096,
-      "tag": "0000_odd_bruce_banner",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1782319351410,
-      "tag": "0001_charming_newton_destine",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1782319589731,
-      "tag": "0002_condemned_the_executioner",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1782816812736,
-      "tag": "0003_motionless_sasquatch",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1783248812736,
-      "tag": "0004_persons_public_id",
+      "when": 1783118752515,
+      "tag": "0000_curious_nekra",
       "breakpoints": true
     }
   ]

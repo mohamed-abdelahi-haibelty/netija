@@ -1,1 +1,0 @@
-ALTER TABLE "attempts" ALTER COLUMN "moyenne" DROP NOT NULL;

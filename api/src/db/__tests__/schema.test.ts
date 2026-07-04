@@ -11,6 +11,12 @@ import * as schema from '../schema.js';
 const pool = new Pool({ connectionString: process.env['DATABASE_URL'], max: 1 });
 const db = drizzle(pool, { schema });
 
+// `.returning()` destructures to `T | undefined` under noUncheckedIndexedAccess
+// even though a single-row insert always returns exactly one row.
+function assertDefined<T>(value: T | undefined): asserts value is T {
+  expect(value).toBeDefined();
+}
+
 // Drizzle wraps the underlying pg error in `.cause`; pg unique violations have
 // code '23505'. This helper extracts that regardless of wrapping depth.
 function isUniqueViolation(err: unknown): boolean {
@@ -28,7 +34,7 @@ afterAll(async () => {
 // Truncate all tables before each test so tests are fully isolated
 beforeEach(async () => {
   await db.execute(
-    sql`TRUNCATE person_links, link_suggestions, rejects, attempts, imports, persons, column_aliases RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE rejects, attempts, imports, column_aliases RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -43,15 +49,6 @@ async function seedImport() {
     .returning({ id: schema.imports.id });
   if (!imp) throw new Error('import insert failed');
   return imp.id;
-}
-
-async function seedPerson() {
-  const [person] = await db
-    .insert(schema.persons)
-    .values({ nameFr: 'Test Person' })
-    .returning({ id: schema.persons.id });
-  if (!person) throw new Error('person insert failed');
-  return person.id;
 }
 
 async function seedAttempt(importId: number, examNo = '00001') {
@@ -155,63 +152,98 @@ describe('attempts — required and nullable fields', () => {
       })
       .returning({ id: schema.attempts.id });
 
+    assertDefined(attempt);
     const rows = await db
       .select({ moyenne: schema.attempts.moyenne })
       .from(schema.attempts)
-      .where(eq(schema.attempts.id, attempt!.id));
+      .where(eq(schema.attempts.id, attempt.id));
 
     expect(rows[0]?.moyenne).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// person_links.attempt_id: UNIQUE (one link per attempt)
+// attempts.public_slug: NOT NULL + UNIQUE, DB-default populated
 // ---------------------------------------------------------------------------
 
-describe('person_links.attempt_id UNIQUE', () => {
-  it('links an attempt to a person', async () => {
+describe('attempts.public_slug', () => {
+  it('auto-populates a non-null slug on insert (no app code)', async () => {
     const importId = await seedImport();
-    const personId = await seedPerson();
-    const attemptId = await seedAttempt(importId);
+    const [attempt] = await db
+      .insert(schema.attempts)
+      .values({ examYear: 2024, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
+      .returning({ publicSlug: schema.attempts.publicSlug });
 
-    const [link] = await db
-      .insert(schema.personLinks)
-      .values({ attemptId, personId, method: 'nni' })
-      .returning({ id: schema.personLinks.id });
-    expect(link?.id).toBeTypeOf('number');
+    assertDefined(attempt);
+    expect(attempt.publicSlug).toBeTypeOf('string');
+    expect(attempt.publicSlug.length).toBeGreaterThan(0);
+    // uuid-hex default: 32 lowercase hex chars, URL-safe, no dashes
+    expect(attempt.publicSlug).toMatch(/^[a-f0-9]{32}$/);
   });
 
-  it('rejects a second link for the same attempt', async () => {
+  it('gives two rows different slugs', async () => {
     const importId = await seedImport();
-    const personId = await seedPerson();
-    const attemptId = await seedAttempt(importId);
+    const a1 = await seedAttempt(importId, '00001');
+    const a2 = await seedAttempt(importId, '00002');
 
-    await db.insert(schema.personLinks).values({ attemptId, personId, method: 'nni' });
+    const rows = await db
+      .select({ id: schema.attempts.id, publicSlug: schema.attempts.publicSlug })
+      .from(schema.attempts);
 
-    const secondPerson = await seedPerson();
+    const slugs = rows.map((r) => r.publicSlug);
+    expect(new Set(slugs).size).toBe(2);
+    expect(a1).not.toBe(a2);
+  });
 
+  it('is stable across reads for the same row', async () => {
+    const importId = await seedImport();
+    const id = await seedAttempt(importId, '00001');
+
+    const first = await db
+      .select({ publicSlug: schema.attempts.publicSlug })
+      .from(schema.attempts)
+      .where(eq(schema.attempts.id, id));
+    const second = await db
+      .select({ publicSlug: schema.attempts.publicSlug })
+      .from(schema.attempts)
+      .where(eq(schema.attempts.id, id));
+
+    expect(first[0]?.publicSlug).toBe(second[0]?.publicSlug);
+  });
+
+  it('rejects a duplicate public_slug (UNIQUE)', async () => {
+    const importId = await seedImport();
+    const [first] = await db
+      .insert(schema.attempts)
+      .values({ examYear: 2024, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
+      .returning({ publicSlug: schema.attempts.publicSlug });
+
+    assertDefined(first);
     let err: unknown;
     try {
-      await db.insert(schema.personLinks).values({ attemptId, personId: secondPerson, method: 'manual' });
+      await db
+        .insert(schema.attempts)
+        .values({ examYear: 2023, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN', publicSlug: first.publicSlug });
     } catch (e) {
       err = e;
     }
     expect(isUniqueViolation(err)).toBe(true);
   });
 
-  it('allows the same person to be linked to multiple attempts', async () => {
+  it('rejects an explicit null public_slug (NOT NULL)', async () => {
     const importId = await seedImport();
-    const personId = await seedPerson();
-    const attempt1 = await seedAttempt(importId, '00001');
-    const attempt2 = await seedAttempt(importId, '00002');
-
-    await db.insert(schema.personLinks).values({ attemptId: attempt1, personId, method: 'nni' });
-    const [link2] = await db
-      .insert(schema.personLinks)
-      .values({ attemptId: attempt2, personId, method: 'match_key' })
-      .returning({ id: schema.personLinks.id });
-
-    expect(link2?.id).toBeTypeOf('number');
+    let err: unknown;
+    try {
+      await db.execute(
+        sql`INSERT INTO attempts (exam_year, exam_no, name_fr, serie, decision, import_id, public_slug)
+            VALUES (2024, '00001', 'Test', 'SN', 'Admis', ${importId}, NULL)`,
+      );
+    } catch (e) {
+      err = e;
+    }
+    // pg not_null_violation is 23502; drizzle may wrap it in `.cause`.
+    const code = (err as { code?: string }).code ?? (err as { cause?: { code?: string } }).cause?.code;
+    expect(code).toBe('23502');
   });
 });
 
@@ -238,20 +270,26 @@ describe('column_aliases.raw_header UNIQUE', () => {
 // ---------------------------------------------------------------------------
 
 describe('schema exports', () => {
-  it('exports all seven table references', () => {
+  it('exports the domain table references (attempts-only model)', () => {
     expect(schema.attempts).toBeDefined();
-    expect(schema.persons).toBeDefined();
-    expect(schema.personLinks).toBeDefined();
-    expect(schema.linkSuggestions).toBeDefined();
     expect(schema.imports).toBeDefined();
     expect(schema.rejects).toBeDefined();
     expect(schema.columnAliases).toBeDefined();
   });
 
-  it('exports all four enum definitions', () => {
+  it('does not export the removed person tables', () => {
+    expect('persons' in schema).toBe(false);
+    expect('personLinks' in schema).toBe(false);
+    expect('linkSuggestions' in schema).toBe(false);
+  });
+
+  it('exports the remaining enum definitions', () => {
     expect(schema.decisionEnum).toBeDefined();
     expect(schema.importStatusEnum).toBeDefined();
-    expect(schema.linkMethodEnum).toBeDefined();
-    expect(schema.suggestionStatusEnum).toBeDefined();
+  });
+
+  it('does not export the removed link enums', () => {
+    expect('linkMethodEnum' in schema).toBe(false);
+    expect('suggestionStatusEnum' in schema).toBe(false);
   });
 });

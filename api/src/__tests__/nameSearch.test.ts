@@ -28,7 +28,7 @@ vi.mock('../services/meiliIndex.js', () => ({
 
 vi.mock('../db/client.js', () => ({ db: {} }));
 vi.mock('../lib/redis.js', () => ({ redis: {} }));
-vi.mock('../lib/meili.js', () => ({ meili: {}, PERSONS_INDEX: 'persons' }));
+vi.mock('../lib/meili.js', () => ({ meili: {}, ATTEMPTS_INDEX: 'attempts' }));
 
 // Also mock the other search services to prevent side effects
 vi.mock('../services/examSearch.js', () => ({
@@ -44,25 +44,26 @@ import type { NameSearchSuggestion } from 'shared';
 const mockSearchByName = vi.mocked(searchByName);
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Fixtures — one suggestion per attempt; the same name may appear in several
+// years as separate rows.
 // ---------------------------------------------------------------------------
 
 const SUGGESTIONS: NameSearchSuggestion[] = [
   {
-    personId: '1',
+    slug: 'slug2023aaaa0000bbbb1111cccc2222',
+    examYear: 2023,
+    examNo: '00101',
     nameFr: 'Ahmed Ould Mohamed',
     nameAr: 'أحمد ولد محمد',
-    latestYear: 2023,
     serie: 'SN',
-    birthPlace: 'Nouakchott',
   },
   {
-    personId: '2',
+    slug: 'slug2022dddd3333eeee4444ffff5555',
+    examYear: 2022,
+    examNo: '00202',
     nameFr: 'Ahmed Ould Mohamed',
     nameAr: null,
-    latestYear: 2022,
     serie: 'LM',
-    birthPlace: 'Nouadhibou',
   },
 ];
 
@@ -83,11 +84,11 @@ describe('GET /api/search/name', () => {
     const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
     expect(body.data.suggestions).toHaveLength(2);
     expect(body.data.suggestions[0]).toMatchObject({
-      personId: '1',
+      slug: 'slug2023aaaa0000bbbb1111cccc2222',
+      examYear: 2023,
+      examNo: '00101',
       nameFr: 'Ahmed Ould Mohamed',
-      latestYear: 2023,
       serie: 'SN',
-      birthPlace: 'Nouakchott',
     });
     expect(mockSearchByName).toHaveBeenCalledOnce();
   });
@@ -120,38 +121,42 @@ describe('GET /api/search/name', () => {
     expect(mockSearchByName).not.toHaveBeenCalled();
   });
 
-  it('response carries all disambiguator fields (latestYear, serie, birthPlace)', async () => {
-    const withDisambiguators: NameSearchSuggestion[] = [
-      {
-        personId: '10',
-        nameFr: 'Fatima Mint Ali',
-        nameAr: 'فاطمة منت علي',
-        latestYear: 2023,
-        serie: 'TS',
-        birthPlace: 'Rosso',
-      },
+  it('returns each matching year as a separate, newest-first row (no merging)', async () => {
+    // Same name in three years — returned as three independent rows, newest first,
+    // each carrying its own year + serie.
+    const threeYears: NameSearchSuggestion[] = [
+      { slug: 'slug25aaaa0000bbbb1111cccc222233', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
+      { slug: 'slug24dddd3333eeee4444ffff555566', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
+      { slug: 'slug23gggg7777hhhh8888iiii999900', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
     ];
-    mockSearchByName.mockResolvedValue(withDisambiguators);
+    mockSearchByName.mockResolvedValue(threeYears);
     const app = createApp();
-    const res = await app.request('/api/search/name?q=fatima');
+    const res = await app.request('/api/search/name?q=ahmed');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
-    const s = body.data.suggestions[0]!;
-    expect(s.latestYear).toBe(2023);
-    expect(s.serie).toBe('TS');
-    expect(s.birthPlace).toBe('Rosso');
+    // Three separate rows for the same name — no merging into one person.
+    expect(body.data.suggestions).toHaveLength(3);
+    expect(body.data.suggestions.map((s) => s.nameFr)).toEqual([
+      'Ahmed Ould Mohamed',
+      'Ahmed Ould Mohamed',
+      'Ahmed Ould Mohamed',
+    ]);
+    // Newest year first.
+    expect(body.data.suggestions.map((s) => s.examYear)).toEqual([2025, 2024, 2023]);
+    // Each row carries year + serie so the user can disambiguate.
+    expect(body.data.suggestions.map((s) => s.serie)).toEqual(['TS', 'LM', 'SN']);
+    // Each row carries its own distinct slug link.
+    expect(new Set(body.data.suggestions.map((s) => s.slug)).size).toBe(3);
   });
 
   it('returns at most 10 suggestions (enforced by the service)', async () => {
-    // The service is responsible for capping at 10; we verify the route passes
-    // whatever the service returns unchanged.
     const tenSuggestions: NameSearchSuggestion[] = Array.from({ length: 10 }, (_, i) => ({
-      personId: String(i + 1),
-      nameFr: `Person ${i + 1}`,
+      slug: `slug${String(i + 1).padStart(4, '0')}00000000000000000000000000`,
+      examYear: 2023,
+      examNo: String(i + 1).padStart(5, '0'),
+      nameFr: `Person ${String(i + 1)}`,
       nameAr: null,
-      latestYear: 2023,
       serie: 'SN',
-      birthPlace: null,
     }));
     mockSearchByName.mockResolvedValue(tenSuggestions);
     const app = createApp();
@@ -172,21 +177,21 @@ describe('GET /api/search/name', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Service unit test — index builder produces correct documents
+// Service unit test — index builder produces one document per published attempt
 // ---------------------------------------------------------------------------
 
 describe('buildNameIndex service', () => {
-  it('passes only published-person documents to Meilisearch and excludes unpublished-only persons', async () => {
+  it('passes one document per published attempt to Meilisearch', async () => {
     const { buildNameIndex: realBuildNameIndex } =
       await vi.importActual<typeof import('../services/meiliIndex.js')>(
         '../services/meiliIndex.js',
       );
 
-    // DB mock returns two persons — a third unpublished-only person is absent
-    // because the SQL WHERE i.published = true filtered it out.
+    // The SQL selects `public_slug AS id` and WHERE i.published = true excludes
+    // unpublished attempts before they reach the mapper. The document id IS the slug.
     const dbRows = [
-      { publicId: 'a1b2c3d4e5f6a1b2c3', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', latestYear: 2023, serie: 'SN', birthPlace: 'Nouakchott' },
-      { publicId: 'd4e5f6a1b2c3d4e5f6', nameFr: 'Fatima Mint Ali', nameAr: null, latestYear: 2022, serie: 'LM', birthPlace: null },
+      { id: 'slug2023aaaa0000bbbb1111cccc2222', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', serie: 'SN' },
+      { id: 'slug2022dddd3333eeee4444ffff5555', examYear: 2022, examNo: '00202', nameFr: 'Fatima Mint Ali', nameAr: null, serie: 'LM' },
     ];
     const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
 
@@ -200,48 +205,88 @@ describe('buildNameIndex service', () => {
     };
     const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
 
-    const count = await realBuildNameIndex(
-      mockDb as never,
-      mockMeili as never,
-    );
+    const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
 
     expect(count).toBe(2);
 
     // Correct index is addressed
-    expect(mockMeili.index).toHaveBeenCalledWith('persons');
+    expect(mockMeili.index).toHaveBeenCalledWith('attempts');
 
     // Settings configure both searchable fields and sort field
     expect(updateSettingsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         searchableAttributes: ['nameFr', 'nameAr'],
-        sortableAttributes: ['latestYear'],
+        sortableAttributes: ['examYear'],
       }),
     );
 
     // Full rebuild: clear before pushing
     expect(deleteAllMock).toHaveBeenCalledOnce();
 
-    // Verify the two published persons are in the documents (by their public_id)
     const [capturedDocs] = addDocumentsMock.mock.calls[0] as [
-      Array<{ id: string; nameFr: string | null; nameAr: string | null; latestYear: number; serie: string; birthPlace: string | null }>,
+      Array<{ id: string; examYear: number; examNo: string; nameFr: string | null; nameAr: string | null; serie: string }>,
       ...unknown[]
     ];
     expect(capturedDocs).toHaveLength(2);
-    expect(capturedDocs.map((d) => d.id)).toEqual(['a1b2c3d4e5f6a1b2c3', 'd4e5f6a1b2c3d4e5f6']);
+    // The Meili document id is the attempt's public slug.
+    expect(capturedDocs.map((d) => d.id)).toEqual([
+      'slug2023aaaa0000bbbb1111cccc2222',
+      'slug2022dddd3333eeee4444ffff5555',
+    ]);
 
-    // Document shape carries all disambiguators
-    const firstDoc = capturedDocs[0]!;
+    const [firstDoc] = capturedDocs;
+    if (!firstDoc) throw new Error('expected at least one captured document');
     expect(firstDoc).toMatchObject({
-      id: 'a1b2c3d4e5f6a1b2c3',
+      id: 'slug2023aaaa0000bbbb1111cccc2222',
+      examYear: 2023,
+      examNo: '00101',
       nameFr: 'Ahmed Ould Mohamed',
       nameAr: 'أحمد ولد محمد',
-      latestYear: 2023,
       serie: 'SN',
-      birthPlace: 'Nouakchott',
     });
   });
 
-  it('handles empty DB result (no published attempts) without calling addDocuments', async () => {
+  it('produces one document per year for a name appearing in three years', async () => {
+    const { buildNameIndex: realBuildNameIndex } =
+      await vi.importActual<typeof import('../services/meiliIndex.js')>(
+        '../services/meiliIndex.js',
+      );
+
+    // The SQL returns one row per published attempt, newest year first. The same
+    // name in 2025/2024/2023 is three independent attempts → three documents.
+    const dbRows = [
+      { id: 'slug25aaaa0000bbbb1111cccc222233', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
+      { id: 'slug24dddd3333eeee4444ffff555566', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
+      { id: 'slug23gggg7777hhhh8888iiii999900', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
+    ];
+    const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
+
+    const addDocumentsMock = vi.fn().mockResolvedValue({ taskUid: 1 });
+    const indexMock = {
+      updateSettings: vi.fn().mockResolvedValue({ taskUid: 3 }),
+      deleteAllDocuments: vi.fn().mockResolvedValue({ taskUid: 2 }),
+      addDocuments: addDocumentsMock,
+    };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
+
+    expect(count).toBe(3);
+    const [capturedDocs] = addDocumentsMock.mock.calls[0] as [
+      Array<{ id: string; examYear: number }>,
+      ...unknown[]
+    ];
+    // Three documents with distinct slug ids — never collapsed into one.
+    expect(capturedDocs).toHaveLength(3);
+    expect(capturedDocs.map((d) => d.id)).toEqual([
+      'slug25aaaa0000bbbb1111cccc222233',
+      'slug24dddd3333eeee4444ffff555566',
+      'slug23gggg7777hhhh8888iiii999900',
+    ]);
+    expect(new Set(capturedDocs.map((d) => d.id)).size).toBe(3);
+  });
+
+  it('handles empty DB result (no published attempts) without pushing documents', async () => {
     const { buildNameIndex: realBuildNameIndex } =
       await vi.importActual<typeof import('../services/meiliIndex.js')>(
         '../services/meiliIndex.js',
@@ -258,7 +303,6 @@ describe('buildNameIndex service', () => {
 
     const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
 
-    // 0 docs, addDocuments called with empty array
     expect(count).toBe(0);
     const [capturedDocs] = addDocumentsMock.mock.calls[0] as [unknown[], ...unknown[]];
     expect(capturedDocs).toHaveLength(0);
@@ -270,14 +314,15 @@ describe('buildNameIndex service', () => {
 // ---------------------------------------------------------------------------
 
 describe('searchByName service', () => {
-  it('calls index.search with limit 10 and sort by latestYear:desc, returns mapped suggestions', async () => {
+  it('calls index.search with limit 10 and sort by examYear:desc, returns mapped suggestions', async () => {
     const { searchByName: realSearchByName } =
       await vi.importActual<typeof import('../services/nameSearch.js')>(
         '../services/nameSearch.js',
       );
 
+    // The Meili document id is the attempt's slug; searchByName maps it to `slug`.
     const meiliHits = [
-      { id: '5', nameFr: 'Cheikh Ould Brahim', nameAr: null, latestYear: 2023, serie: 'TM', birthPlace: 'Kiffa' },
+      { id: 'slug55aaaa0000bbbb1111cccc222233', examYear: 2023, examNo: '00055', nameFr: 'Cheikh Ould Brahim', nameAr: null, serie: 'TM' },
     ];
     const searchMock = vi.fn().mockResolvedValue({ hits: meiliHits });
     const indexMock = { search: searchMock };
@@ -287,17 +332,17 @@ describe('searchByName service', () => {
 
     expect(searchMock).toHaveBeenCalledWith('cheikh', {
       limit: 10,
-      sort: ['latestYear:desc'],
+      sort: ['examYear:desc'],
     });
 
     expect(results).toHaveLength(1);
     expect(results[0]).toEqual({
-      personId: '5',
+      slug: 'slug55aaaa0000bbbb1111cccc222233',
+      examYear: 2023,
+      examNo: '00055',
       nameFr: 'Cheikh Ould Brahim',
       nameAr: null,
-      latestYear: 2023,
       serie: 'TM',
-      birthPlace: 'Kiffa',
     });
   });
 

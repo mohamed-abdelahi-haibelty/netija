@@ -1,14 +1,14 @@
 import { eq, and } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import type { RedisClient } from '../lib/redis.js';
-import { attempts, imports, personLinks, persons } from '../db/schema.js';
+import { attempts, imports } from '../db/schema.js';
 import type { ExamSearchResult } from 'shared';
 
 const EXAM_CACHE_TTL = 300;
 const YEARS_CACHE_TTL = 3600;
 
-function examCacheKey(year: number, examNo: string): string {
-  return `exam:${year}:${examNo}`;
+export function examCacheKey(year: number, examNo: string): string {
+  return `exam:${String(year)}:${examNo}`;
 }
 
 const YEARS_CACHE_KEY = 'years:published';
@@ -27,7 +27,7 @@ export async function searchByExamNo(
 
   const rows = await db
     .select({
-      publicId: persons.publicId,
+      slug: attempts.publicSlug,
       nameFr: attempts.nameFr,
       nameAr: attempts.nameAr,
       examNo: attempts.examNo,
@@ -37,8 +37,6 @@ export async function searchByExamNo(
       serie: attempts.serie,
     })
     .from(attempts)
-    .innerJoin(personLinks, eq(personLinks.attemptId, attempts.id))
-    .innerJoin(persons, eq(persons.id, personLinks.personId))
     .innerJoin(imports, eq(imports.id, attempts.importId))
     .where(
       and(
@@ -49,11 +47,10 @@ export async function searchByExamNo(
     )
     .limit(1);
 
-  if (rows.length === 0) return null;
-
-  const row = rows[0]!;
+  const [row] = rows;
+  if (!row) return null;
   const result: ExamSearchResult = {
-    personId: row.publicId,
+    slug: row.slug,
     nameFr: row.nameFr,
     nameAr: row.nameAr,
     examNo: row.examNo,

@@ -16,8 +16,8 @@
   errors.
 - No `any`. Use precise types, `unknown` + narrowing at
   boundaries, or Zod-inferred types (`z.infer<typeof schema>`).
-- Exam numbers and NNI are `string` types in every layer — never
-  `number` (leading zeros).
+- Exam numbers are `string` types in every layer — never `number`
+  (leading zeros must be preserved).
 - Shared API request/response types live in a single shared
   package/folder imported by both `web/` and `api/`; no
   duplicated hand-written shapes.
@@ -69,7 +69,7 @@ comments accurate when code changes — a stale comment is worse than none.
   reasoning behind constraints, and idempotency/conflict handling (why
   `ON CONFLICT` does what it does); skip self-evident queries.
 - **Testing (frontend and backend) — moderate.** Comment what a non-obvious test
-  is _proving_ and why (especially identity and edge cases); don't narrate
+  is _proving_ and why (especially the tricky edge cases); don't narrate
   routine arrange-act-assert.
 - **Python / pandas (worker) — generous.** The maintainer is newest to pandas.
   Briefly explain non-obvious pandas/library constructs (e.g. what
@@ -166,15 +166,14 @@ df["moyenne"] = pd.to_numeric(df["moyenne"], errors="coerce")
 ## Python (worker)
 
 - Type hints on all functions; format with ruff/black defaults.
-- Cleaning, mapping, and identity functions are pure
+- Cleaning and mapping functions are pure
   (DataFrame/values in → values out) and unit-tested.
 - Read Excel with `dtype=str`, then convert columns deliberately
-  (`to_numeric`/`to_datetime` with `errors="coerce"`); never let
-  pandas guess types for exam_no, NNI, or dates.
-- Per-year date format is explicit configuration on the import,
-  not per-row guessing.
-- Every import produces a summary `{inserted, rejected, new_people, duplicates_skipped}` and a reject report; silent
-  drops are forbidden.
+  (`to_numeric` with `errors="coerce"`); never let pandas guess
+  types for exam_no. NNI, birth date, and birth place columns are
+  ignored and never stored, even if present in the file.
+- Every import produces a summary `{inserted, rejected}` and a
+  reject report; silent drops are forbidden.
 
 ## File Organization
 
@@ -183,6 +182,6 @@ df["moyenne"] = pd.to_numeric(df["moyenne"], errors="coerce")
   shadcn-generated (protected, see ai-workflow-rules.md).
 - `api/src/routes|services|schemas|db|middleware/` — as named.
 - `worker/` — `worker.py` (entry), `cleaning.py`, `mapping.py`,
-  `identity.py`, `loader.py`, `tests/`.
+  `loader.py`, `tests/`.
 - `shared/` — API types shared between web and api.
 - Tests live next to the suite conventions in testing.md.

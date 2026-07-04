@@ -8,7 +8,7 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Task 007 (next task)
+- Task 025 (rate limiting and cache headers — see `context/tasks/025-rate-limit-and-cache-headers.md`)
 
 ## Completed
 
@@ -174,15 +174,73 @@ Update this file after every meaningful implementation change.
   - Frontend unchanged — personId was already treated as an opaque string in all URL construction.
   - All 75 tests pass; `tsc --noEmit` clean for api, web, and shared.
 
+## Completed
+
+- **Task 013b — Retrofit: Simplify to the Minimal-Data Model**
+  - **Identifier decision:** a result page is now identified by **(exam_year, exam_no)** — the same pair used by exam-number search and carried by every search-result link. No opaque person id.
+    - API: `GET /api/students/:examYear/:examNo` (Zod: year 1900–2100, examNo digits-only).
+    - Web: `/[lang]/students/[examYear]/[examNo]` (old `[personId]` route removed).
+    - Redis result-page key: `student:{examYear}:{examNo}`.
+    - Meilisearch document id: `{examYear}-{examNo}`, one doc PER PUBLISHED ATTEMPT (index renamed `persons` → `attempts`, sortable on `examYear`).
+  - **Migration** `drizzle/0005_tricky_pretty_boy.sql` (generated via drizzle-kit): drops `person_links`, `link_suggestions`, `persons`; drops `attempts.nni/birth_date/birth_place/school/wilaya/match_key` and the nni/match_key indexes; drops the `link_method` and `suggestion_status` enums. Runs clean on a fresh DB (0000→0005); re-run is a no-op (drizzle migration ledger).
+  - **Schema:** removed `persons`/`personLinks`/`linkSuggestions` tables and the two link enums from `schema.ts`. `attempts` is now the only result-bearing table and stores only exam_year, exam_no, name_fr, name_ar, serie, moyenne, decision, decision_raw, import_id.
+  - **Services:** `studentPage` is a single-attempt published lookup by (year, no); `examSearch` no longer joins persons; `meiliIndex`/`nameSearch` index/query one document per published attempt.
+  - **Shared types:** `StudentPageData`/`StudentAttempt`/`SeeAlsoEntry` → single `StudentResult`; `NameSearchSuggestion` and `ExamSearchResult` dropped `personId` (and `latestYear`/`birthPlace`).
+  - **Web:** `StudentResultCard` rewritten to a single-result view (name, decision hero + moyenne count-up, year + serie rows) — no history, no see-also; `NameAutocomplete`/`SearchTabs` link by year+no and drop birthplace/wilaya meta; admin **Suggestions** page + sidebar nav removed; mapping page dropped the `nni`/`date_naissance`/`lieu_naissance`/`wilaya`/`etablissement` canonical fields; see-also, merge-suggestion, and school/wilaya i18n keys removed from both locales (FR/AR parity preserved).
+  - **Seed:** regenerated attempts-only — 300 rows across 2022/2023 (published) and 2024 (unpublished); covers all 6 decisions, all 7 series, FR-only/AR-only/bilingual names, a null-moyenne (Annulé) row, and names repeated across years and within a year as SEPARATE rows. `verify-seed` rewritten (27/27 assertions pass); `truncate` updated; `match-key.ts` + its test deleted.
+  - **Tests:** api 59/59 pass (incl. schema integration against the migrated DB); web 7/7 pass (i18n parity). `tsc --noEmit` clean for api/shared/web; `next build` clean.
+  - **Verified:** no reference to nni/birth_date/birth_place/match_key/person_links/link_suggestions/see-also remains in api/, shared/, or web/ (except the negative-assertion tests in `schema.test.ts`).
+
+- **Task 009 — Name Search API (rewritten: grouped by year)**
+  - The rewritten spec (one document PER PUBLISHED ATTEMPT, each matching attempt returned as its own year-labeled row, no person merging) was implemented during the 013b retrofit and re-verified here against the new spec.
+  - `meiliIndex.buildNameIndex` indexes one doc per published attempt: id `{examYear}-{examNo}`, plus examYear/examNo/nameFr/nameAr/serie; searchable on nameFr+nameAr, sortable on examYear; only published years indexed; full rebuild (deleteAll → addDocuments).
+  - `nameSearch.searchByName`: query ≥ 2 chars (Zod), typo-tolerant (Meili), FR + AR input, `limit: 10`, `sort: ['examYear:desc']` → newest year first.
+  - Route `GET /api/search/name?q=` unchanged (min-2 validation, 400 on invalid).
+  - **Tests (12, Meili mocked):** validation (missing/1-char), 10-cap, a name in 3 years → 3 documents with distinct ids, endpoint returns 3 separate newest-first rows each carrying year + serie, Arabic input, empty results; service maps hits and asserts the `examYear:desc` sort.
+  - **Manual check on real local Meilisearch** (200 published attempts indexed via `search:reindex`): Arabic `أحمد`/`محمد` return matching attempts; typo'd French `Mohamd` returns "Mohamed Ould Ahmed"/"Ahmed Ould Mohamed"; "Ahmed Ould Mohamed" returns its 2023 and 2022 sittings as separate rows, newest first.
+  - Note: the earlier per-person "Task 009" entry above (DISTINCT ON persons, `latestYear`, `birthPlace`) is superseded by this attempt-based rewrite.
+
+- **Chore — Non-enumerable public result URLs (public_slug)**
+  - **Why:** public result URLs were `/{lang}/students/{year}/{examNo}` — trivially enumerable because exam numbers are sequential. Added a random, unguessable public handle used only in URLs, without changing internal identity.
+  - **Schema:** `attempts.public_slug TEXT NOT NULL UNIQUE`, DB-side `DEFAULT replace(gen_random_uuid()::text,'-','')` (uuid-hex, 32 chars, URL-safe, extension-free). DB default so every inserter (seed, future Python loader, admin, manual SQL) self-populates it — no Drizzle `$defaultFn`, no app code. Internal identity stays `(exam_year, exam_no)` with its UNIQUE constraint unchanged.
+  - **Migration** `drizzle/0006_organic_satana.sql` (never edits an applied one): staged — add nullable → backfill existing rows → `SET DEFAULT` → `SET NOT NULL` → `CREATE UNIQUE INDEX attempts_public_slug_unique`.
+  - **API:** public page URL is now `/{lang}/results/{slug}`; API is `GET /api/results/:slug` (route file renamed `students.ts` → `results.ts`, mounted `/api/results`, slug validated URL-safe ≤64). `studentPage.getStudentPage(db, redis, slug)` looks up by `public_slug` + published; Redis key `result:{slug}`; `invalidateStudentCache(redis, slug)`. Exam-number search still resolves internally by `(exam_year, exam_no)` but now returns and links via `slug`. Meili document **id = slug** (payload keeps examYear/examNo/serie/names); `nameSearch` maps `hit.id` → `slug`. Reindex after migration (Meili is derived).
+  - **Shared types:** `slug` added to `StudentResult`, `ExamSearchResult`, `NameSearchSuggestion`.
+  - **Web:** route moved to `app/[lang]/results/[slug]/page.tsx` (fetches `/api/results/{slug}`); `SearchTabs` and `NameAutocomplete` link via `/{lang}/results/{slug}`. `StudentResultCard` unchanged.
+  - **Tests:** result lookup by slug (found + 404 + unpublished + invalid/oversized slug), Redis key `result:{slug}`, exam-search + autocomplete results carry a slug, index doc id = slug, and schema tests proving `public_slug` is auto-populated, NOT NULL, UNIQUE, and stable across reads.
+  - **Docs:** `architecture.md` storage model notes public_slug as the only public URL handle (internal identity stays exam_year+exam_no) and the updated Redis/Meili keying.
+  - **Note:** the slug removes URL enumeration of result pages, not the by-exam-number lookup (that endpoint remains a deliberate product feature, guarded by rate limiting).
+
 ## In Progress
 
 - None.
 
 ## Next Up
 
-- Task 014 (check `context/tasks/` for the next spec)
+- Task 020 (real Python loading logic — check `context/tasks/` for the spec)
 
 ## Completed
+
+- **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
+  - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
+  - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.
+  - **`web/DESIGN.md`** — rewritten as v2.0 describing the flat Notion-document system as implemented: one warm canvas (no cards/shadows/pills), tag + property-row + quiet-button component vocabulary, real type ramp (`clamp` heading, mono numerals, zero-padded moyenne), elevation only on floating menus, celebration = tag spring + count-up.
+  - **`web/PRODUCT.md`** — removed stale "full attempt history across years" claim (history was cut in 013b); added design principle 6 "A document, not an app" and a "Card-and-shadow chrome" anti-reference; "decision badges" → "decision tags" in a11y section.
+  - `tsc --noEmit` clean; 7/7 web tests pass; no `shadow-level-1` references remain.
+
+- **Home/Search Redesign — same flat Notion document language as the result page**
+  - **Home page** — dropped `PageShell` (component deleted, was the last consumer) for the result page's document column (`max-w-140 mx-auto px-6 pt-[9vh] pb-20`), start-aligned; h1 now uses the result page's type ramp (`clamp(1.875rem,7vw,2.5rem)`, `tracking-[-0.01em]`) with the muted subtitle under it.
+  - **SearchTabs** — tabs restyled from underline-line tabs to quiet Notion switcher buttons (`h-9 rounded-md`, active = `bg-muted text-foreground`, `after:hidden` kills the line indicator); labels are muted 14px normal-weight; exam input and year select are flat hairline fields (`rounded-md bg-transparent`, mono kept on exam no); submit CTA stays solid black but `rounded-md` instead of pill; not-found block start-aligned; example hint bumped from `muted-foreground/60` to full `muted-foreground` for contrast.
+  - **NameAutocomplete** — input flat like the exam field; suggestion dropdown `rounded-md bg-background` with no per-row dividers (hover/active `bg-muted` only, skeletons too); match highlight changed from salmon `text-accent` (contrast fail) to bold `text-foreground`.
+  - `tsc --noEmit` clean; 7/7 web tests pass; curl-verified rendered AR/FR home pages (new h1 ramp, document column, tab classes present; no `rounded-full`/`bg-card` remnants).
+
+- **Result Page Redesign — flat Notion-style document (from HTML mockup)**
+  - **Global tokens (`globals.css`)** — `--card` and `--popover` now equal `--background` (`oklch(0.975 0.003 80)` warm paper) in light mode: the entire system sits on one flat warm-white surface; elevation is carried by hairline borders and existing shadows, not white-on-paper lift. Dark mode untouched.
+  - **StudentResultCard** — rewritten to the flat mockup layout: no card wrapper, no `shadow-level-1`, no breadcrumb. Name h1 (`clamp(1.875rem,7vw,2.5rem)`), flat `PropertyRow`s for exam number (mono), year (mono), série (muted tag), and decision (Notion-style select tag tinted with the status tokens — replaces the giant colored `DecisionHero` text), then `hr`, then the moyenne as the big number (`XX.XX / 20`, zero-padded 2 decimals, count-up preserved for Admis only), and two quiet bordered actions: copy-link (clipboard + 1.5s "copied" swap) and new-search. Decision tag entrance via new `.netija-tag-spring` (Admis) / `.netija-tag-fade` CSS classes; reduced-motion collapses spring to fade.
+  - **Results page** — dropped `PageShell` for a `max-w-140` centered column with `pt-[9vh] pb-20` (mockup's narrow single-column measure).
+  - **Layout** — removed the header's `border-b` for the flat borderless nav.
+  - **i18n** — added `student.decisionLabel` (القرار / Décision), `copyLink`, `linkCopied`, `newSearch` to both locales.
+  - `tsc --noEmit` clean; 7/7 web jest tests pass; verified served HTML/CSS via curl (header borderless, `--card: #f8f6f4`, tag animation classes in bundle).
 
 - **Harden Search Flow (NameAutocomplete + SearchTabs)**
   - `NameAutocomplete.tsx` — added `requestIdRef` for stale-response rejection, `ApiClientError` handling with server messages, retry button on error, `maxLength={100}`, `dir="auto"` on suggestion names for RTL, `break-words` for long text overflow, `aria-owns` on combobox, RTL-aware clear button positioning, liveMessage cleanup on clear, ArrowDown guard on empty list.
@@ -210,8 +268,6 @@ Update this file after every meaningful implementation change.
 ## Design Decisions
 
 - **Admin UI language is English.** The admin dashboard (`/admin/fr/...`) uses English, not French. Arabic locale (`/admin/ar/...`) stays in Arabic. This applies to: `fr.json` admin keys, hardcoded strings in admin components, field labels, aria-labels, and any future admin pages. Never add French text to the admin UI.
-
-## Open Questions
 
 ## Architecture Decisions
 

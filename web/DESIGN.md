@@ -1,7 +1,7 @@
 ---
-version: 1.0
+version: 2.0
 name: Netija Design System
-description: Netija's visual language — a paper-calm document surface built on a warm off-white canvas, near-black type, and a single black primary action, punctuated by sage green structure and a warm salmon accent that carries all the personality while the chrome stays quiet.
+description: Netija's visual language — a flat, Notion-calm document system. One warm paper canvas everywhere (no cards, no shadows, no pills), near-black type with a confident display heading, hairline structure, small tinted tags for status, and exactly one solid black action per page.
 
 colors:
   primary: "#000000"
@@ -11,16 +11,12 @@ colors:
   accent: "#ffa07a"
   accent-active: "#e8855e"
   on-primary: "#ffffff"
-  on-secondary: "#ffffff"
-  on-accent: "#ffffff"
-  canvas: "#ffffff"
-  canvas-soft: "#f6f5f4"
-  surface: "#ffffff"
-  ink: "#000000"
-  ink-secondary: "#31302e"
+  canvas: "#f8f6f4"
+  surface: "#f8f6f4"
+  ink: "#211f1d"
   ink-muted: "#615d59"
-  ink-faint: "#a39e98"
-  hairline: "#e6e6e6"
+  hairline: "#e7e5e3"
+  muted: "#eeecea"
 
   # Decision status
   status-pass-bg: "#e6f4e8"
@@ -33,80 +29,58 @@ colors:
   status-neutral-fg: "#555555"
 
 typography:
-  display-1:
-    fontFamily: Thmanyah Serif Display / Geist Sans
-    fontSize: 64px
+  heading-page:
+    fontFamily: Thmanyah Serif Display (AR) / Geist Sans (FR)
+    fontSize: clamp(30px, 7vw, 40px)
     fontWeight: 700
-    lineHeight: 1.0
-    letterSpacing: -2.125px
-  display-2:
-    fontFamily: Thmanyah Serif Display / Geist Sans
-    fontSize: 54px
+    lineHeight: 1.25
+    letterSpacing: -0.01em
+  number-display:
+    fontFamily: Thmanyah Sans / Geist Sans, tabular-nums
+    fontSize: clamp(30px, 7vw, 38px)
     fontWeight: 700
-    lineHeight: 1.04
-    letterSpacing: -1.875px
-  heading-1:
-    fontFamily: Thmanyah Serif Display / Geist Sans
-    fontSize: 40px
-    fontWeight: 700
-    lineHeight: 1.1
-    letterSpacing: -1px
-  heading-2:
-    fontFamily: Thmanyah Serif Text / Geist Sans
-    fontSize: 26px
-    fontWeight: 700
-    lineHeight: 1.23
-    letterSpacing: -0.625px
-  heading-3:
-    fontFamily: Thmanyah Sans / Geist Sans
-    fontSize: 22px
-    fontWeight: 700
-    lineHeight: 1.27
-    letterSpacing: -0.25px
-  title:
-    fontFamily: Thmanyah Sans / Geist Sans
-    fontSize: 20px
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: -0.125px
+    lineHeight: 1.2
+    letterSpacing: -0.02em
   body-md:
     fontFamily: Thmanyah Sans / Geist Sans
     fontSize: 16px
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: 0
   body-sm:
     fontFamily: Thmanyah Sans / Geist Sans
     fontSize: 15px
     fontWeight: 400
-    lineHeight: 1.33
-    letterSpacing: 0
-  button:
+    lineHeight: 1.5
+  label:
+    fontFamily: Thmanyah Sans / Geist Sans
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.5
+  tag:
+    fontFamily: Thmanyah Sans / Geist Sans
+    fontSize: 14px
+    fontWeight: 500
+    lineHeight: 1.5
+  button-cta:
     fontFamily: Thmanyah Sans / Geist Sans
     fontSize: 16px
     fontWeight: 500
     lineHeight: 1.5
-    letterSpacing: 0
-  caption:
+  button-quiet:
     fontFamily: Thmanyah Sans / Geist Sans
-    fontSize: 14px
+    fontSize: 13px
     fontWeight: 400
-    lineHeight: 1.43
-    letterSpacing: 0
-  eyebrow:
-    fontFamily: Thmanyah Sans / Geist Sans
-    fontSize: 12px
-    fontWeight: 600
-    lineHeight: 1.33
-    letterSpacing: 0.125px
+    lineHeight: 1.5
+  mono-data:
+    fontFamily: Geist Mono
+    fontSize: 15px
+    fontWeight: 400
+    lineHeight: 1.5
 
 rounded:
   xs: 4px
-  sm: 5px
-  md: 8px
-  lg: 12px
-  xl: 16px
-  full: 9999px
+  md: 6px
+  lg: 8px
 
 spacing:
   xxs: 4px
@@ -122,468 +96,244 @@ components:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
     typography: "{typography.body-sm}"
+    border: none
     padding: 16px
+  document-column:
+    maxWidth: 560px
+    padding: "9vh 24px 80px"
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
-    typography: "{typography.button}"
-    rounded: "{rounded.full}"
-  button-primary-pressed:
-    backgroundColor: "{colors.primary-active}"
-    textColor: "{colors.on-primary}"
-  button-secondary:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
-    rounded: "{rounded.full}"
-  button-utility:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
+    typography: "{typography.button-cta}"
     rounded: "{rounded.md}"
-    padding: 4px 14px
-  button-icon-circular:
-    backgroundColor: "rgba(0, 0, 0, 0.05)"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.full}"
-  badge-pill:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.primary}"
-    typography: "{typography.eyebrow}"
-    rounded: "{rounded.full}"
-    padding: 4px 8px
-  feature-card:
-    backgroundColor: "{colors.surface}"
+    height: 48px
+  button-quiet:
+    backgroundColor: transparent
+    textColor: "{colors.ink-muted}"
+    typography: "{typography.button-quiet}"
+    border: "1px {colors.hairline}"
+    rounded: "{rounded.md}"
+    padding: 6px 14px
+  tab-switcher-item:
+    backgroundColor: transparent
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.md}"
+    height: 36px
+    activeBackgroundColor: "{colors.muted}"
+    activeTextColor: "{colors.ink}"
+  text-input:
+    backgroundColor: transparent
     textColor: "{colors.ink}"
     typography: "{typography.body-md}"
-    rounded: "{rounded.lg}"
-    padding: 24px
-  feature-card-elevated:
-    backgroundColor: "{colors.surface}"
+    border: "1px {colors.hairline}"
+    rounded: "{rounded.md}"
+    height: 48px
+  tag:
+    backgroundColor: "{colors.muted}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: 24px
-  text-input:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body-sm}"
+    typography: "{typography.tag}"
     rounded: "{rounded.xs}"
-    padding: 6px
-  result-card:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    typography: "{typography.display-1}"
-    rounded: "{rounded.xl}"
-    padding: 32px
-  footer:
-    backgroundColor: "{colors.canvas-soft}"
-    textColor: "{colors.ink-secondary}"
-    typography: "{typography.caption}"
-    padding: 32px
-  status-badge-pass:
+    padding: 1px 8px
+  tag-status-pass:
     backgroundColor: "{colors.status-pass-bg}"
     textColor: "{colors.status-pass-fg}"
-    typography: "{typography.eyebrow}"
-    rounded: "{rounded.full}"
-    padding: 4px 12px
-  status-badge-fail:
+    typography: "{typography.tag}"
+    rounded: "{rounded.xs}"
+    padding: 1px 8px
+  tag-status-fail:
     backgroundColor: "{colors.status-fail-bg}"
     textColor: "{colors.status-fail-fg}"
-    typography: "{typography.eyebrow}"
-    rounded: "{rounded.full}"
-    padding: 4px 12px
-  status-badge-pending:
+    typography: "{typography.tag}"
+    rounded: "{rounded.xs}"
+    padding: 1px 8px
+  tag-status-pending:
     backgroundColor: "{colors.status-pending-bg}"
     textColor: "{colors.status-pending-fg}"
-    typography: "{typography.eyebrow}"
-    rounded: "{rounded.full}"
-    padding: 4px 12px
+    typography: "{typography.tag}"
+    rounded: "{rounded.xs}"
+    padding: 1px 8px
+  property-row:
+    labelColor: "{colors.ink-muted}"
+    labelTypography: "{typography.label}"
+    labelWidth: 144-176px
+    valueTypography: "{typography.body-sm}"
+    minHeight: 32px
+  floating-menu:
+    backgroundColor: "{colors.canvas}"
+    border: "1px {colors.hairline}"
+    rounded: "{rounded.md}"
+    shadow: "shadow-md (floating menus only)"
 ---
 
 ## Overview
 
-Netija looks like a well-organized document in calm daylight. The dominant surface is not pure white but a warm, paper-soft off-white — `{colors.canvas-soft}` (#f6f5f4) — that takes the clinical edge off the screen and makes long pages feel like a record rather than an app. Type is set in Thmanyah (Arabic) and Geist (French) at near-black `{colors.ink}`, with heavy, tightly-tracked weights so headings read as confident statements. The system whispers in greys and blacks, then says exactly two things in color: a single, dependable black `{colors.primary}` for the primary call-to-action, and a sage green `{colors.secondary}` (#8fad88) and warm salmon `{colors.accent}` (#ffa07a) that add warmth and structure without ever competing with content.
+Netija looks like a well-kept document, not an app. Every page — search, result, admin — sits on one warm paper canvas (`{colors.canvas}`, `--background: oklch(0.975 0.003 80)`). There are **no cards**: nothing is lifted onto a white surface, nothing casts a shadow at rest. Structure comes from typography, whitespace, hairline rules, and small muted tags — the Notion vocabulary. Type is Thmanyah (Arabic) and Geist (French) in near-black ink; numbers (exam numbers, years, moyennes) are set in Geist Mono with tabular figures.
 
-The result page is the most beautiful surface in the product — it should feel like something worth framing. The decision badge earns the most emotional weight: Admis gets a warm celebratory entrance; Ajourné and Sessionnaire appear with quiet restraint. Everything else stays out of the way.
+The result page is the showpiece and defines the pattern every public page follows: a narrow 560px column with generous top whitespace (~9vh), a confident display heading, flat label/value property rows, one hairline `hr`, one big number, and a row of quiet bordered actions. The decision is a small tinted select tag inline in its row — never a hero banner.
 
-Surfaces are defined by hairlines and barely-there layered shadows rather than heavy elevation. Cards round at a friendly 12px (`{rounded.lg}`), CTAs are fully pill-shaped (`{rounded.full}`), and utility buttons round at a tighter 8px (`{rounded.md}`). Nothing is loud; the brand's character comes from restraint plus one well-placed moment of warmth.
+Color says very little on purpose. The only solid fill on a public page is the single black CTA. Status tags carry the emotional palette (celebratory green for Admis, warm calm amber for Ajourné/Sessionnaire). Sage green (`{colors.secondary}`) survives as the admin sidebar's active indicator and in charts; salmon (`{colors.accent}`) is reserved for charts and possible future decorative moments — neither appears as structure on public pages.
 
-**Key Characteristics:**
+**Key characteristics:**
 
-- Warm paper-soft canvas `{colors.canvas-soft}` over pure white — never clinical
-- Near-black `{colors.ink}` type with tight negative tracking at display sizes (`{typography.display-1}`)
-- Exactly one structural primary — black `{colors.primary}` — reserved for CTAs and focus signals
-- Sage green `{colors.secondary}` (#8fad88) for structural accents, active states, and sidebar chrome
-- Warm salmon `{colors.accent}` (#ffa07a) for decorative highlights, the Admis celebration moment, and brand warmth
-- Pill-shaped marketing CTAs (`{rounded.full}`) contrasted with 8px utility buttons (`{rounded.md}`)
-- Elevation by hairline + barely-there layered shadow, not heavy drop-shadows
-- Decision status palette tuned for emotional honesty — Admis is celebratory, never alarming about a fail
-
----
-
-## Colors
-
-### Brand & Structural
-
-- **Black** (`{colors.primary}` — #000000): the single structural action color. Primary CTA fill ("Rechercher"), focus ring, active-tab indicator, and inline links. This is the only color that ever paints a primary action.
-- **Pressed Black** (`{colors.primary-active}` — #1a1a1a): the darker press state of the primary CTA.
-- **Sage Green** (`{colors.secondary}` — #8fad88): structural accent for sidebar chrome, active nav items, secondary badges, and supporting UI structure. Calm and botanical — it adds warmth without competing with the primary.
-- **Deep Sage** (`{colors.secondary-active}` — #6e9471): the pressed / active state of secondary elements.
-- **Warm Salmon** (`{colors.accent}` — #ffa07a): the brand's single decorative and celebratory color. Used for the Admis badge entrance, highlight chips, and the confetti burst on the result page. Never used for structure or CTAs.
-- **Deep Salmon** (`{colors.accent-active}` — #e8855e): pressed / darker state of accent elements.
-
-### Surface
-
-- **White** (`{colors.canvas}` / `{colors.surface}` — #ffffff): card and panel surfaces, nav bar, form fields.
-- **Warm Paper** (`{colors.canvas-soft}` — #f6f5f4): the signature page canvas and the footer band — a warm off-white that gives every page its document-like calm.
-- **Hairline** (`{colors.hairline}` — #e6e6e6): 1px card borders and dividers.
-
-### Text
-
-- **Ink** (`{colors.ink}` — #000000): primary headings and body text.
-- **Warm Charcoal** (`{colors.ink-secondary}` — #31302e): secondary body copy and footer text.
-- **Stone** (`{colors.ink-muted}` — #615d59): supporting / muted copy.
-- **Ash** (`{colors.ink-faint}` — #a39e98): captions, metadata, placeholder text.
-
-### Decision Status
-
-Status badges must never rely on color alone — always pair with text. The palette is emotionally tuned: Admis is warmer and more vibrant; Ajourné and Sessionnaire are measured and never alarming.
-
-- **Admis (Pass)** — `{colors.status-pass-bg}` / `{colors.status-pass-fg}`: warm celebratory green. The badge earns a spring-entrance animation.
-- **Ajourné (Fail)** — `{colors.status-fail-bg}` / `{colors.status-fail-fg}`: warm amber-orange, never alarming. No animation.
-- **Sessionnaire (Resit)** — `{colors.status-pending-bg}` / `{colors.status-pending-fg}`: measured warm amber. No animation.
-- **Neutral / Unknown** — `{colors.status-neutral-bg}` / `{colors.status-neutral-fg}`: quiet grey fallback.
-
----
+- One flat warm canvas — `--card` and `--popover` equal `--background`; figure/ground never comes from a white fill
+- No shadows at rest; `shadow-md` only on floating menus (autocomplete dropdown, selects)
+- Nothing pill-shaped: buttons and inputs round at `{rounded.md}` (6px), tags at `{rounded.xs}` (4px)
+- Display heading `clamp(30px, 7vw, 40px)` weight 700, tracking −0.01em
+- Property rows: muted 14px label (~160px column) + 15px value; mono for all numeric data
+- Status is a small tinted tag with text, never color alone, never a hero
+- Exactly one solid black action per page (`{colors.primary}`); everything else is quiet
 
 ## CSS Variables
 
-### Light Mode
+Tokens live in `web/app/globals.css`. Light mode:
 
 ```css
 :root {
-  /* Surface */
-  --background: oklch(0.975 0.003 0); /* canvas-soft warm paper */
-  --card: oklch(1 0 0); /* pure white */
-  --popover: oklch(1 0 0);
-
-  /* Type */
-  --foreground: oklch(0 0 0); /* ink black */
-  --card-foreground: oklch(0 0 0);
-  --popover-foreground: oklch(0 0 0);
-  --muted-foreground: oklch(0.44 0.008 60); /* stone — ≥4.5:1 on white */
-
-  /* Brand */
-  --primary: oklch(0 0 0); /* #000000 black */
-  --primary-foreground: oklch(1 0 0); /* white */
-
-  /* Secondary (sage green #8fad88) */
-  --secondary: oklch(0.7 0.07 148);
-  --secondary-foreground: oklch(1 0 0);
-
-  /* Accent (salmon #ffa07a) */
-  --accent: oklch(0.76 0.13 48);
-  --accent-foreground: oklch(1 0 0);
-
-  /* Muted (neutral surface) */
-  --muted: oklch(0.94 0.003 0);
-  --muted-foreground: oklch(0.44 0.008 60);
-
-  /* Semantic */
-  --destructive: oklch(0.57 0.22 28);
-
-  /* Chrome */
-  --border: oklch(0.9 0.002 0); /* hairline */
-  --input: oklch(0.9 0.002 0);
-  --ring: oklch(0 0 0); /* primary black focus ring */
-
-  --radius: 0.5rem;
+  --background:       oklch(0.975 0.003 80); /* warm paper — the one canvas */
+  --card:             oklch(0.975 0.003 80); /* same — flat system */
+  --popover:          oklch(0.975 0.003 80);
+  --foreground:       oklch(0.13 0.004 80);  /* warm near-black ink */
+  --muted:            oklch(0.94 0.002 80);  /* tag / hover / active-tab fill */
+  --muted-foreground: oklch(0.44 0.008 80);  /* labels, quiet text — ≥4.5:1 */
+  --primary:          oklch(0 0 0);          /* the single black action */
+  --secondary:        oklch(0.70 0.07 148);  /* sage — admin sidebar, charts */
+  --accent:           oklch(0.76 0.13 48);   /* salmon — charts, reserve */
+  --border:           oklch(0.91 0.002 80);  /* hairline */
+  --ring:             oklch(0 0 0);
+  --radius: 0.5rem;                          /* rounded-md ≈ 6px, rounded-lg 8px */
 }
 ```
 
-### Dark Mode
+Dark mode mirrors the same flatness (`--card`/`--popover` = `--background: oklch(0.10 0.002 0)`); borders become white at 10% alpha.
+
+Decision status tokens (light):
 
 ```css
-.dark {
-  --background: oklch(0.1 0.003 0);
-  --card: oklch(0.15 0.003 0);
-  --popover: oklch(0.15 0.003 0);
-  --foreground: oklch(0.95 0.002 0);
-  --card-foreground: oklch(0.95 0.002 0);
-  --popover-foreground: oklch(0.95 0.002 0);
-  --muted-foreground: oklch(0.63 0.006 60);
-
-  --primary: oklch(0.95 0 0); /* near-white in dark mode */
-  --primary-foreground: oklch(0.1 0 0);
-
-  --secondary: oklch(0.55 0.07 148); /* darker sage */
-  --secondary-foreground: oklch(0.95 0 0);
-
-  --accent: oklch(0.68 0.13 48); /* darker salmon */
-  --accent-foreground: oklch(0.1 0 0);
-
-  --muted: oklch(0.2 0.003 0);
-  --muted-foreground: oklch(0.63 0.006 60);
-
-  --destructive: oklch(0.68 0.2 28);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.95 0 0);
-}
+--status-pass-bg:    oklch(0.94 0.07 148);  --status-pass-fg:    oklch(0.30 0.12 148);
+--status-fail-bg:    oklch(0.94 0.06 55);   --status-fail-fg:    oklch(0.42 0.15 48);
+--status-pending-bg: oklch(0.95 0.05 78);   --status-pending-fg: oklch(0.40 0.10 70);
+--status-neutral-bg: oklch(0.93 0.002 0);   --status-neutral-fg: oklch(0.42 0.003 0);
 ```
-
-### Decision Status Tokens
-
-```css
-:root {
-  /* Admis (Pass) — warm celebratory green */
-  --status-pass-bg: oklch(0.94 0.07 148);
-  --status-pass-fg: oklch(0.3 0.12 148);
-
-  /* Ajourné (Fail) — warm amber, never alarming */
-  --status-fail-bg: oklch(0.94 0.06 55);
-  --status-fail-fg: oklch(0.42 0.15 48);
-
-  /* Sessionnaire (Resit) — measured amber */
-  --status-pending-bg: oklch(0.95 0.05 78);
-  --status-pending-fg: oklch(0.4 0.1 70);
-
-  /* Neutral / unknown */
-  --status-neutral-bg: oklch(0.93 0.002 0);
-  --status-neutral-fg: oklch(0.42 0.003 0);
-}
-```
-
----
 
 ## Typography
 
-### Font Families
+### Font families
 
-| Context                   | Family                 | Variable                        |
-| ------------------------- | ---------------------- | ------------------------------- |
-| Arabic — display headings | Thmanyah Serif Display | `--font-thmanyah-serif-display` |
-| Arabic — long-form text   | Thmanyah Serif Text    | `--font-thmanyah-serif-text`    |
-| Arabic — UI / body        | Thmanyah Sans          | `--font-thmanyah-sans`          |
-| French — all              | Geist Sans             | `--font-geist-sans`             |
-| Code / data               | Geist Mono             | `--font-geist-mono`             |
+| Context                    | Family                 | Variable                        |
+| -------------------------- | ---------------------- | ------------------------------- |
+| Arabic — display headings  | Thmanyah Serif Display | `--font-thmanyah-serif-display` |
+| Arabic — UI / body         | Thmanyah Sans          | `--font-thmanyah-sans`          |
+| French — all               | Geist Sans             | `--font-geist-sans`             |
+| Numeric data               | Geist Mono             | `--font-geist-mono`             |
 
-One font per script. Geist carries all French UI and body. Thmanyah Serif Display is reserved for large headings on the Arabic result page — the student's name and decision. Never use display fonts in labels, buttons, or data cells.
+One font per script. The display serif appears only in the page heading (the student's name); labels, tags, buttons, and data never use it. Every number — exam number, year, série, moyenne — is mono with `tabular-nums`.
 
 ### Scale
 
-| Token                    | Size | Weight | Line Height | Letter Spacing | Use                         |
-| ------------------------ | ---- | ------ | ----------- | -------------- | --------------------------- |
-| `{typography.display-1}` | 64px | 700    | 1.0         | −2.125px       | Result page name headline   |
-| `{typography.display-2}` | 54px | 700    | 1.04        | −1.875px       | Large section headlines     |
-| `{typography.heading-1}` | 40px | 700    | 1.1         | −1px           | Section headlines           |
-| `{typography.heading-2}` | 26px | 700    | 1.23        | −0.625px       | Sub-section headings        |
-| `{typography.heading-3}` | 22px | 700    | 1.27        | −0.25px        | Card titles                 |
-| `{typography.title}`     | 20px | 600    | 1.4         | −0.125px       | Feature titles, callouts    |
-| `{typography.body-md}`   | 16px | 400    | 1.5         | 0              | Default body copy           |
-| `{typography.body-sm}`   | 15px | 400    | 1.33        | 0              | Dense body, table rows, nav |
-| `{typography.button}`    | 16px | 500    | 1.5         | 0              | Button labels               |
-| `{typography.caption}`   | 14px | 400    | 1.43        | 0              | Captions, footnotes         |
-| `{typography.eyebrow}`   | 12px | 600    | 1.33        | +0.125px       | Pill badges, small labels   |
+| Token                        | Size                  | Weight | Use                                    |
+| ---------------------------- | --------------------- | ------ | -------------------------------------- |
+| `{typography.heading-page}`  | clamp(30px,7vw,40px)  | 700    | Page h1 (student name, home title)     |
+| `{typography.number-display}`| clamp(30px,7vw,38px)  | 700    | The moyenne (`17.94 / 20`)             |
+| `{typography.body-md}`       | 16px                  | 400    | Body copy, input text, CTA label       |
+| `{typography.body-sm}`       | 15px                  | 400    | Property values, list rows             |
+| `{typography.label}`         | 14px                  | 400    | Property/form labels (`ink-muted`)     |
+| `{typography.tag}`           | 14px                  | 500    | Tags and decision tags                 |
+| `{typography.button-quiet}`  | 13px                  | 400    | Quiet bordered actions                 |
 
-### Principles
+Voice is tight and quiet-confident: one heavy heading against a calm 400 body. Negative tracking stays gentle (−0.01em heading, −0.02em big number). The moyenne is always rendered `dir="ltr"` and zero-padded to two decimals (`08.40`), with the "/ 20" at half size in `ink-muted`.
 
-Type voice is **tight, heavy, and quiet-confident**. Headlines lean on weight 700 and aggressive negative tracking. Body copy stays at a comfortable 1.5 line-height for document readability. Numeric data (averages, exam numbers): `font-variant-numeric: tabular-nums`. The contrast between a heavy 700 headline and a calm 400 body is the primary expressive lever — no decorative typography, only a clear hierarchy.
+## Layout
 
----
-
-## Spacing & Layout
-
-### Spacing System
-
-- **Base unit**: 4px. All spacing in multiples of 4.
-- **Tokens**: `{spacing.xxs}` 4px · `{spacing.xs}` 8px · `{spacing.sm}` 12px · `{spacing.md}` 16px · `{spacing.lg}` 24px · `{spacing.xl}` 28px · `{spacing.xxl}` 32px.
-- Card interior padding: `{spacing.lg}` (24px) minimum; result card uses `{spacing.xxl}` (32px) — it is a moment, not a data row.
-- Utility buttons: tight `4px 14px`. Form fields: `6px`.
-
-### Grid & Container
-
-| Context          | Max Width           | Notes                                              |
-| ---------------- | ------------------- | -------------------------------------------------- |
-| Search & results | `max-w-2xl` (42rem) | Centered, generous outer gutters                   |
-| Admin            | `max-w-5xl`         | Compact density, tables may go full viewport width |
-
-No nested cards. The page is the canvas; cards are the documents on it.
-
-### Responsive Strategy
-
-| Name    | Width       | Key Changes                                          |
-| ------- | ----------- | ---------------------------------------------------- |
-| Wide    | 1440px+     | Full multi-column grids, widest container            |
-| Desktop | 1080–1300px | Standard centred container                           |
-| Tablet  | 768–840px   | Nav begins condensing                                |
-| Mobile  | ≤600px      | Single-column stacks, hamburger nav, full-width CTAs |
-
-Touch targets: maintain 44×44px minimum hit area on mobile.
-
----
+- **Document column**: public pages use `max-w-140` (560px), centered, `px-6`, `pt-[9vh] pb-20`. Start-aligned content — never centered text blocks.
+- **Property rows**: label column ~144–176px (`w-36 sm:w-44`), muted 14px; value 15px; min-height 32px; subtle full-row `hover:bg-muted/50`.
+- **Section breaks**: a single hairline `<hr>` (`border-border`), `my-6`.
+- **Admin**: `max-w-5xl`, compact density, same flat control vocabulary as public pages.
+- Base spacing unit 4px; touch targets ≥44px on mobile (inputs and CTA are `h-12`).
 
 ## Elevation & Depth
 
-| Level        | Treatment                                                                                                                        | Use                               |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| 0 — Flat     | Hairline border `{colors.hairline}`, no shadow                                                                                   | Default cards on the warm canvas  |
-| 1 — Soft     | Layered micro-shadow: `rgba(0,0,0,0.01) 0 0.175px 1.041px`, `0.02 0 0.8px 2.925px`, `0.027 0 2.025px 7.847px`, `0.04 0 4px 18px` | Raised feature cards, result card |
-| 2 — Elevated | Deeper 5-stop stack ending in `rgba(0,0,0,0.05) 0 23px 52px`                                                                     | Modals, popovers                  |
+There is none at rest. The page is the surface. Two sanctioned exceptions:
 
-Elevation is **barely-there**: shadows are built from many near-transparent layers so surfaces feel gently lifted off the paper, never dramatically dropped. Most cards rely on a hairline alone.
-
----
-
-## Shapes
-
-### Border Radius Scale
-
-| Token            | Value  | Use                                                  |
-| ---------------- | ------ | ---------------------------------------------------- |
-| `{rounded.xs}`   | 4px    | Form fields, small tags, inline chips                |
-| `{rounded.sm}`   | 5px    | Menu items, list rows, status pills                  |
-| `{rounded.md}`   | 8px    | Utility / nav buttons, smaller cards                 |
-| `{rounded.lg}`   | 12px   | Feature cards, result card containers                |
-| `{rounded.xl}`   | 16px   | Result card, large image wells                       |
-| `{rounded.full}` | 9999px | Primary CTAs, decision badges, circular icon buttons |
-
----
+| Context                       | Treatment                                        |
+| ----------------------------- | ------------------------------------------------ |
+| Static structure              | Hairline `{colors.hairline}` borders only        |
+| Floating menus (autocomplete dropdown, select popover) | `1px` hairline + `shadow-md`, `{rounded.md}` |
 
 ## Components
 
-> **No hover states documented.** Every spec below documents Default and Active/Pressed states only.
-
 ### Navigation
 
-**`nav-bar`** — Top navigation
+**`nav-bar`** — borderless top bar: brand wordmark (14px semibold) start, language toggle end, `h-(--nav-height)`. No border-bottom, no background change on scroll.
 
-- White surface `{colors.canvas}`, `{colors.ink}` link text at `{typography.body-sm}`, padding `{spacing.md}`. Slim sticky bar; condenses to a hamburger below the tablet breakpoint.
+### Result page (the showpiece)
+
+Flat Notion-style document, top to bottom:
+
+1. **Name** — `{typography.heading-page}` in the display font of the rendered name's script. One name only: the current language's, falling back to the other; `lang`/`dir`/font follow the fallback.
+2. **Property rows** — exam number (mono), year (mono), série (`tag`), decision (`tag-status-*`). The decision tag is small and inline — the moyenne is the visual hero, not the decision.
+3. **Hairline `hr`.**
+4. **Moyenne** — muted 14px label, then `{typography.number-display}` `XX.XX / 20`.
+5. **Quiet actions** — `button-quiet` copy-link (swaps to "copied ✓" for 1.5s) and new-search.
+
+### Tags
+
+- **`tag`** — `{colors.muted}` fill, ink text, `{rounded.xs}`, padding `1px 8px`. Used for série and any enum value.
+- **`tag-status-*`** — same shape, tinted with the status tokens. Always carries its text label; color never means anything alone.
 
 ### Buttons
 
-**`button-primary`** — Primary CTA ("Rechercher")
+- **`button-primary`** — solid black, white text, `{rounded.md}`, `h-12`, full-width in the search form. The only solid fill on a public page. Pressed: `{colors.primary-active}`.
+- **`button-quiet`** — transparent, 1px hairline, `{rounded.md}`, 13px `ink-muted`; hover fills `{colors.muted}` and darkens to ink.
 
-- Background `{colors.primary}` (black), text `{colors.on-primary}`, type `{typography.button}`, fully pill-shaped `{rounded.full}`. The single black action on any page.
-- Pressed state: `button-primary-pressed` (background `{colors.primary-active}` #1a1a1a).
+### Search (home page)
 
-**`button-secondary`** — Secondary CTA
+- **Tab switcher** — quiet text buttons (`tab-switcher-item`), not underline tabs: inactive is muted text on nothing; active gets a `{colors.muted}` rounded-md chip. No border under the row.
+- **`text-input`** — transparent on the canvas, 1px hairline, `{rounded.md}`, `h-12`, 16px text; exam number input is mono. Labels above fields: 14px, normal weight, `ink-muted`. Focus: black ring.
+- **Autocomplete menu** — `floating-menu`; rows are `px-4 py-3` with no dividers, separated by `hover:bg-muted/60` / active `bg-muted`; match highlight is bold ink (no color); loading shows skeleton rows; empty and error states are quiet centered text with an underlined ink action.
 
-- White surface `{colors.surface}`, text `{colors.ink}`, type `{typography.button}`, pill `{rounded.full}`, Level-1 shadow.
+### Admin
 
-**`button-utility`** — Nav / utility button
-
-- White surface, text `{colors.ink}`, tighter `{rounded.md}` (8px), padding `4px 14px`, 1px `{colors.hairline}` border.
-
-### Cards & Containers
-
-**`feature-card`** — Content card
-
-- White surface `{colors.surface}`, `{colors.ink}` text, `{typography.body-md}`, rounded `{rounded.lg}` (12px), padding `{spacing.lg}` (24px). Flat elevation (hairline only).
-
-**`feature-card-elevated`** — Raised card
-
-- Same chrome as `feature-card` with Level-1 layered shadow.
-
-### Inputs & Forms
-
-**`text-input`** — Text / number field
-
-- White surface `{colors.surface}`, `{colors.ink}` text, `{typography.body-sm}`, 1px `{colors.hairline}` border, rounded `{rounded.xs}` (4px), padding `6px`. Focus adds Level-1 shadow and `ring-2` in `{colors.primary}`.
-- Height `h-12` for the search input — generous for Arabic IME and large fingers.
-
-### Decision Badges
-
-**`status-badge-pass`** — Admis
-
-- `{colors.status-pass-bg}` fill, `{colors.status-pass-fg}` text, `{typography.eyebrow}`, `{rounded.full}`, padding `4px 12px`.
-- Earns a spring entrance animation on first render. Pair with a checkmark icon. Never color alone.
-
-**`status-badge-fail`** — Ajourné
-
-- `{colors.status-fail-bg}` fill, `{colors.status-fail-fg}` text, `{rounded.full}`.
-- No animation. Warm, calm, never alarming. Pair with a dash icon.
-
-**`status-badge-pending`** — Sessionnaire
-
-- `{colors.status-pending-bg}` fill, `{colors.status-pending-fg}` text, `{rounded.full}`.
-- No animation. Measured. Pair with a clock icon.
-
-### Result Card (the showpiece)
-
-This is the most beautiful surface in the product. It must look exceptional — not just correct.
-
-**`result-card`** — Decision surface
-
-- Pure white card (`{colors.surface}`) on the warm paper canvas `{colors.canvas-soft}` — creates a clean lift.
-- Level-1 soft shadow. Rounded `{rounded.xl}`. Padding `{spacing.xxl}` (32px) minimum.
-- Student name: `{typography.display-1}` in display font (Arabic: Thmanyah Serif Display; French: Geist). `font-variant-numeric: tabular-nums` on all numeric data.
-- Decision badge: large and prominent, below the name. Centered. Not inline.
-- Admis state: badge springs in. Moyenne Générale counts up from 0 to value over 600ms. A brief `{colors.accent}` particle burst (12–18 CSS `border-radius: 50%` divs, no library).
-- Ajourné / Sessionnaire: calm `opacity 0 → 1` appearance (150ms). No scale, no particles, no alarm.
-- Attempt history table: borderless, `{typography.body-sm}`, alternating `rgba(var(--muted), 0.5)` rows.
-
-**Never festive about a fail.** No animation, no motion, no color that reads as celebration on Ajourné or Sessionnaire.
-
-### Footer
-
-**`footer`** — Site footer
-
-- Warm `{colors.canvas-soft}` band, `{colors.ink-secondary}` link text at `{typography.caption}`, padding `{spacing.xxl}`.
-
-### Admin (stays plain)
-
-Admin surfaces are functional, not beautiful. No brand moments, no display fonts. Compact density. Tables at full viewport width. Standard form controls. Sidebar uses `{colors.secondary}` (#8fad88) as the active nav indicator.
-
----
+Same flat system as the public pages, not a separate functional skin: one canvas, no cards, hairline structure only, `{rounded.md}` buttons (never pills), `{rounded.xs}` tags. Denser and no display fonts or brand moments — the product register's allowance, not a different design language. Tables and property lists sit directly on the canvas (a `border-b` under the header row and `divide-y` between rows, never a `bg-card` + `border` + `shadow` box). Empty states are quiet centered text with an underlined ink action, matching the public autocomplete's empty/error pattern — never a dashed "card". Sidebar active indicator uses `{colors.secondary}` (sage); the sidebar's own background is a legitimately distinct second neutral layer (`--sidebar`, slightly cooler than the canvas), which is the one place a second surface tone is allowed. The login form is a hairline-bordered `rounded-lg` block — no shadow.
 
 ## Motion
 
-| Duration | Value | Use                           |
-| -------- | ----- | ----------------------------- |
-| Short    | 150ms | State toggles, hover, focus   |
-| Medium   | 250ms | Panel reveals, badge entrance |
-| Long     | 350ms | Page-level transitions        |
+| Duration | Value | Use                         |
+| -------- | ----- | --------------------------- |
+| Short    | 150ms | State toggles, hover, focus |
+| Medium   | 250ms | Panel reveals, menu open    |
+| Long     | 350ms | Page-level transitions      |
 
-- Easing in: `cubic-bezier(0.16, 1, 0.3, 1)` (ease-out-quint) for reveals.
-- Easing out: `cubic-bezier(0.4, 0, 1, 1)` (ease-in-quart) for exits.
-- `prefers-reduced-motion`: crossfade (opacity 150ms) or instant. No layout motion.
-- No orchestrated page-load sequences. The result page loads into a finished state.
+- Reveals: `cubic-bezier(0.16, 1, 0.3, 1)` (ease-out-quint). Exits: `cubic-bezier(0.4, 0, 1, 1)`.
+- No orchestrated page-load sequences; pages load into a finished state.
 
-### Admis Celebration
+### Admis celebration
 
-1. **Badge entrance**: scales from `scale(0.85)` to `scale(1)` with `opacity 0 → 1`, 400ms, `cubic-bezier(0.34, 1.56, 0.64, 1)` (gentle spring).
-2. **Confetti burst**: 12–18 small `{colors.accent}` (#ffa07a) and `{colors.secondary}` (#8fad88) particles scatter upward from the badge, fade out in 800ms. CSS only, no library.
-3. **Grade reveal**: Moyenne Générale counts up from 0 to its value over 600ms, linear, displayed as a single decimal (e.g. 14.5).
+Small and tasteful — the flat system celebrates quietly:
 
-`prefers-reduced-motion` override: all three reduce to a single `opacity 0 → 1` fade over 200ms.
+1. **Decision tag entrance** — `.netija-tag-spring`: scale 0.85→1 + fade, 400ms, gentle spring `cubic-bezier(0.34, 1.56, 0.64, 1)`.
+2. **Moyenne count-up** — 0 to value over 600ms, two decimals.
 
----
+Ajourné / Sessionnaire get `.netija-tag-fade` (200ms opacity) and a static moyenne. **Never festive about a fail.** `prefers-reduced-motion` collapses the spring to the fade and skips the count-up.
 
 ## Do's and Don'ts
 
 ### Do
 
-- Reserve `{colors.primary}` (black) for the primary action, focus ring, and active/focus signal — nothing decorative.
-- Keep pages on the warm `{colors.canvas-soft}` canvas; use pure white `{colors.surface}` for cards to create gentle figure/ground.
-- Use `{colors.secondary}` (#8fad88) for structural accents — sidebar active states, secondary badges, supporting chrome.
-- Use `{colors.accent}` (#ffa07a) only for decorative warmth and the Admis celebration moment.
-- Set headlines in heavy `{typography.display-1}` / `{typography.heading-1}` with their negative tracking applied explicitly.
-- Use pill `{rounded.full}` for primary CTAs and decision badges; tighter `{rounded.md}` for nav/utility buttons.
-- Define surfaces with `{colors.hairline}` and the barely-there Level-1 shadow rather than heavy drop-shadows.
-- Pair every status badge with its text label — color never carries meaning alone.
+- Keep every surface on the one warm canvas — light and dark. If something needs separation, use a hairline or whitespace, not a fill.
+- Reserve solid black for the single primary action, focus ring, and active signals.
+- Set all numeric data in Geist Mono with `tabular-nums`; zero-pad the moyenne to two decimals.
+- Use `{rounded.md}` for buttons and inputs, `{rounded.xs}` for tags. Full-pill radii are banned everywhere.
+- Pair every status tag with its text label; localize decisions.
+- Keep labels muted 14px and values 15px in property rows; keep the label column fixed so rows scan as a table.
 
 ### Don't
 
-- Don't paint a CTA or structural fill in `{colors.accent}` — that is decoration and celebration only.
-- **Don't** use tinted badges (`bg-primary/10 text-primary`). Use muted-text labels or bordered labels instead.
-- **Don't** use same-hue background + text combinations on any badge or pill.
-- Don't introduce a second structural primary alongside `{colors.primary}`.
-- **Don't** use `box-shadow` anywhere.
-- **Don't** use linear gradients on any surface.
-- Don't put pill `{rounded.full}` radii on form fields — inputs stay tight at `{rounded.xs}` (4px).
-- Don't drop heavy shadows; elevation is many near-transparent layers, never a hard cast.
-- Don't set body copy in a heavy weight — keep 400 for readability; weight 700 belongs to headlines.
-- Don't place type on pure clinical white for full pages; the warm `{colors.canvas-soft}` is the brand's calm.
-- Don't animate Ajourné or Sessionnaire — never festive about a fail.
+- Don't add cards, panels, or white fills — no `bg-card` distinct from the page, ever.
+- Don't use `box-shadow` at rest; only floating menus may cast one.
+- Don't make the decision a hero banner or giant colored text — it is a small tag; the moyenne is the big moment.
+- Don't animate Ajourné or Sessionnaire beyond a fade.
+- Don't use underline/line tabs — tab switchers are quiet muted-chip buttons.
+- Don't color text for emphasis in lists or matches — use weight (bold ink).
+- Don't put display serif in labels, buttons, tags, or data.
+- Don't introduce a second structural color on public pages; sage and salmon live in admin chrome and charts only.
 - Never log or send student names, exam numbers, or NNI to any analytics or error service.

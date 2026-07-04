@@ -1,22 +1,25 @@
-# 011 — Name Autocomplete
+# 011 — Name Autocomplete (year-labeled results)
 
 **Depends on:** 009, 010
-**Context:** testing.md (autocomplete test list), code-standards.md (accessibility — combobox requirements), project-overview.md (disambiguation).
+**Context:** code-standards.md (accessibility combobox), project-overview.md.
 
 ## Goal
-The typo-tolerant name search experience: an accessible combobox wired to the name-search API.
+Typo-tolerant name search UI where each matching attempt is a year-labeled row.
 
 ## Requirements
-- Debounced querying (no request per keystroke); minimum query length matching the API.
-- Renders up to 10 suggestions, each showing the name plus its disambiguators (year, serie, birth place when available), most-recent-first — two identical names must be visually distinguishable.
-- Full combobox accessibility: arrow-key navigation, Enter selects, Escape closes, aria-live announcements for result count and the empty state.
-- Selecting a suggestion navigates to that person's student page.
-- Works with Arabic and French input; all chrome strings localized.
+- Debounced querying; minimum query length matching the API.
+- Renders up to ~10 suggestions, each showing name + exam_year + serie,
+  newest year first. A name appearing in several years shows as several rows.
+- Full combobox accessibility: arrow-key nav, Enter selects, Escape closes,
+  aria-live for result count and empty state.
+- Selecting a row navigates to that result page (that attempt).
+- French and Arabic input; all chrome strings localized.
 
 ## Out of scope
-- Search API changes; styling decisions.
+- Search API changes; any person/merge concept.
 
 ## Done when
-- [ ] All autocomplete tests from testing.md pass, including keyboard-only operation and the announced empty state.
-- [ ] A test renders two identical-name suggestions and asserts they are distinguishable by their disambiguators.
+- [ ] Tests: debounce; up to 10 rows; a name with 3 years shows 3 rows labeled
+      by year, newest first; keyboard-only operation; announced empty state;
+      selection navigates to the right result.
 - [ ] jest-axe passes with the listbox open.

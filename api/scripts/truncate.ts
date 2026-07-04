@@ -12,7 +12,7 @@ const db = drizzle(pool);
 
 async function main(): Promise<void> {
   await db.execute(
-    sql`TRUNCATE person_links, link_suggestions, rejects, attempts, imports, persons, column_aliases RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE rejects, attempts, imports, column_aliases RESTART IDENTITY CASCADE`,
   );
   console.log('All tables truncated.');
 }
