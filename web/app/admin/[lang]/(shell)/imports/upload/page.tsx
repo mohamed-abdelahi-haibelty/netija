@@ -5,33 +5,21 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Upload, FileSpreadsheet, X, Loader2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import type { ImportUploadResult } from 'shared';
 
 const ACCEPTED_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-excel',
 ];
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
-const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - i);
-
-type DateFormat = 'DMY' | 'MDY' | 'ISO';
 
 export default function UploadPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const rawParams = useParams();
-  const lang = (rawParams?.lang as string) ?? 'fr';
+  const lang = rawParams.lang as string;
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [year, setYear] = useState<string>('');
-  const [dateFormat, setDateFormat] = useState<DateFormat>('DMY');
   const [isDragOver, setIsDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -49,7 +37,7 @@ export default function UploadPage() {
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const f = files[0]!;
+    const f = files[0];
     const err = validateFile(f);
     if (err) {
       setFileError(err);
@@ -71,11 +59,13 @@ export default function UploadPage() {
     setIsDragOver(true);
   }, []);
 
-  const handleDragLeave = useCallback(() => setIsDragOver(false), []);
+  const handleDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file || !year) {
+    if (!file) {
       setFormError(t('admin.upload.errorRequired'));
       return;
     }
@@ -85,29 +75,30 @@ export default function UploadPage() {
     try {
       const body = new FormData();
       body.append('file', file);
-      body.append('examYear', year);
-      body.append('dateFormat', dateFormat);
 
-      // TODO (task 014): POST /api/admin/imports/upload
-      const res = await fetch('/api/admin/imports/upload', {
-        method: 'POST',
-        body,
-        credentials: 'include',
-      });
+      // Multipart body — deliberately a raw fetch, not lib/api's apiRequest,
+      // since apiRequest always forces a JSON Content-Type header, which
+      // would break the browser's own multipart boundary.
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/imports`,
+        {
+          method: 'POST',
+          body,
+          credentials: 'include',
+        },
+      );
 
       if (res.ok) {
-        const { data } = await res.json() as { data: { importId: string } };
-        router.push(`/admin/${lang}/imports/${data.importId}/mapping`);
+        const { data } = (await res.json()) as { data: ImportUploadResult };
+        router.push(`/admin/${lang}/imports/${String(data.importId)}/mapping`);
         return;
       }
-      if (res.status === 415 || res.status === 413 || res.status === 400) {
-        const body2 = await res.json().catch(() => null);
-        setFormError(body2?.error?.message ?? t('admin.upload.dropzoneInvalid'));
-      } else {
-        setFormError(t('admin.upload.dropzoneInvalid'));
-      }
+      const errorBody = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setFormError(errorBody?.error?.message ?? t('admin.upload.errorUpload'));
     } catch {
-      setFormError(t('admin.upload.dropzoneInvalid'));
+      setFormError(t('admin.upload.errorUpload'));
     } finally {
       setSubmitting(false);
     }
@@ -115,7 +106,6 @@ export default function UploadPage() {
 
   return (
     <section aria-labelledby="upload-title" className="max-w-xl">
-
       {/* ── Back ── */}
       <a
         href={`/admin/${lang}/imports`}
@@ -132,8 +122,12 @@ export default function UploadPage() {
         {t('admin.upload.pageTitle')}
       </h1>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(e);
+        }}
+        className="space-y-5"
+      >
         {/* ── Dropzone ── */}
         <div>
           <div
@@ -145,7 +139,8 @@ export default function UploadPage() {
             onDragLeave={handleDragLeave}
             onClick={() => fileInputRef.current?.click()}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+              if (e.key === 'Enter' || e.key === ' ')
+                fileInputRef.current?.click();
             }}
             className={cn(
               'relative flex flex-col items-center justify-center gap-3',
@@ -155,8 +150,8 @@ export default function UploadPage() {
               isDragOver
                 ? 'border-secondary bg-secondary/10'
                 : file
-                ? 'border-border bg-muted/30'
-                : 'border-border bg-card hover:border-muted-foreground/40 hover:bg-muted/20',
+                  ? 'border-border bg-muted/30'
+                  : 'border-border bg-card hover:border-muted-foreground/40 hover:bg-muted/20',
             )}
           >
             <input
@@ -165,12 +160,17 @@ export default function UploadPage() {
               accept=".xlsx,.xls"
               className="sr-only"
               aria-hidden
-              onChange={(e) => handleFiles(e.target.files)}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+              }}
             />
 
             {file ? (
               <>
-                <FileSpreadsheet className="size-8 text-secondary" aria-hidden />
+                <FileSpreadsheet
+                  className="size-8 text-secondary"
+                  aria-hidden
+                />
                 <div className="text-center px-4">
                   <p className="text-sm font-medium text-foreground truncate max-w-70">
                     {file.name}
@@ -182,7 +182,10 @@ export default function UploadPage() {
                 <button
                   type="button"
                   aria-label="Retirer le fichier"
-                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFile(null);
+                  }}
                   className="absolute top-2 inset-e-2 p-1 rounded text-muted-foreground hover:text-foreground transition-colors duration-150"
                 >
                   <X className="size-4" aria-hidden />
@@ -221,56 +224,6 @@ export default function UploadPage() {
           )}
         </div>
 
-        {/* ── Year ── */}
-        <div className="space-y-1.5">
-          <label htmlFor="examYear" className="block text-sm font-medium text-foreground">
-            {t('admin.upload.yearLabel')}
-          </label>
-          <Select value={year || undefined} onValueChange={(v) => { if (v) setYear(v); }}>
-            <SelectTrigger id="examYear" className="w-full h-10">
-              <SelectValue placeholder={t('admin.upload.yearPlaceholder')} />
-            </SelectTrigger>
-            <SelectContent>
-              {YEAR_OPTIONS.map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* ── Date format ── */}
-        <fieldset>
-          <legend className="text-sm font-medium text-foreground mb-2">
-            {t('admin.upload.dateFormatLabel')}
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {(['DMY', 'MDY', 'ISO'] as DateFormat[]).map((fmt) => (
-              <label
-                key={fmt}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-md border text-sm cursor-pointer',
-                  'transition-colors duration-150',
-                  dateFormat === fmt
-                    ? 'border-primary bg-primary/5 text-foreground font-medium'
-                    : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="dateFormat"
-                  value={fmt}
-                  checked={dateFormat === fmt}
-                  onChange={() => setDateFormat(fmt)}
-                  className="sr-only"
-                />
-                {t(`admin.upload.dateFormat${fmt}`)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
         {/* ── Form error ── */}
         {formError && (
           <p role="alert" className="text-sm text-status-fail-fg">
@@ -284,15 +237,19 @@ export default function UploadPage() {
             type="submit"
             disabled={submitting}
             className={cn(
-              'inline-flex items-center gap-2 h-9 px-5 rounded-full',
+              'inline-flex items-center gap-2 h-10 px-5 rounded-md',
               'bg-primary text-primary-foreground text-sm font-medium',
               'hover:bg-primary/85 active:bg-primary/70 transition-colors duration-150',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               'disabled:pointer-events-none disabled:opacity-60',
             )}
           >
-            {submitting && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            {submitting ? t('admin.upload.submitting') : t('admin.upload.submit')}
+            {submitting && (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            )}
+            {submitting
+              ? t('admin.upload.submitting')
+              : t('admin.upload.submit')}
           </button>
           <a
             href={`/admin/${lang}/imports`}
