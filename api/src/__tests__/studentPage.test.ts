@@ -26,7 +26,13 @@ vi.mock('../services/studentPage.js', () => ({
 }));
 
 vi.mock('../db/client.js', () => ({ db: {} }));
-vi.mock('../lib/redis.js', () => ({ redis: {} }));
+// incr/expire back the rate-limit middleware (the public GET /:slug route
+// goes through it now); the actual rate-limit behavior is covered in
+// rateLimit.test.ts, so a permissive stub here keeps these route tests
+// focused on the result-page behavior itself.
+vi.mock('../lib/redis.js', () => ({
+  redis: { incr: vi.fn().mockResolvedValue(1), expire: vi.fn().mockResolvedValue(1) },
+}));
 
 import { auth } from '../lib/auth.js';
 import { getStudentPage, getAdminResultPreview } from '../services/studentPage.js';
@@ -97,7 +103,11 @@ describe('GET /api/results/:slug', () => {
     expect(body.data.examYear).toBe(2023);
     expect(body.data.decision).toBe('Admis');
     expect(mockGetStudentPage).toHaveBeenCalledOnce();
-    expect(mockGetStudentPage).toHaveBeenCalledWith({}, {}, SLUG);
+    expect(mockGetStudentPage).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      SLUG,
+    );
   });
 
   it('returns 404 STUDENT_NOT_FOUND for an unknown slug', async () => {

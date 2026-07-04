@@ -27,7 +27,13 @@ vi.mock('../services/examSearch.js', () => ({
 }));
 
 vi.mock('../db/client.js', () => ({ db: {} }));
-vi.mock('../lib/redis.js', () => ({ redis: {} }));
+// incr/expire back the rate-limit middleware (all /api/search routes go
+// through it now); the actual rate-limit behavior is covered in
+// rateLimit.test.ts, so a permissive stub here keeps these route tests
+// focused on the search behavior itself.
+vi.mock('../lib/redis.js', () => ({
+  redis: { incr: vi.fn().mockResolvedValue(1), expire: vi.fn().mockResolvedValue(1) },
+}));
 
 import { searchByExamNo, getPublishedYears } from '../services/examSearch.js';
 import type { ExamSearchResult } from 'shared';
