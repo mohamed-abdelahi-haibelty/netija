@@ -237,6 +237,20 @@ Update this file after every meaningful implementation change.
   already in their final task-020 form — see that entry below — since only
   one final version of each file exists to commit.
 
+- **Task 014 — Excel Upload API**
+  - `shared/src/imports.ts`: `ImportUploadResult` (`{ importId }`), `ImportUploadResponse` — shared types for the upload response.
+  - `api/src/services/imports.ts`: `sniffExcelType(bytes)` — pure content-sniffing by binary signature (zip/OOXML → `xlsx`, OLE2 compound file → `xls`; anything else, including a renamed executable, → `null`); never trusts the claimed extension or MIME type. `MAX_UPLOAD_BYTES` (25 MB) constant. `saveUploadedFile(uploadsDir, buffer, type)` writes the file under a generated `randomUUID()` name (never the original filename) to the shared uploads volume. `createImport(db, params)` inserts the initial `imports` row (`status` defaults to `'pending'` per the schema) and returns its id.
+  - `api/src/routes/imports.ts`: `POST /api/imports`, session-protected via `requireSession` on the whole router. Parses `multipart/form-data` with `parseBody({ all: true })` so a second `file` field collapses into an array (needed to detect the multi-file case — without `all: true`, Hono silently keeps only the last value). Order of checks: missing/multiple file → 400, oversized → 413, content-sniff mismatch → 415, then save + create → 201 `{ data: { importId } }`. Relies on `app.ts`'s existing `STATUS_TO_CODE` map for 400/413/415, no explicit `cause` needed.
+  - `UPLOADS_DIR` env var added (optional; defaults to the repo-root `uploads/` folder, resolved from `api/` as cwd) — documented in `.env.example` and `deployment.md`.
+  - `app.ts`: mounted `importsRouter` at `/api/imports`.
+  - 13 new tests in `api/src/__tests__/imports.test.ts` (91 total in api, excluding the pre-existing Postgres-dependent schema integration suite): 401 without session; valid `.xlsx` → 201 with `importId`; valid legacy `.xls` → 201; missing file → 400; two files in one request → 400; renamed-executable (`MZ` header, `.xlsx` extension, spreadsheet MIME type) → 415; oversized (25 MB + 1 byte) → 413; `sniffExcelType` unit tests (xlsx/xls/garbage/short-buffer); `saveUploadedFile` unit test with `node:fs/promises` mocked at the edge; `createImport` unit test with a mocked Drizzle insert chain. Route tests mock only the disk/DB edges (`saveUploadedFile`, `createImport`) and exercise the real `sniffExcelType`.
+  - `tsc --noEmit` clean for api, shared, and web; `vitest run` passes (only the pre-existing Postgres-dependent `schema.test.ts` suite fails locally, because Postgres isn't running — same known infra gap noted after task 003/013b, unrelated to this change).
+  - **Deliberately out of scope (per task spec):** preview, mapping, and confirm (015–018) are not implemented. The existing `web/app/admin/[lang]/(shell)/imports/upload/page.tsx` stub still posts to `/api/admin/imports/upload` (a relative Next.js path) rather than the API's actual `POST /api/imports` — left untouched since task 014 is API-only scope per `ai-workflow-rules.md`; see Open Questions below.
+
+  Note (this batch): `routes/imports.ts` and `shared/src/imports.ts` grow
+  additively in the commits below (each adds its own task's routes/types) —
+  see the router-wiring note in later entries.
+
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
   - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.

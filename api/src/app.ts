@@ -9,6 +9,7 @@ import { auth } from './lib/auth.js';
 import healthRouter from './routes/health.js';
 import searchRouter from './routes/search.js';
 import resultsRouter from './routes/results.js';
+import importsRouter from './routes/imports.js';
 
 const STATUS_TO_CODE: Partial<Record<number, string>> = {
   400: 'VALIDATION_ERROR',
@@ -54,6 +55,7 @@ export function createApp() {
   app.route('/health', healthRouter);
   app.route('/api/search', searchRouter);
   app.route('/api/results', resultsRouter);
+  app.route('/api/imports', importsRouter);
 
   app.onError((err, c) => {
     const rid = c.get('requestId');
