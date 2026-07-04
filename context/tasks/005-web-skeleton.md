@@ -7,11 +7,11 @@
 A running Next.js app with TypeScript, Tailwind, shadcn/ui, full FR/AR internationalization via i18next, and the testing setup — the shell every UI task fills in.
 
 ## Requirements
-- Next.js (latest) bootstrapped via `create-next-app@latest` using recommended defaults; App Router + TypeScript strict + Tailwind + shadcn/ui initialized.
+- Next.js App Router + TypeScript strict + Tailwind + shadcn/ui initialized.
 - i18next configured with French and Arabic locales and locale-aware routing; Arabic is the default locale. Document `lang` and `dir` follow the active locale (Arabic renders RTL site-wide).
 - A language switcher present in the layout that preserves the current page when switching.
 - Translation file structure established; a demonstration string rendered from keys in both locales; CI-level check that locale files have matching keys.
-- Fonts set up for Latin and Arabic scripts; for Arabic use the Thmanyah typeface from the `thmanyah typeface/` folder (woff2 files) via `next/font/local` — font selection per use case is owned by the design skill.
+- Fonts set up for Latin and Arabic scripts.
 - Route-level error boundaries and a global error boundary per error-handling.md (frontend rules).
 - Typed API client utility consuming types from `shared/`.
 - Jest + React Testing Library + jest-axe configured.
