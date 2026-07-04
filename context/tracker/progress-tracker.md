@@ -320,6 +320,103 @@ Update this file after every meaningful implementation change.
   this sets. `importJob.ts`'s finer progress reporting (020) ships in this
   same file's final form here as well, since it exists as one file.
 
+- **Task 020 — The Loader (Python -> Postgres)**
+  - `worker/loader.py`: new module, the only place in `worker/` that talks
+    to Postgres (code-standards.md: "raw SQL allowed only in the Python
+    loader and migrations"). `check_mapping_floor(mapping)` re-validates the
+    guaranteed floor directly on the CONFIRMED header->field mapping the job
+    was enqueued with (mirrors `confirm.ts`'s `checkFloor`) — a defensive
+    last check so a broken mapping fails the whole file with one precise
+    `MISSING_REQUIRED_COLUMNS` reason instead of silently rejecting every
+    row. `load_import(dsn, import_id, exam_year, rows, rejects,
+    raw_rows_by_number)` runs inside one `with psycopg.connect(...) as conn`
+    block (commits on clean exit, rolls back on any exception — the
+    single-transaction guarantee error-handling.md requires): deletes any
+    rejects left over from a PRIOR run of the SAME import id (keeps the
+    reject report a true reflection of the latest run, not an ever-growing
+    log), then batch-inserts rejects and attempts (`BATCH_SIZE = 1000` rows
+    per statement, well within the <2-minute/50k-row budget). Attempts use
+    `ON CONFLICT (exam_year, exam_no) DO NOTHING RETURNING id`, counting
+    `duplicates_skipped = len(rows) - inserted` — architecture.md invariant
+    5's idempotency, achieved via the DB constraint, not application logic.
+    `public_slug` is never set by the loader; the DB-side `DEFAULT` self-
+    populates it. `resolve_file_path(dsn, import_id)` looks up
+    `imports.file_path`, matching task 019's established contract that
+    `worker.py` (not the api) resolves the file from the import id.
+  - Every reject's raw row is filtered through `mapping.banned_pii_headers`
+    (016) before it's ever kept for the audit trail, and every value passed
+    through a small `_json_safe` sanitizer (`math.isfinite` check → `None`)
+    right before wrapping in psycopg3's `Jsonb` — a genuinely blank Excel
+    cell survives as Python float `nan` even in a `dtype=str` column, and
+    `Jsonb`'s underlying `json.dumps` would otherwise emit the non-standard
+    `NaN` token, which Postgres's strict `jsonb` column rejects outright.
+  - `worker/worker.py` rewritten from the task-015 stub to the real
+    pipeline: `validate()` now also requires `--file-id` to parse as a
+    positive integer (it's genuinely the import id, per task 019's
+    `importJob.ts` comment — the flag name itself was kept as `--file-id`
+    to avoid an unnecessary rename of an already-established CLI contract).
+    `run_import(dsn, import_id, exam_year, mapping)` orchestrates
+    resolve-path -> floor-check -> `pd.read_excel(dtype=str)` (whole file,
+    unlike preview.py's sampled read) -> `cleaning.clean_dataframe` ->
+    `loader.load_import`, returning a precise `{code, reason}` for every
+    file-level failure (`IMPORT_NOT_FOUND`, `MISSING_REQUIRED_COLUMNS`,
+    `UNREADABLE_FILE`) — row-level problems never surface here, only as
+    counted rejects. `main()` wraps everything so an unexpected exception
+    still emits the standard `{ok: false, code: "INTERNAL", reason}` JSON
+    contract instead of a raw traceback. Success now prints the REAL
+    `{ok: true, inserted, rejected, duplicates_skipped}`. `report_progress`
+    pings `imports.progress` on its own autocommit connection (deliberately
+    separate from `load_import`'s single load transaction, so interim
+    updates are visible to other connections — e.g. the API's status
+    endpoint — before the whole load commits); `worker.py` reports 10%
+    after reading the file and 20% after cleaning, `loader.load_import`
+    reports 20-95% itself as reject/attempt batches complete.
+  - New dependencies (landed early in `requirements.txt`/`requirements-dev.txt`,
+    task 015's commit, for this batch's reconstruction): `psycopg[binary]`
+    (loader's only DB driver), `xlrd` (legacy `.xls` support — real
+    historical files `bac_2017`/`bac_2020` are OLE2 binary, not OOXML; the
+    api's upload route already sniffed and accepted them, but pandas raised
+    `ImportError: Missing optional dependency 'xlrd'` without it), and
+    `python-dotenv` (test-only, loads `DATABASE_URL` for pytest).
+  - `cleaning.DECISION_ALIASES` (017) also picked up three real-file
+    variants found against actual historical uploads: `Admis(e)`/`Absent(e)`
+    (the same gendered-suffix pattern already handled for `Ajourné(e)`) and
+    `Annulation de l'examen` (a reversed phrasing of `Examen annulé CT`, in
+    both straight- and curly-apostrophe spellings) — all already reflected
+    in task 017's entry above since `cleaning.py` is one file.
+  - **Tests** (60 new, 179 total in worker, all against a real disposable
+    local Postgres — testing.md's "Loader tests against a disposable
+    Postgres"): `worker/tests/conftest.py` adds `dsn` (skips if
+    `DATABASE_URL` unset), an autouse `TRUNCATE`-before-and-after fixture
+    scoped to `imports`/`attempts`/`rejects`, and `make_import` (inserts a
+    disposable `imports` row pointing at a real fixture file).
+    `test_loader.py`: floor-check cases; inserting rows with the public_slug
+    default intact; rejects recorded with row_number/reason/raw_data and
+    excluding banned PII columns; re-running the SAME import id is
+    idempotent on attempts (0 inserted, all duplicates on the 2nd run) and
+    replaces (never duplicates) its rejects; a genuinely different import
+    conflicting on (exam_year, exam_no) counts as a duplicate too; a
+    mid-load failure leaves the attempts table at zero rows for that import
+    — full rollback; a synthetic NaN-in-raw_data case proving the loader
+    stores JSON `null` instead of crashing on the non-standard `NaN` token;
+    a second-connection read proving `imports.progress` is genuinely visible
+    mid-load, not just invisible-until-commit.
+    `test_worker_cli.py` rewritten: argument-validation tests updated to a
+    numeric placeholder file-id plus new non-numeric/non-positive file-id
+    cases; file-level failure tests for unknown import id, floor-violating
+    mapping, and an unreadable file path; and a parametrized test across ALL
+    10 fixtures (2024 down to 2015, plus future_minimal) that computes each
+    fixture's expected inserted/rejected counts via `clean_dataframe` as an
+    independent oracle, then asserts the real `worker.main()` + Postgres
+    end-to-end run matches exactly; plus a same-import-twice run proving
+    `duplicates_skipped` equals the first run's `inserted` count.
+  - `pytest` 189/189, `ruff check .`, `black --check .` all clean.
+  - **Deliberately out of scope (per task spec):** any linking (already
+    removed from the project); the publish flow and Meilisearch reindex
+    wiring (both task 022); the reject-report download endpoint is a
+    separate api-side commit below (rejects.ts), since it's a standalone
+    file.
+
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
   - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.

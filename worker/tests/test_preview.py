@@ -16,6 +16,7 @@ import pandas as pd
 import pytest
 
 import preview
+import worker
 
 FIXTURES_DIR = pathlib.Path(__file__).parent / "fixtures"
 
@@ -291,3 +292,10 @@ def test_cli_reports_a_missing_file_path_argument() -> None:
     with pytest.raises(SystemExit) as exc_info:
         preview.main([])
     assert exc_info.value.code == 2
+
+
+# worker.py is the real pipeline entry point (task 020); imported only to
+# prove preview.py's CLI wiring doesn't collide with it when both are
+# exercised in the same pytest session (shared argparse program name etc.).
+def test_worker_module_still_importable_alongside_preview() -> None:
+    assert callable(worker.main)
