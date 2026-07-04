@@ -77,3 +77,11 @@ export interface ImportStatusResult {
 export interface ImportStatusResponse {
   data: ImportStatusResult;
 }
+
+export interface ImportPublishResult {
+  published: boolean;
+}
+
+export interface ImportPublishResponse {
+  data: ImportPublishResult;
+}

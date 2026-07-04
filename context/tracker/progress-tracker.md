@@ -435,6 +435,45 @@ Update this file after every meaningful implementation change.
     short-circuits before ever querying `rejects`, and the row-shape mapping
     for a known one.
 
+- **Task 022 — Publish Flow & Cloudflare Purge**
+  - **Schema**: no migration needed — `imports.smokePassed`/`imports.published`
+    already existed, and every public read path (`studentPage`, `examSearch`,
+    `meiliIndex`) already filtered on `imports.published = true`. This task's
+    job was the write side: gating on the smoke result (019/020), then
+    flipping the flag and refreshing every derived system.
+  - `api/src/services/publish.ts` (new): `publishImport`/`unpublishImport`.
+    Publish re-checks `smoke_passed = true` in the UPDATE's WHERE clause
+    (not just in an earlier read) so a concurrent smoke re-run can't race a
+    stale publish call into flipping visibility anyway; throws
+    `SmokeNotPassedError` (route → 409 `SMOKE_NOT_PASSED`, added to
+    error-handling.md's canonical codes) when blocked. On success (and on
+    every unpublish, unconditionally — reverting must always be possible):
+    full Meilisearch reindex (`buildNameIndex`), Redis invalidation for
+    every attempt in the import (`examCacheKey`/`resultCacheKey` exported
+    from their services so `publish.ts` can reuse the exact key format;
+    batched via `redis.pipeline()`) plus the years-list cache, and the
+    Cloudflare purge hook.
+  - `api/src/lib/cloudflare.ts` (new): `purgeCloudflareCache()` — purge-
+    everything, silently a no-op when `CLOUDFLARE_API_TOKEN`/
+    `CLOUDFLARE_ZONE_ID` aren't set (true in local/dev, no real zone
+    provisioned yet).
+  - `api/src/routes/imports.ts`: `POST /:id/publish` and `POST
+    /:id/unpublish` added to the growing session-protected imports router.
+  - `shared/src/imports.ts`: `ImportPublishResult`/`ImportPublishResponse`.
+  - `getAdminResultPreview` (the auth-gated, unpublished-data-visible
+    sibling to the public result lookup) already lives on `studentPage.ts`
+    from the retrofit commit — it's what both this task's smoke check (019)
+    and the admin preview route (`GET /api/results/:slug/admin`) call; nothing
+    new needed here.
+  - **Tests** (24 new): `publish.test.ts` (14: route contract incl. 409
+    `SMOKE_NOT_PASSED` and 404, plus service-level tests against fake
+    db/meili/redis chains proving the atomic conditional flip, cache
+    pipeline keys, and reindex), `cloudflare.test.ts` (3: no-op when
+    unconfigured, purges when configured, throws on a non-OK response).
+  - **Deliberately out of scope (per task spec)**: rate limiting (025); the
+    admin publish/unpublish UI page and wiring it from the imports LIST
+    page (both separate commits below — one web, one 024).
+
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
   - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.

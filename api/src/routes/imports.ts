@@ -15,7 +15,10 @@ import { previewImport, UnsupportedFileTypeError } from '../services/preview.js'
 import { confirmImport, MissingRequiredColumnsError } from '../services/confirm.js';
 import { getImportStatus } from '../services/importStatus.js';
 import { getRejectReport, toRejectReportCsv } from '../services/rejects.js';
+import { publishImport, unpublishImport, SmokeNotPassedError } from '../services/publish.js';
 import { importQueue } from '../lib/queue.js';
+import { meili } from '../lib/meili.js';
+import { redis } from '../lib/redis.js';
 import { importIdParamSchema } from '../schemas/preview.js';
 import { confirmImportBodySchema } from '../schemas/confirm.js';
 
@@ -230,6 +233,83 @@ imports.get(
     c.header('Content-Disposition', `attachment; filename="import-${String(id)}-rejects.csv"`);
     c.header('Cache-Control', 'no-store');
     return c.body(toRejectReportCsv(rows));
+  },
+);
+
+imports.post(
+  '/:id/publish',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+
+    let result;
+    try {
+      result = await publishImport(db, meili, redis, id);
+    } catch (err) {
+      if (err instanceof SmokeNotPassedError) {
+        throw new HTTPException(409, {
+          message: err.message,
+          cause: { code: 'SMOKE_NOT_PASSED' },
+        });
+      }
+      throw err;
+    }
+
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
+  },
+);
+
+imports.post(
+  '/:id/unpublish',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const result = await unpublishImport(db, meili, redis, id);
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
   },
 );
 
