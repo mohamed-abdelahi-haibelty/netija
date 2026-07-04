@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { eq } from 'drizzle-orm';
 import { resolve } from 'node:path';
 import type { Db } from '../db/client.js';
@@ -82,6 +83,27 @@ export async function runImportJob(db: Db, data: ImportJobData): Promise<void> {
     })
     .where(eq(imports.id, data.importId));
 
+  console.log(
+    JSON.stringify({
+      level: 'info',
+      msg: 'import finished',
+      importId: data.importId,
+      inserted: output.inserted,
+      rejected: output.rejected,
+      duplicatesSkipped: output.duplicates_skipped,
+    }),
+  );
+  if (output.rejected > 0) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'import completed with rejected rows',
+        importId: data.importId,
+        rejected: output.rejected,
+      }),
+    );
+  }
+
   // Smoke verification runs automatically after every completed import
   // (testing.md) and gates publish (architecture.md invariant 12). A bug in
   // the check itself must not undo a genuinely successful import or trigger
@@ -100,6 +122,7 @@ export async function runImportJob(db: Db, data: ImportJobData): Promise<void> {
         error: err instanceof Error ? err.message : String(err),
       }),
     );
+    Sentry.captureException(err, { extra: { importId: data.importId, stage: 'smoke-verification' } });
     smoke = { passed: false, reason: 'Smoke verification failed unexpectedly.' };
   }
 

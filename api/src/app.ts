@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
@@ -79,6 +80,9 @@ export function createApp() {
         method: c.req.method,
       }),
     );
+    Sentry.captureException(err, {
+      extra: { path: c.req.path, method: c.req.method, requestId: rid },
+    });
     return c.json({ error: { code: 'INTERNAL', message: 'Internal Server Error' } }, 500);
   });
 

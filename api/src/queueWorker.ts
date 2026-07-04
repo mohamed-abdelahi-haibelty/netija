@@ -1,3 +1,5 @@
+import './instrument.js';
+import * as Sentry from '@sentry/node';
 import { Worker } from 'bullmq';
 import { db } from './db/client.js';
 import { IMPORT_QUEUE_NAME, queueConnection, type ImportJobData } from './lib/queue.js';
@@ -23,6 +25,13 @@ worker.on('failed', (job, err) => {
   if (job.attemptsMade < attemptLimit) return;
 
   const reason = err instanceof ImportJobError ? err.message : 'Import failed unexpectedly.';
+  // ImportJobError is worker.py's own precise, expected failure contract
+  // (error-handling.md's "file-level problems ARE failures") — already
+  // surfaced to the dashboard via failureReason, so not sent to Sentry.
+  // Anything else here is a bug in this Node glue code itself.
+  if (!(err instanceof ImportJobError)) {
+    Sentry.captureException(err, { extra: { importId: job.data.importId } });
+  }
   markImportFailed(db, job.data.importId, reason).catch((updateErr: unknown) => {
     console.error(
       JSON.stringify({
@@ -37,6 +46,7 @@ worker.on('failed', (job, err) => {
 
 worker.on('error', (err) => {
   console.error(JSON.stringify({ level: 'error', msg: 'queue worker connection error', error: err.message }));
+  Sentry.captureException(err);
 });
 
 console.log(JSON.stringify({ level: 'info', msg: 'import queue worker started' }));
