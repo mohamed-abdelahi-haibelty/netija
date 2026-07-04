@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { resolve } from 'node:path';
+import { zValidator } from '@hono/zod-validator';
 import type { AppEnv } from '../types.js';
 import { requireSession } from '../middleware/requireSession.js';
 import { db } from '../db/client.js';
@@ -10,6 +11,8 @@ import {
   saveUploadedFile,
   createImport,
 } from '../services/imports.js';
+import { previewImport, UnsupportedFileTypeError } from '../services/preview.js';
+import { importIdParamSchema } from '../schemas/preview.js';
 
 // Shared volume between api and worker (see architecture.md). Defaults to the
 // repo-root `uploads/` folder for local dev, where both processes run with
@@ -47,5 +50,52 @@ imports.post('/', async (c) => {
 
   return c.json({ data: { importId: row.id } }, 201);
 });
+
+imports.get(
+  '/:id/preview',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    let result;
+    try {
+      result = await previewImport(db, id);
+    } catch (err) {
+      if (err instanceof UnsupportedFileTypeError) {
+        // err.message is the raw Python exception text (e.g. a pandas/xlrd
+        // ImportError) — never shown to the client per error-handling.md
+        // ("users never see... raw driver errors"); it's still on the
+        // Error object for server-side logs if needed.
+        throw new HTTPException(415, {
+          message: 'This file could not be read. Make sure it is a valid, uncorrupted .xlsx or .xls file.',
+          cause: { code: 'UNSUPPORTED_FILE_TYPE' },
+        });
+      }
+      throw err;
+    }
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
+  },
+);
 
 export default imports;
