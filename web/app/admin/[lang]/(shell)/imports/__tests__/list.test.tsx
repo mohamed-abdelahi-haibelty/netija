@@ -12,6 +12,11 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ lang: 'fr' }),
 }));
 
+const mockTrackAdminUploadCompleted = jest.fn<unknown, []>();
+jest.mock('@/lib/analytics', () => ({
+  trackAdminUploadCompleted: () => mockTrackAdminUploadCompleted(),
+}));
+
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
 
 jest.mock('@/lib/api', () => {
@@ -92,6 +97,7 @@ const FAILED: ImportListItem = {
 
 beforeEach(() => {
   mockApiRequest.mockReset();
+  mockTrackAdminUploadCompleted.mockClear();
 });
 
 describe('Admin imports dashboard', () => {
@@ -225,5 +231,36 @@ describe('Admin imports dashboard', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('tracks admin_upload_completed exactly once when a processing import transitions to completed', async () => {
+    jest.useFakeTimers();
+    try {
+      mockApiRequest
+        .mockResolvedValueOnce([PROCESSING])
+        .mockResolvedValueOnce([{ ...PROCESSING, status: 'completed', progress: 100 }]);
+      renderPage();
+
+      await screen.findByText('40%');
+      expect(mockTrackAdminUploadCompleted).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(3000);
+      });
+
+      await waitFor(() => {
+        expect(mockTrackAdminUploadCompleted).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('never tracks admin_upload_completed for an import that was already completed on first load', async () => {
+    mockApiRequest.mockResolvedValue([COMPLETED]);
+    renderPage();
+
+    await screen.findByText('bac_2023.xlsx');
+    expect(mockTrackAdminUploadCompleted).not.toHaveBeenCalled();
   });
 });

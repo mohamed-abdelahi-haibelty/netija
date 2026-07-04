@@ -12,6 +12,11 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ lang: 'fr', importId: '42' }),
 }));
 
+const mockTrackAdminPublish = jest.fn<unknown, [string]>();
+jest.mock('@/lib/analytics', () => ({
+  trackAdminPublish: (action: string) => mockTrackAdminPublish(action),
+}));
+
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
 
 jest.mock('@/lib/api', () => {
@@ -50,6 +55,7 @@ function renderPage() {
 
 beforeEach(() => {
   mockApiRequest.mockReset();
+  mockTrackAdminPublish.mockClear();
   // jsdom doesn't implement fetch; the page also fires a same-origin,
   // best-effort call to the Next.js revalidate-published-years route
   // handler after a successful publish/unpublish (see page.tsx), which
@@ -117,6 +123,7 @@ describe('Admin import detail / publish page', () => {
     expect(
       await screen.findByRole('button', { name: 'Unpublish' }),
     ).toBeInTheDocument();
+    expect(mockTrackAdminPublish).toHaveBeenCalledWith('publish');
   });
 
   it('disables Publish and shows a note when the smoke check has not passed', async () => {
@@ -165,6 +172,7 @@ describe('Admin import detail / publish page', () => {
     expect(
       await screen.findByRole('button', { name: 'Publish' }),
     ).toBeInTheDocument();
+    expect(mockTrackAdminPublish).toHaveBeenCalledWith('unpublish');
   });
 
   it('shows no publish controls before the import has completed', async () => {
