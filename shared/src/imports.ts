@@ -35,3 +35,45 @@ export interface ImportPreviewResult {
 export interface ImportPreviewResponse {
   data: ImportPreviewResult;
 }
+
+// The confirm payload: the admin's (possibly corrected) mapping plus the
+// exam year for this file. Matches worker/mapping.py's shape — every header
+// not listed here was left "— Ignore —" in the mapping UI.
+export interface ImportConfirmPayload {
+  mapping: Record<string, CanonicalField>;
+  examYear: number;
+}
+
+export interface ImportConfirmResult {
+  status: ImportStatus;
+}
+
+export interface ImportConfirmResponse {
+  data: ImportConfirmResult;
+}
+
+// Mirrors the db's import_status enum (schema.ts) — the coarse lifecycle
+// state a confirmed import moves through.
+export type ImportStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface ImportSummary {
+  inserted: number;
+  rejected: number;
+  duplicatesSkipped: number;
+}
+
+export interface ImportStatusResult {
+  status: ImportStatus;
+  examYear: number | null;
+  // 0-100 while processing; null before the job has started.
+  progress: number | null;
+  // null until the job completes (successfully or not).
+  summary: ImportSummary | null;
+  smokePassed: boolean | null;
+  published: boolean;
+  failureReason: string | null;
+}
+
+export interface ImportStatusResponse {
+  data: ImportStatusResult;
+}

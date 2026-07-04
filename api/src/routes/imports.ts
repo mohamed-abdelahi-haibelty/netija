@@ -12,7 +12,11 @@ import {
   createImport,
 } from '../services/imports.js';
 import { previewImport, UnsupportedFileTypeError } from '../services/preview.js';
+import { confirmImport, MissingRequiredColumnsError } from '../services/confirm.js';
+import { getImportStatus } from '../services/importStatus.js';
+import { importQueue } from '../lib/queue.js';
 import { importIdParamSchema } from '../schemas/preview.js';
+import { confirmImportBodySchema } from '../schemas/confirm.js';
 
 // Shared volume between api and worker (see architecture.md). Defaults to the
 // repo-root `uploads/` folder for local dev, where both processes run with
@@ -88,6 +92,101 @@ imports.get(
       }
       throw err;
     }
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
+  },
+);
+
+imports.post(
+  '/:id/confirm',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  zValidator('json', confirmImportBodySchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid confirm payload',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const body = c.req.valid('json');
+
+    let result;
+    try {
+      result = await confirmImport(db, importQueue, id, body);
+    } catch (err) {
+      if (err instanceof MissingRequiredColumnsError) {
+        throw new HTTPException(422, {
+          message: err.message,
+          cause: { code: 'MISSING_REQUIRED_COLUMNS' },
+        });
+      }
+      throw err;
+    }
+
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 202);
+  },
+);
+
+imports.get(
+  '/:id/status',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const result = await getImportStatus(db, id);
     if (result === null) {
       throw new HTTPException(404, {
         message: 'Import not found.',
