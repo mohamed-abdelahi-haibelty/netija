@@ -3,13 +3,16 @@ import { imports as importsTable } from '../db/schema.js';
 
 vi.mock('../lib/pythonRunner.js', () => ({ runPythonScript: vi.fn() }));
 vi.mock('../services/smokeVerification.js', () => ({ runSmokeVerification: vi.fn() }));
+vi.mock('@sentry/node', () => ({ captureException: vi.fn() }));
 
 import { runPythonScript } from '../lib/pythonRunner.js';
 import { runSmokeVerification } from '../services/smokeVerification.js';
 import { runImportJob, markImportFailed, ImportJobError } from '../services/importJob.js';
+import * as Sentry from '@sentry/node';
 
 const mockRunPythonScript = vi.mocked(runPythonScript);
 const mockRunSmokeVerification = vi.mocked(runSmokeVerification);
+const mockCaptureException = vi.mocked(Sentry.captureException);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -80,6 +83,21 @@ describe('runImportJob', () => {
     await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no' } });
 
     expect(updates[2]).toMatchObject({ smokePassed: false });
+  });
+
+  it('reports an unexpected smoke-verification throw to Sentry with importId/stage context, never row content', async () => {
+    mockRunPythonScript.mockResolvedValue(
+      JSON.stringify({ ok: true, inserted: 100, rejected: 3, duplicates_skipped: 2 }),
+    );
+    const thrown = new Error('db exploded');
+    mockRunSmokeVerification.mockRejectedValue(thrown);
+    const { db } = makeFakeDb();
+
+    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no' } });
+
+    expect(mockCaptureException).toHaveBeenCalledWith(thrown, {
+      extra: { importId: 42, stage: 'smoke-verification' },
+    });
   });
 
   it('spawns worker.py with the job arguments as an argv array', async () => {

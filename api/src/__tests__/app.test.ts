@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HTTPException } from 'hono/http-exception';
 import { createApp } from '../app.js';
 
+vi.mock('@sentry/node', () => ({ captureException: vi.fn() }));
+
 vi.mock('../lib/auth.js', () => ({
   auth: {
     handler: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })),
@@ -20,15 +22,18 @@ import {
   checkRedis,
   checkMeilisearch,
 } from '../lib/healthChecks.js';
+import * as Sentry from '@sentry/node';
 
 const mockCheckPostgres = vi.mocked(checkPostgres);
 const mockCheckRedis = vi.mocked(checkRedis);
 const mockCheckMeilisearch = vi.mocked(checkMeilisearch);
+const mockCaptureException = vi.mocked(Sentry.captureException);
 
 beforeEach(() => {
   mockCheckPostgres.mockResolvedValue(true);
   mockCheckRedis.mockResolvedValue(true);
   mockCheckMeilisearch.mockResolvedValue(true);
+  mockCaptureException.mockClear();
 });
 
 describe('GET /health', () => {
@@ -107,6 +112,38 @@ describe('central error handler', () => {
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('FORBIDDEN');
     expect(body.error.message).toBe('not allowed');
+  });
+});
+
+describe('Sentry reporting (error-handling.md: only unexpected errors are reported)', () => {
+  it('sends an unexpected error to Sentry with the request id as context, no PII', async () => {
+    const app = createApp();
+    app.get('/test/unexpected', () => {
+      throw new Error('boom');
+    });
+    const res = await app.request('/test/unexpected');
+    const requestId = res.headers.get('X-Request-Id');
+
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'boom' }),
+      { extra: { path: '/test/unexpected', method: 'GET', requestId } },
+    );
+  });
+
+  it('does not report an HTTPException (expected error) to Sentry', async () => {
+    const app = createApp();
+    app.get('/test/http-exception-no-sentry', () => {
+      throw new HTTPException(400, { message: 'bad input' });
+    });
+    await app.request('/test/http-exception-no-sentry');
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it('does not report a 404 (expected error) to Sentry', async () => {
+    const app = createApp();
+    await app.request('/no-such-route-for-sentry');
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });
 
