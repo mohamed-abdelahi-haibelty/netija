@@ -13,6 +13,8 @@
 
 | Variable | Used by | Purpose | Added in task |
 | -------- | ------- | ------- | ------------- |
+| APP_ENV | api, web (server), worker | Deployment environment tag (`production`/`staging`, unset in local dev) — Sentry's `environment` plus the seed/reindex scripts' production guard | 026 |
+| NEXT_PUBLIC_APP_ENV | web (browser) | Browser-visible copy of APP_ENV for the browser Sentry SDK — only `NEXT_PUBLIC_*` vars reach the browser (architecture.md invariant 4) | 026 |
 | POSTGRES_DB | docker, api, worker | Postgres database name | 002 |
 | POSTGRES_USER | docker, api, worker | Postgres username | 002 |
 | POSTGRES_PASSWORD | docker | Postgres password | 002 |
@@ -24,7 +26,7 @@
 | NEXT_PUBLIC_API_URL | web (browser) | Public API base URL | 002 |
 | BETTER_AUTH_SECRET | api | Session signing secret | 002 |
 | BETTER_AUTH_URL | api, web | Auth server base URL | 002 |
-| SENTRY_DSN | api, worker | Sentry DSN (server) | 002 |
+| SENTRY_DSN | api, web (server), worker | Sentry DSN (server) | 002 |
 | NEXT_PUBLIC_SENTRY_DSN | web | Sentry DSN (browser) | 002 |
 | NEXT_PUBLIC_POSTHOG_KEY | web | PostHog project key | 002 |
 | NEXT_PUBLIC_POSTHOG_HOST | web | PostHog ingest host | 002 |
