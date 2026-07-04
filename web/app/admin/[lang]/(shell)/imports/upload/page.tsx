@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Upload, FileSpreadsheet, X, Loader2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trackAdminUploadStarted } from '@/lib/analytics';
 import type { ImportUploadResult } from 'shared';
 
 const ACCEPTED_TYPES = [
@@ -90,6 +91,7 @@ export default function UploadPage() {
 
       if (res.ok) {
         const { data } = (await res.json()) as { data: ImportUploadResult };
+        trackAdminUploadStarted();
         router.push(`/admin/${lang}/imports/${String(data.importId)}/mapping`);
         return;
       }

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { trackAdminPublish } from '@/lib/analytics';
 import { PropertyRow } from '@/components/PropertyRow';
 import type { ImportPublishResult, ImportStatusResult } from 'shared';
 
@@ -66,6 +67,7 @@ export default function ImportDetailPage() {
           method: 'POST',
           credentials: 'include',
         }).catch(() => null);
+        trackAdminPublish(action);
         setStatus((prev) =>
           prev ? { ...prev, published: result.published } : prev,
         );

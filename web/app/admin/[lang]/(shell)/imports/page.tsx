@@ -14,6 +14,7 @@ import {
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { ImportStatusBadge } from '@/components/admin/ImportStatusBadge';
 import { cn } from '@/lib/utils';
+import { trackAdminUploadCompleted } from '@/lib/analytics';
 import type { ImportListItem } from 'shared';
 
 // Polling interval while any import is still processing — the task spec
@@ -242,6 +243,10 @@ export default function ImportsPage() {
   const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
   const [imports, setImports] = useState<ImportListItem[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Tracks each import's last-seen status so a processing -> completed
+  // transition can be reported to PostHog exactly once, while this
+  // dashboard happens to be open and polling.
+  const prevStatusesRef = useRef<Map<number, ImportListItem['status']>>(new Map());
 
   const load = useCallback(async (background = false) => {
     if (!background) setLoadStatus('loading');
@@ -249,6 +254,12 @@ export default function ImportsPage() {
       const data = await apiRequest<ImportListItem[]>('/api/imports', {
         credentials: 'include',
       });
+      for (const imp of data) {
+        if (prevStatusesRef.current.get(imp.id) === 'processing' && imp.status === 'completed') {
+          trackAdminUploadCompleted();
+        }
+        prevStatusesRef.current.set(imp.id, imp.status);
+      }
       setImports(data);
       setLoadStatus('loaded');
     } catch (err) {

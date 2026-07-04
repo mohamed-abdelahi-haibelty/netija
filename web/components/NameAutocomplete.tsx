@@ -6,6 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import {
+  recordSearchAttempt,
+  trackAutocompleteEmpty,
+  trackAutocompleteShown,
+  trackResultSearched,
+} from '@/lib/analytics';
 import { ClearButton } from '@/components/ClearButton';
 import type { NameSearchSuggestion } from 'shared';
 
@@ -75,6 +81,11 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
           ? t('home.nameSearchNoResults')
           : t('home.nameSearchAnnounceResults', { count: hits.length }),
       );
+      if (hits.length === 0) {
+        trackAutocompleteEmpty(q.length);
+      } else {
+        trackAutocompleteShown(hits.length, q.length);
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       if (id !== requestIdRef.current) return;
@@ -150,6 +161,8 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
 
   const select = useCallback((s: NameSearchSuggestion) => {
     close();
+    recordSearchAttempt();
+    trackResultSearched('name');
     router.push(`/${lang}/results/${s.slug}`);
   }, [close, lang, router]);
 

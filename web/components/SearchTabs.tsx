@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { recordSearchAttempt, trackResultSearched } from '@/lib/analytics';
 import { Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/NameAutocomplete';
 import { ClearButton } from '@/components/ClearButton';
@@ -76,6 +77,8 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
+    recordSearchAttempt();
+    trackResultSearched('examNo');
 
     try {
       const result = await apiRequest<ExamSearchResult>(
