@@ -22,6 +22,7 @@ import { meili } from '../lib/meili.js';
 import { redis } from '../lib/redis.js';
 import { importIdParamSchema } from '../schemas/preview.js';
 import { confirmImportBodySchema } from '../schemas/confirm.js';
+import { noStoreCache } from '../middleware/cacheControl.js';
 
 // Shared volume between api and worker (see architecture.md). Defaults to the
 // repo-root `uploads/` folder for local dev, where both processes run with
@@ -30,6 +31,10 @@ const UPLOADS_DIR = process.env['UPLOADS_DIR'] ?? resolve(process.cwd(), '../upl
 
 const imports = new Hono<AppEnv>();
 
+// Every route here is an authenticated admin route (architecture.md: never
+// cached) and exempt from rate limiting (025's spike protection targets only
+// the public search/result endpoints).
+imports.use('*', noStoreCache);
 imports.use('*', requireSession);
 
 imports.get('/', async (c) => {
@@ -237,7 +242,6 @@ imports.get(
     }
     c.header('Content-Type', 'text/csv; charset=utf-8');
     c.header('Content-Disposition', `attachment; filename="import-${String(id)}-rejects.csv"`);
-    c.header('Cache-Control', 'no-store');
     return c.body(toRejectReportCsv(rows));
   },
 );
