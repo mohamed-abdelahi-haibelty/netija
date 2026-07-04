@@ -505,6 +505,40 @@ Update this file after every meaningful implementation change.
     test against a fake `select().from().orderBy()` chain proving the row
     mapping and that ordering is actually requested.
 
+- **Task 024 (web side) — Imports Dashboard UI**
+  - **Admin UI — imports LIST page rewritten** (`imports/page.tsx`) from a
+    server component rendering `MOCK_IMPORTS` to a client component that
+    fetches `GET /api/imports` on mount with `loading`/`loaded`/`error`
+    states and an honest empty state. **Live progress while processing**: a
+    second effect polls the same endpoint every 3s only while at least one
+    row is `processing`, and stops itself once nothing is in flight — no
+    push channel exists, and polling is an explicitly acceptable choice for
+    this scale. Each row is an entry point into the rest of the admin
+    journey: `pending` rows link to the mapping page; every other status
+    links to the publish/detail page (022); any row with a `summary` gets a
+    reject-report download link pointing at the real
+    `GET /api/imports/:id/rejects`.
+  - `web/components/admin/ImportStatusBadge.tsx` simplified from an invented
+    6-state enum (`pending/mapped/confirmed/processing/done/failed` — none
+    of which but `pending`/`processing`/`failed` ever existed in the DB) to
+    the real 4-value `ImportStatus` from `shared` (`pending`, `processing`,
+    `completed`, `failed`). There is no `mapped`/`confirmed` status
+    server-side: an import is `pending` from upload until confirm
+    atomically flips it straight to `processing`.
+  - i18n: dropped `admin.imports.statusMapped`/`statusConfirmed`/
+    `statusDone`/`summaryNewPeople`; added `statusCompleted`, `viewDetails`,
+    `loading`, `loadError`. FR/AR parity preserved.
+  - **Tests** (9 new, web total 28/28): every lifecycle state renders from
+    the real `ImportListItem` shape, axe-clean, empty state with a working
+    upload entry point, loading state, retryable error state, reject-
+    download link present exactly when an import has a summary, pending →
+    mapping link vs. other statuses → detail link, and a fake-timers test
+    proving the poll actually re-fetches and the progress bar/percentage
+    update without a manual refresh.
+  - **Deliberately out of scope (per task spec)**: any new pipeline
+    behavior — this task is presentation and wiring only; rate limiting
+    (025).
+
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
   - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.

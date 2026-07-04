@@ -95,14 +95,11 @@
       "colPublished": "Published",
       "colActions": "Actions",
       "statusPending": "Pending",
-      "statusMapped": "Mapped",
-      "statusConfirmed": "Confirmed",
       "statusProcessing": "Processing",
-      "statusDone": "Done",
+      "statusCompleted": "Completed",
       "statusFailed": "Failed",
       "summaryInserted": "{{count}} inserted",
       "summaryRejected": "{{count}} rejected",
-      "summaryNewPeople": "{{count}} new people",
       "smokePassed": "Passed",
       "smokeFailed": "Failed",
       "smokeNone": "—",
@@ -110,7 +107,10 @@
       "publishedNo": "No",
       "downloadRejects": "Rejects",
       "openMapping": "Mapping",
-      "failureReason": "Reason: {{reason}}"
+      "viewDetails": "Details",
+      "failureReason": "Reason: {{reason}}",
+      "loading": "Loading imports…",
+      "loadError": "Could not load imports. Please try again."
     },
     "upload": {
       "pageTitle": "New import",

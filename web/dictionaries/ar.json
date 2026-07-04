@@ -95,14 +95,11 @@
       "colPublished": "منشور",
       "colActions": "إجراءات",
       "statusPending": "في الانتظار",
-      "statusMapped": "محدد المجالات",
-      "statusConfirmed": "مؤكد",
       "statusProcessing": "جارٍ المعالجة",
-      "statusDone": "مكتمل",
+      "statusCompleted": "مكتمل",
       "statusFailed": "فشل",
       "summaryInserted": "{{count}} مُدرج",
       "summaryRejected": "{{count}} مرفوض",
-      "summaryNewPeople": "{{count}} جديد",
       "smokePassed": "ناجح",
       "smokeFailed": "فاشل",
       "smokeNone": "—",
@@ -110,7 +107,10 @@
       "publishedNo": "لا",
       "downloadRejects": "المرفوضات",
       "openMapping": "المجالات",
-      "failureReason": "السبب: {{reason}}"
+      "viewDetails": "التفاصيل",
+      "failureReason": "السبب: {{reason}}",
+      "loading": "جارٍ تحميل الاستيرادات…",
+      "loadError": "تعذّر تحميل الاستيرادات. يرجى المحاولة مرة أخرى."
     },
     "upload": {
       "pageTitle": "استيراد جديد",
