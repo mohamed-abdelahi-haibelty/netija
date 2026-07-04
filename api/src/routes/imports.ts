@@ -14,6 +14,7 @@ import {
 import { previewImport, UnsupportedFileTypeError } from '../services/preview.js';
 import { confirmImport, MissingRequiredColumnsError } from '../services/confirm.js';
 import { getImportStatus } from '../services/importStatus.js';
+import { getRejectReport, toRejectReportCsv } from '../services/rejects.js';
 import { importQueue } from '../lib/queue.js';
 import { importIdParamSchema } from '../schemas/preview.js';
 import { confirmImportBodySchema } from '../schemas/confirm.js';
@@ -194,6 +195,41 @@ imports.get(
       });
     }
     return c.json({ data: result }, 200);
+  },
+);
+
+imports.get(
+  '/:id/rejects',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const rows = await getRejectReport(db, id);
+    if (rows === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    c.header('Content-Disposition', `attachment; filename="import-${String(id)}-rejects.csv"`);
+    c.header('Cache-Control', 'no-store');
+    return c.body(toRejectReportCsv(rows));
   },
 );
 

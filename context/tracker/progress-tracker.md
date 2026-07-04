@@ -417,6 +417,24 @@ Update this file after every meaningful implementation change.
     separate api-side commit below (rejects.ts), since it's a standalone
     file.
 
+- **Task 020 (api side) — Reject Report Download Endpoint**
+  - `api/src/services/rejects.ts` (new) + `GET /api/imports/:id/rejects`
+    added to the existing session-protected imports router. `getRejectReport`
+    returns `null` for an unknown import id (route -> 404
+    `IMPORT_NOT_FOUND`); an empty array is a valid "real import, zero
+    rejects" result. `toRejectReportCsv` flattens each reject's raw row into
+    a single JSON field rather than a fixed per-column CSV schema, since the
+    stored columns vary by historical file format (architecture.md's
+    "never trust the file's schema" applies here too). Response headers:
+    `text/csv`, `Content-Disposition: attachment`, `Cache-Control: no-store`.
+  - **Tests** (8 new): route contract (401, 200 with the exact CSV body
+    incl. a header-only CSV for zero rejects, 404 unknown id, 400
+    non-numeric id) with the service mocked at the boundary; a pure
+    `toRejectReportCsv` quoting test (comma + embedded double-quote in a
+    reason); two service-level tests proving an unknown import id
+    short-circuits before ever querying `rejects`, and the row-shape mapping
+    for a known one.
+
 - **Design Docs & Tokens Sync — globals.css, DESIGN.md v2.0, PRODUCT.md**
   - **`globals.css`** — dark mode flattened to match light (`--card`/`--popover` = `--background`); removed dead `.shadow-level-1` utility and the unused `netija-confetti` keyframes + reduced-motion rule (nothing rendered confetti).
   - **Admin login** — last `shadow-level-1`/`bg-card` consumer now a hairline-bordered `rounded-lg` block.
