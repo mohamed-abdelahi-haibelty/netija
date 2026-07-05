@@ -5,8 +5,8 @@
 Tests are how AI-written code is verified. Every unit of work
 ships with tests proving its behavior, including failure paths.
 Follow the testing pyramid: many fast unit tests, a focused set
-of integration tests, very few end-to-end checks (staging
-verification covers true E2E). Don't chase coverage numbers;
+of integration tests, very few end-to-end checks (the production,
+unpublished rehearsal covers true E2E). Don't chase coverage numbers;
 cover behavior that matters — and in this project the riskiest
 logic is column mapping, decision normalization, and the
 importable-vs-rejected split.
@@ -258,14 +258,15 @@ script itself is covered by tests using a seeded fixture import,
 including one deliberate mismatch case proving it fails loudly.
 
 The full results-day pipeline (upload → unpublished import →
-smoke pass → publish) is rehearsed on staging with last year's
-file before every results day; the rehearsal is part of the
+smoke pass → publish) is rehearsed on production, unpublished,
+with last year's file before every results day, then the
+rehearsal import is deleted; the rehearsal is part of the
 release checklist, not optional.
 
 ## CI Gate
 
 A unit is not done until: `vitest run` (api), `jest` (web), and
 `pytest` (worker, when touched) all pass locally and in CI,
-alongside build/typecheck/lint. Deployment to staging requires a
-green CI; production import requires staging verification
-(project-overview.md release flow).
+alongside build/typecheck/lint. Deployment to production requires
+a green CI; production import requires the production, unpublished
+rehearsal (project-overview.md release flow).

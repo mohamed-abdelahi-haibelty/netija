@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import NamedTuple
 
 import pandas as pd
+import sentry_sdk
 
 import loader
 import mapping as header_mapping
@@ -29,6 +30,32 @@ from cleaning import clean_dataframe
 
 MIN_EXAM_YEAR = 1900
 MAX_EXAM_YEAR = 2100
+
+
+def init_sentry() -> None:
+    """First-thing-in-main Sentry init (error-handling.md's Sentry
+    Configuration) — inert unless SENTRY_DSN is set, so local/test runs
+    never talk to Sentry. `include_local_variables=False` is the primary
+    PII defense: a stack frame at the point of an unexpected exception in
+    this pipeline could otherwise capture the whole in-memory dataframe
+    (real names) as a local-variable dump; `before_send` is a defensive
+    backstop on top of that, not the only guard.
+    """
+    dsn = os.environ.get("SENTRY_DSN")
+    if not dsn:
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.environ.get("APP_ENV") or os.environ.get("NODE_ENV") or "development",
+        traces_sample_rate=0.1,
+        include_local_variables=False,
+        before_send=_scrub_pii,
+    )
+
+
+def _scrub_pii(event: dict, hint: dict) -> dict:
+    event.pop("request", None)
+    return event
 
 
 class ValidationResult(NamedTuple):
@@ -175,6 +202,7 @@ def run_import(dsn: str, import_id: int, exam_year: int, mapping: dict[str, str]
 
 
 def main(argv: list[str] | None = None) -> int:
+    init_sentry()
     args = parse_args(argv if argv is not None else sys.argv[1:])
     result = validate(args)
 
@@ -196,6 +224,15 @@ def main(argv: list[str] | None = None) -> int:
     except (
         Exception
     ) as exc:  # noqa: BLE001 - an unexpected failure still emits the standard contract
+        # Only a truly unexpected failure reaches here — run_import already
+        # returns precise ImportOutcome codes (IMPORT_NOT_FOUND,
+        # MISSING_REQUIRED_COLUMNS, UNREADABLE_FILE) for every anticipated
+        # one, so anything raised past it is a bug, not an expected outcome
+        # (error-handling.md: "unexpected worker exceptions → Sentry").
+        sentry_sdk.set_context(
+            "import", {"import_id": import_id, "file_id": args.file_id, "stage": "run_import"}
+        )
+        sentry_sdk.capture_exception(exc)
         print(json.dumps({"ok": False, "code": "INTERNAL", "reason": str(exc)}))
         return 1
 

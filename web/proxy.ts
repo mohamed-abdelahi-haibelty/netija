@@ -15,8 +15,13 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Admin routes live at /admin/[lang]/ — skip locale injection entirely.
+  // The pathname is forwarded as a request header so the (shell) layout
+  // (a Server Component with no direct URL access) can read it when
+  // reporting an unauthenticated admin_access_attempt.
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return;
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-pathname', pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Next.js API route handlers (e.g. app/api/internal/*) are never

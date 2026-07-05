@@ -16,7 +16,7 @@
 | Error monitoring | Sentry (@sentry/nextjs, @sentry/node, sentry-sdk for Python) | Capture unexpected errors everywhere                  |
 | Edge             | Cloudflare (free plan)                                       | DNS, DDoS protection, bot mitigation, edge cache      |
 | Reverse proxy    | Caddy                                                        | TLS termination, routes domains to services           |
-| Infra            | Docker Compose on a single VPS (Ubuntu 24.04, 8 GB)          | Runs all services for prod + staging                  |
+| Infra            | Docker Compose on a single VPS (Ubuntu 24.04, 8 GB)          | Runs all production services                          |
 
 ## System Boundaries
 
@@ -43,8 +43,9 @@
   by `api/src/queueWorker.ts`, one process per job.
 - `uploads/` — shared volume between api and worker for uploaded
   Excel files.
-- Root `docker-compose.yml` + `docker-compose.staging.yml` — own
-  the runtime topology. `Caddyfile` owns routing/TLS.
+- Root `docker-compose.yml` (local dev) and a production compose
+  file (task 029) own their respective runtime topologies.
+  `Caddyfile` owns routing/TLS in production.
 - In Next.js 16, middleware.ts was renamed to proxy.ts
 
 ## Data Model (minimal, privacy-first)
@@ -145,23 +146,28 @@ resolution, no person entity, no cross-year merging, and no
 
 ## Environments
 
-- **Production** and **staging** run on the same VPS as two
-  separate Docker Compose projects with separate databases,
-  Redis instances, Meilisearch indexes, and upload volumes.
-- Caddy routes `<domain>` to production web/api and
-  `staging.<domain>` to staging web/api.
-- Staging is functionally identical to production. Its roles:
-  code deploys go to staging first, and the full results-day
-  import pipeline is rehearsed there with last year's file.
+- **Production** is the only deployed environment, running as a
+  single Docker Compose project on the VPS.
+- **Local dev** (Docker Compose, task 002) is where code changes
+  are built and tested before they reach production.
+- New exam-year imports land in production as UNPUBLISHED
+  (visible only to authenticated admins) and are verified there —
+  checked by the automated smoke verification and spot-checkable
+  live-but-hidden, reversible via unpublish — before publishing.
+  This unpublished-in-production state is the project's safe
+  preview/rehearsal space; there is no separate staging stack.
 - Results-day data flow: the new file is uploaded DIRECTLY to
-  production as UNPUBLISHED (visible only to admins), the
-  automated smoke verification must pass, then publishing is an
-  atomic flag flip that also purges the Cloudflare cache.
-  Target: file to live in 5-10 minutes.
-- `staging.<domain>` sends `X-Robots-Tag: noindex` and is
-  excluded from sitemaps.
+  production as UNPUBLISHED, the automated smoke verification
+  must pass, then publishing is an atomic flag flip that also
+  purges the Cloudflare cache. Target: file to live in 5-10
+  minutes.
 - Configuration differs only via environment variables
-  (.env.production / .env.staging); never via code branches.
+  (.env.production locally vs. .env in local dev); never via code
+  branches.
+- A temporary, isolated environment may be spun up for a rare
+  risky infrastructure or migration change (e.g. a major Postgres
+  version bump) and torn down immediately after — it is not a
+  permanent, continuously running stack.
 
 ## Performance Architecture
 
@@ -212,15 +218,13 @@ resolution, no person entity, no cross-year merging, and no
    birth place at all; names, exam numbers, and results are never
    logged. Track behavior shapes (e.g. `result_searched
    {method: 'name'}`), never content.
-8. Staging and production share no databases, queues, indexes,
-   or upload volumes.
-9. Migrations are forward-only and run via drizzle-kit; the
+8. Migrations are forward-only and run via drizzle-kit; the
    worker never alters schema.
-10. Every dated value is stored as a proper DATE/TIMESTAMP in
-    UTC; display formatting happens in the frontend.
-11. New exam years import as unpublished; unpublished data is
+9. Every dated value is stored as a proper DATE/TIMESTAMP in
+   UTC; display formatting happens in the frontend.
+10. New exam years import as unpublished; unpublished data is
     visible only to authenticated admins (pages, API, and search
     all respect the flag). Publishing is an atomic, reversible
     flag flip followed by cache purge.
-12. Publishing is blocked until the automated smoke verification
+11. Publishing is blocked until the automated smoke verification
     for that import has passed.

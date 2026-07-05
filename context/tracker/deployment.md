@@ -13,6 +13,8 @@
 
 | Variable | Used by | Purpose | Added in task |
 | -------- | ------- | ------- | ------------- |
+| APP_ENV | api, web (server), worker | Deployment environment tag (`production`, unset in local dev) — Sentry's `environment` plus the seed/reindex scripts' production guard | 026 |
+| NEXT_PUBLIC_APP_ENV | web (browser) | Browser-visible copy of APP_ENV for the browser Sentry SDK — only `NEXT_PUBLIC_*` vars reach the browser (architecture.md invariant 4) | 026 |
 | POSTGRES_DB | docker, api, worker | Postgres database name | 002 |
 | POSTGRES_USER | docker, api, worker | Postgres username | 002 |
 | POSTGRES_PASSWORD | docker | Postgres password | 002 |
@@ -24,7 +26,7 @@
 | NEXT_PUBLIC_API_URL | web (browser) | Public API base URL | 002 |
 | BETTER_AUTH_SECRET | api | Session signing secret | 002 |
 | BETTER_AUTH_URL | api, web | Auth server base URL | 002 |
-| SENTRY_DSN | api, worker | Sentry DSN (server) | 002 |
+| SENTRY_DSN | api, web (server), worker | Sentry DSN (server) | 002 |
 | NEXT_PUBLIC_SENTRY_DSN | web | Sentry DSN (browser) | 002 |
 | NEXT_PUBLIC_POSTHOG_KEY | web | PostHog project key | 002 |
 | NEXT_PUBLIC_POSTHOG_HOST | web | PostHog ingest host | 002 |
@@ -44,7 +46,7 @@
 ## Deploy steps (current)
 
 1. SSH to the VPS as the deploy user.
-2. `git pull` (staging: main; production: the verified tag).
+2. `git pull` the verified tag (production deploys only from tags).
 3. Run pending migrations (command: …).
 4. `docker compose -f <env file> up -d --build`.
 5. Verify `/health/ready` returns ok.
@@ -52,7 +54,7 @@
    `api/`, task 019) is running continuously alongside the api
    server — confirmed imports enqueue a job but nothing drains the
    queue without this process. Not yet containerized/supervised;
-   task 029 will define how it runs in prod/staging (own compose
+   task 029 will define how it runs in production (own compose
    service, pm2, or systemd unit).
 (Refine as tasks 029/030 finalize scripts.)
 
@@ -61,7 +63,7 @@
 | Condition | Required action | Added in task |
 | --------- | --------------- | ------------- |
 | First deploy ever | seed admin account (script) | 013 |
-| After any import-pipeline change | rehearse on staging with last year's file | 030 |
+| After any import-pipeline change | rehearse on production (unpublished) with last year's file | 030 |
 | (append) | | |
 
 ## Scheduled jobs / cron
@@ -78,7 +80,7 @@
 - 2026-07-03: the api process now spawns `worker/preview.py` directly
   (`PYTHON_BIN`/`WORKER_DIR`) for the mapping-preview endpoint, and task 019's
   queue worker spawns `worker/worker.py` the same way. In local dev both
-  processes run on the host so this just works; in production/staging the api
+  processes run on the host so this just works; in production the api
   container (or its host) needs a Python interpreter with worker/'s
   dependencies (pandas, openpyxl) installed and reachable at `PYTHON_BIN` —
   this must be settled when task 029 defines the production container
@@ -152,7 +154,7 @@
   no-ops whenever `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ZONE_ID` are unset —
   true in local dev and true in this sandboxed environment today, since no
   Cloudflare zone has been provisioned yet. When a real zone exists
-  (production/staging setup), set both vars or every publish will silently
+  (production setup), set both vars or every publish will silently
   skip the edge purge (the DB flip, Meilisearch reindex, and Redis
   invalidation still happen regardless — only the Cloudflare-edge layer is
   affected, and its cache TTLs are short per architecture.md).

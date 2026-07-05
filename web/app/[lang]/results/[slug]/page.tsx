@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { hasLocale } from '@/lib/i18n/settings';
 import type { StudentPageResponse } from 'shared';
 import { StudentResultCard } from '@/components/StudentResultCard';
+import { ResultOpenedTracker } from '@/components/ResultOpenedTracker';
 
 async function fetchResult(slug: string) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -44,6 +45,7 @@ export default async function ResultPage({
 
   return (
     <div className="min-h-[calc(100vh-var(--nav-height))]">
+      <ResultOpenedTracker serie={student.serie} />
       <div className="mx-auto max-w-140 px-6 pt-[9vh] pb-20">
         <StudentResultCard student={student} lang={lang} />
       </div>

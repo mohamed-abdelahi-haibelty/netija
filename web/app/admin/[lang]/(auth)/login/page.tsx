@@ -1,10 +1,26 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trackAdminAccessAttempt } from '@/lib/analytics';
+
+// Reports a redirect-from-(shell)-layout probe of the admin area (the
+// `blocked` param carries only a route *pattern*, never a query string or
+// anything personal — see (shell)/layout.tsx). Split out because
+// useSearchParams needs a <Suspense> boundary.
+function AccessAttemptReporter() {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const blocked = searchParams.get('blocked');
+    if (blocked) trackAdminAccessAttempt(blocked);
+  }, [searchParams]);
+
+  return null;
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -62,6 +78,9 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+      <Suspense fallback={null}>
+        <AccessAttemptReporter />
+      </Suspense>
       <div className="w-full max-w-sm">
         {/* ── Card ── */}
         <div className="rounded-lg border border-border px-8 py-9">

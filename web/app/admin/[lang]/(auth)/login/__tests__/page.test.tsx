@@ -1,0 +1,48 @@
+import { render, waitFor } from '@testing-library/react';
+import { I18nProvider } from '@/components/I18nProvider';
+import AdminLoginPage from '../page';
+
+const mockUseSearchParams = jest.fn<URLSearchParams, []>();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  useParams: () => ({ lang: 'fr' }),
+  useSearchParams: () => mockUseSearchParams(),
+}));
+
+const mockTrackAdminAccessAttempt = jest.fn<unknown, [string]>();
+jest.mock('@/lib/analytics', () => ({
+  trackAdminAccessAttempt: (route: string) => mockTrackAdminAccessAttempt(route),
+}));
+
+function renderPage() {
+  return render(
+    <I18nProvider locale="fr">
+      <AdminLoginPage />
+    </I18nProvider>,
+  );
+}
+
+beforeEach(() => {
+  mockTrackAdminAccessAttempt.mockClear();
+  mockUseSearchParams.mockReturnValue(new URLSearchParams());
+});
+
+describe('Admin login page — admin_access_attempt reporting', () => {
+  it('tracks admin_access_attempt with the blocked route pattern when redirected here', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('blocked=%2Fadmin%2Fimports%2F%5Bid%5D'),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(mockTrackAdminAccessAttempt).toHaveBeenCalledWith('/admin/imports/[id]');
+    });
+  });
+
+  it('never tracks admin_access_attempt on a plain, non-redirected visit', () => {
+    renderPage();
+
+    expect(mockTrackAdminAccessAttempt).not.toHaveBeenCalled();
+  });
+});

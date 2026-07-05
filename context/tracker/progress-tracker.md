@@ -8,9 +8,157 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Task 025 (rate limiting and cache headers — see `context/tasks/025-rate-limit-and-cache-headers.md`)
+- None — task 026 is complete. Task 025 (rate limiting and cache headers)
+  is implemented on its own branch, not yet merged into main.
 
 ## Completed
+
+- **Task 026 follow-up — richer PostHog event set (search/discovery + admin/pipeline + admin_access_attempt)**
+  - **`result_searched`** reshaped to `{method: 'name'|'exam_no', year?, found}` — fires *after* the outcome is known, not on submit: exam-number search now tracks on the API's success/`STUDENT_NOT_FOUND` result (`SearchTabs`), name search still on suggestion pick (always `found: true`, since picking an existing suggestion can't miss). `year` only ever accompanies exam-number searches.
+  - **`autocomplete_shown`/`autocomplete_empty`** — property renamed `queryLength` → `query_length` (event names were already snake_case; properties weren't).
+  - **`result_opened`** — property renamed `searchAttempts` → `searches_before_success`; gained an optional `serie` (e.g. `'SN'`), passed from the result page's already-fetched student data through `ResultOpenedTracker`, for audience-mix visibility.
+  - **`admin_upload_started`/`admin_upload_completed`** renamed to `upload_started`/`upload_completed` and moved/reshaped: `upload_started` now fires at mapping confirm (`imports/[importId]/mapping/page.tsx`, when the pipeline actually starts processing), not at the raw file POST — row counts don't exist before that point either way, so it carries no properties. `upload_completed` (still detected via the imports dashboard's processing→completed poll transition) now carries `{row_count, rejected, duration_ms}` — `row_count` = `inserted + rejected + duplicatesSkipped` from the existing `ImportSummary`; `duration_ms` is measured client-side from when the dashboard first observed the import as `processing` (a new `Map<importId, timestamp>` ref) to the completed observation — an observed, not server-authoritative, duration, since neither the API nor a shared type currently exposes processing-start/end timestamps.
+  - **`admin_publish` → `publish`**: reshaped to `{exam_year, attempt_count}` (rows published, read from `ImportStatusResult.summary.inserted`/`.examYear` via a `statusRef` — `flipPublish` is memoized without `status` in its deps, so a ref avoids a stale closure). Unpublish is no longer tracked at all — out of the agreed event set, and it's an admin reversal rather than a product-analytics-worthy event.
+  - **`admin_access_attempt` (new)** — `{route}`, a path *pattern* (locale stripped, numeric ids replaced with `[id]`, via new `web/lib/adminRoute.ts#normalizeAdminRoutePattern`). Fires from the login page (`(auth)/login/page.tsx`) when the `(shell)` layout redirects an unauthenticated `/admin/*` visit there — `proxy.ts` now forwards the real pathname to that layout via an `x-pathname` request header (Server Components have no direct URL access otherwise), and the redirect carries the normalized pattern as a `?blocked=` query param. Deliberately scoped to browser-only capture: a direct hit on a protected admin API with no browser page load (e.g. a bare curl) isn't reachable from client-side PostHog without a second server-side SDK (posthog-node) — left out of scope on purpose; that case stays visible via the existing 401 + structured warn log.
+  - **Pageview capture switched from posthog-js autocapture to manual**: `initAnalytics` now sets `capture_pageview: false` (kept `capture_pageleave: true`), and a new `<PostHogPageview>` client component (mounted in the root layout inside a `<Suspense>`, since it uses `useSearchParams`) fires `capturePageview(pathname, search)` on every route change. This is the only way to attach `locale` (extracted from the path) to every pageview in an App Router SPA where client-side navigations don't reload the page; referrer/UTM/device/browser enrichment is unaffected since posthog-js computes those for any `.capture()` call, not just its own autocapture listener. Confirmed Cloudflare (sitting in front) can't strip any of this — referrer and UTM are read client-side by the browser/PostHog script, never touched by the CDN layer.
+  - **Docs**: `project-overview.md` gained a dedicated "Analytics" subsection (final event set + payload shapes + the autocapture-covers-this-already list + a UTM-on-shareable-links operational note); `context/tasks/026-observability.md` updated to match, plus a new out-of-scope line for the posthog-node decision above.
+  - **Tests**: full rewrite of `analytics.test.ts` for every renamed/reshaped event plus `capturePageview`; new `adminRoute.test.ts`, `PostHogPageview.test.tsx`, and a login-page test for `admin_access_attempt`; updated wiring assertions in `SearchTabs`/`NameAutocomplete`/`ResultOpenedTracker`/mapping page/imports list/import detail page tests. Deleted the upload page's now-stale analytics test (that page no longer imports `lib/analytics` at all). All 18 web test suites / 70 tests green; `tsc --noEmit` clean.
+
+- **Task 026 — Observability: Sentry, PostHog, Logging**
+  - **Sentry, all three runtimes, same pattern everywhere**: env-gated on a DSN
+    (`SENTRY_DSN` server-side, `NEXT_PUBLIC_SENTRY_DSN` browser-side) — absent
+    DSN means `Sentry.init`/`sentry_sdk.init` is never called, proven by tests
+    rather than a guard at every capture call site. `tracesSampleRate`/
+    `traces_sample_rate` fixed at `0.1`. `environment` tag reads `APP_ENV` (new
+    var, falls back to `NODE_ENV`) server-side; the browser gets its own
+    `NEXT_PUBLIC_APP_ENV` (new var) since only `NEXT_PUBLIC_*` reaches it
+    (architecture.md invariant 4). Only unexpected errors are ever reported —
+    the same expected/unexpected split error-handling.md already defines.
+  - **api** (`@sentry/node`): `api/src/instrument.ts` — first-import pattern,
+    imported as the very first line of both `server.ts` and `queueWorker.ts`
+    (the second Node process). Exports `scrubPii(event)` as the `beforeSend`:
+    our own capture calls only ever pass `{requestId}`/`{importId, stage}` as
+    context, but Sentry's http integration auto-captures the request
+    URL/query-string/cookies — any of which could carry `?no=00573` or a
+    session token — so `scrubPii` strips `query_string`, `cookies`, `data`,
+    the `cookie` header, and the URL's query part defensively, regardless of
+    what any current or future route does. `app.ts`'s `onError` unexpected
+    branch calls `Sentry.captureException(err, {extra: {path, method,
+    requestId}})` — the `HTTPException` branch (expected errors) never does.
+    `queueWorker.ts`: `'failed'` only reports to Sentry when the error is NOT
+    an `ImportJobError` (worker.py's own expected failure contract, already
+    surfaced via `failureReason`); `'error'` (BullMQ connection errors) always
+    reports. `importJob.ts`'s smoke-verification catch (already a deliberate
+    fail-closed swallow, not a rethrow) now also reports to Sentry with
+    `{importId, stage: 'smoke-verification'}` — it was a silent console.error
+    before this task.
+  - **worker** (`sentry-sdk`): `worker.py`'s `init_sentry()` called first thing
+    in `main()`. `include_local_variables=False` is the *primary* PII defense
+    here, not `before_send` — Python's SDK attaches local variables from every
+    stack frame by default, and a frame at the point of an unexpected
+    exception in this pipeline could otherwise dump the whole in-memory
+    dataframe (real names) into the event. Only the outer `except Exception`
+    around `run_import()` in `main()` reports to Sentry, with
+    `sentry_sdk.set_context('import', {import_id, file_id, stage:
+    'run_import'})` — every other failure path (`validate()`'s
+    `VALIDATION_ERROR`, `run_import()`'s own `IMPORT_NOT_FOUND`/
+    `MISSING_REQUIRED_COLUMNS`/`UNREADABLE_FILE` returns) is expected and
+    never reaches Sentry, matching the Node side's philosophy exactly.
+  - **web** (`@sentry/nextjs`): Next.js 16's file-convention hooks, not the
+    older `sentry.server.config.js` pattern — `instrumentation.ts` exports
+    `register()` (server/edge init) and `onRequestError` (forwards to
+    `Sentry.captureRequestError`, which Next's `onRequestError` instrumentation
+    hook calls for unexpected SSR/RSC/route-handler errors); `instrumentation-
+    client.ts` inits the browser SDK. Both share `web/lib/sentryScrub.ts`'s
+    `scrubPii` as `beforeSend` (same reasoning as the api's). `app/[lang]/
+    error.tsx` and `app/global-error.tsx` (React error boundaries) now also
+    call `Sentry.captureException(error)` in their effect — a boundary stops
+    an error from ever reaching `window.onerror`, so without this call
+    Sentry would never see client-side render errors at all.
+  - **PostHog** (`posthog-js`, browser only): `web/lib/analytics.ts`,
+    env-gated on `NEXT_PUBLIC_POSTHOG_KEY` (already-existing var). No
+    `identify()` call exists anywhere in the app, so `person_profiles:
+    'identified_only'` means no visitor ever gets a full PostHog person
+    profile. `autocapture: false` — only the agreed event set below is ever
+    sent, never raw DOM interactions (which could capture a rendered name in
+    a clicked element's text). `disable_session_recording: true` — a result
+    page renders a real name; never risk it in a replay. Mounted via
+    `web/components/AnalyticsInit.tsx` in the true root `app/layout.tsx`
+    (the one layout above both `[lang]` and `admin`, so one mount point
+    covers everything) — a `useEffect` on mount, after hydration
+    (code-standards.md: "no blocking third-party scripts").
+  - **The agreed event set**, all shapes/counts only, verified PII-free by
+    the tests: `result_searched {method: 'examNo'|'name'}` fires on every
+    exam-number submit (`SearchTabs`) and every autocomplete suggestion pick
+    (`NameAutocomplete`), regardless of outcome. `autocomplete_shown {count,
+    queryLength}` / `autocomplete_empty {queryLength}` fire once each
+    debounced name search resolves. `result_opened {searchAttempts}` fires
+    once on the result page itself (`ResultOpenedTracker`, since the page is
+    a Server Component and needs a client child for the side effect) —
+    `searchAttempts` is how many searches (exam submits or autocomplete
+    picks) happened this browser session before landing here, a friction
+    signal resolved with the user during this task (not otherwise specified)
+    as "search attempts before success", tracked via a `sessionStorage`
+    counter (`recordSearchAttempt`/`consumeSearchAttempts` in `analytics.ts`;
+    sessionStorage rather than component state because the counter must
+    survive the client-side navigation from the search form to the result
+    page). `admin_upload_started` fires once the upload API accepts the file
+    (`upload/page.tsx`, right before navigating to mapping). `admin_upload_
+    completed` fires when the imports dashboard's live-status poll
+    (`imports/page.tsx`, task 024) observes a `processing` → `completed`
+    transition for a given import id — tracked via a `Map<importId,
+    lastStatus>` ref, so it fires exactly once per completion and never for
+    an import that was already `completed` on first load. `admin_publish
+    {action: 'publish'|'unpublish'}` fires right after the publish/unpublish
+    API call succeeds (`imports/[importId]/page.tsx`).
+  - **Logging**: `importJob.ts` gained an `info`-level "import finished" log
+    with `{importId, inserted, rejected, duplicatesSkipped}`, plus a
+    `warn`-level "import completed with rejected rows" log when `rejected >
+    0` — the two Logging Conventions bullets (`info` for lifecycle-with-
+    counts, `warn` for expected-but-notable) that weren't wired up yet.
+  - **New env vars** (`.env.example` + `deployment.md`): `APP_ENV` (api, web
+    server-side, worker — was already read by `scripts/seed.ts` and
+    `scripts/build-search-index.ts` but had never been added to either file;
+    fixed as part of this task since Sentry's environment tag needed it
+    documented properly) and `NEXT_PUBLIC_APP_ENV` (web browser-side copy,
+    genuinely new).
+  - **Chore — fixed a broken web dependency this task surfaced**:
+    `@testing-library/dom` (a peer dependency of `@testing-library/react`)
+    was never listed explicitly in `web/package.json`; installing
+    `@sentry/nextjs`/`posthog-js` re-resolved the workspace's dependency tree
+    and dropped the previously-hoisted copy, breaking every test that
+    imports `@testing-library/react` (`screen`/`waitFor` become unresolvable
+    modules). Added it as an explicit devDependency — this was a pre-existing
+    gap, not something introduced by this task, but it blocked verifying any
+    web test.
+  - **Tests** (api: 26 new across 3 files; web: 57 total, up from the
+    pre-existing 29 that were themselves blocked by the dependency bug
+    above; worker: 6 new): api — `instrument.test.ts` (init gating +
+    `scrubPii`), `app.test.ts` additions (unexpected error → Sentry with
+    requestId context; `HTTPException`/404 → never), `importJob.test.ts`
+    addition (smoke-verification throw → Sentry with `{importId, stage}`).
+    worker — `test_worker_sentry.py` (init gating, `include_local_variables`,
+    `_scrub_pii`, unexpected `run_import` exception → Sentry with `{import_id,
+    file_id, stage}`, expected `VALIDATION_ERROR`/`IMPORT_NOT_FOUND` outcomes
+    never reach it) — all DB-free (`run_import` monkeypatched), no Postgres
+    needed. web — `analytics.test.ts` (every track* helper, PII-free payload
+    assertion via a name/decision regex scan, inert without the PostHog key),
+    `sentryScrub.test.ts`, `instrumentation.test.ts`/`instrumentation-
+    client.test.ts` (init gating for both runtimes, `onRequestError`
+    forwarding), `error.test.tsx`/`global-error.test.tsx` (Sentry capture from
+    the boundary), `AnalyticsInit.test.tsx`/`ResultOpenedTracker.test.tsx`,
+    plus wiring assertions added to `SearchTabs`/`NameAutocomplete`/upload
+    page/imports list/import detail page's own (new or existing) test files.
+  - **Manually verified**: `next build` clean, all three runtimes' full test
+    suites green with real Postgres/Redis/Meilisearch running
+    (`docker compose up -d`) — api 174/174, web 57/57, worker 195/195;
+    `tsc --noEmit`, `eslint --max-warnings=0`, `ruff check`, `black --check`
+    all clean.
+  - **Deliberately out of scope (per task spec)**: dashboards/alerts inside
+    Sentry/PostHog themselves — documented as external-tool setup, not code.
+    `queueWorker.ts`'s event-handler logic remains untested in isolation
+    (consistent with its own pre-existing "entry point only, testable logic
+    lives in services/" convention — it was untested before this task too).
 
 - **Chore — Admin visual parity with the flat design system + Next.js ISR cache-invalidation fix**
   - **Admin redesign**: brought every admin page (`login`, `AdminSidebar`, imports list, mapping, upload, import detail/publish) into visual parity with the public flat Notion-document system instead of the old "stays plain, functional" contrast — `rounded-full` pill buttons → `rounded-md`; boxed `bg-card`/`border`/`rounded-lg` tables and property panels → bare tables/lists directly on the canvas with hairline separators only; dashed-border empty-state "card" → quiet centered text with an underlined action; status badges `rounded-full` → `rounded-xs` tag shape; login header's uppercase tracked eyebrow → a plain wordmark.

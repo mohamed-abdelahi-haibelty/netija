@@ -8,9 +8,15 @@ import type { ImportPreviewResult } from 'shared';
 
 expect.extend(toHaveNoViolations);
 
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
   useParams: () => ({ lang: 'fr', importId: '42' }),
+}));
+
+const mockTrackUploadStarted = jest.fn<unknown, []>();
+jest.mock('@/lib/analytics', () => ({
+  trackUploadStarted: () => mockTrackUploadStarted(),
 }));
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
@@ -77,6 +83,8 @@ function renderPage() {
 
 beforeEach(() => {
   mockApiRequest.mockReset();
+  mockPush.mockClear();
+  mockTrackUploadStarted.mockClear();
   mockApiRequest.mockImplementation((path: string) => {
     if (path.includes('/preview')) return Promise.resolve(PREVIEW);
     return Promise.resolve({});
@@ -185,6 +193,39 @@ describe('Admin mapping page', () => {
       REGION_ADMIN: 'serie',
     });
     expect(body.examYear).toBe(new Date().getFullYear());
+    // Confirm is when the pipeline actually starts processing rows — the
+    // point this task tracks as upload_started (row counts aren't known
+    // any earlier than that).
+    expect(mockTrackUploadStarted).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith('/admin/fr/imports');
+  });
+
+  it('never tracks upload_started when confirm fails', async () => {
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path.includes('/preview')) return Promise.resolve(PREVIEW);
+      if (path.includes('/confirm')) return Promise.reject(new Error('boom'));
+      return Promise.resolve({});
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('REGION_ADMIN');
+
+    await user.click(screen.getByLabelText('Exam year'));
+    const yearOption = await screen.findByRole('option', {
+      name: String(new Date().getFullYear()),
+    });
+    await user.click(yearOption);
+
+    const confirmButton = screen.getByRole('button', {
+      name: 'Confirm mapping',
+    });
+    await waitFor(() => {
+      expect(confirmButton).toBeEnabled();
+    });
+    await user.click(confirmButton);
+
+    await screen.findByRole('alert');
+    expect(mockTrackUploadStarted).not.toHaveBeenCalled();
   });
 
   it('shows a clear message, not a generic error, for an unsupported file type', async () => {

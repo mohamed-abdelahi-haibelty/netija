@@ -57,7 +57,7 @@ Do not modify the following unless explicitly instructed:
   (compose them; do not edit internals).
 - `api/drizzle/*` applied migration files — never edit an
   applied migration; create a new one.
-- `docker-compose.yml`, `docker-compose.staging.yml`,
+- `docker-compose.yml`, the production compose file,
   `Caddyfile`, and any `.env*` files.
 - Original uploaded Excel fixtures under `worker/tests/fixtures/`
   (they encode real historical formats).

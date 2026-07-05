@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 export default function GlobalError({
   error,
@@ -10,6 +11,9 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error(error);
+    // Same reasoning as app/[lang]/error.tsx: a React error boundary
+    // swallows this before it ever reaches window.onerror.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

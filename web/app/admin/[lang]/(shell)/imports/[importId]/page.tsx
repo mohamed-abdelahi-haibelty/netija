@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { trackPublish } from '@/lib/analytics';
 import { PropertyRow } from '@/components/PropertyRow';
 import type { ImportPublishResult, ImportStatusResult } from 'shared';
 
@@ -21,6 +22,13 @@ export default function ImportDetailPage() {
   const [status, setStatus] = useState<ImportStatusResult | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  // flipPublish is memoized without `status` in its deps (it only needs
+  // functional setState below), so it reads the latest status through this
+  // ref instead of risking a stale closure over the state value itself.
+  const statusRef = useRef<ImportStatusResult | null>(null);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const load = useCallback(async () => {
     setLoadStatus('loading');
@@ -66,6 +74,14 @@ export default function ImportDetailPage() {
           method: 'POST',
           credentials: 'include',
         }).catch(() => null);
+        // Only the agreed 'publish' event is tracked — unpublish is an
+        // admin reversal, not part of the analytics plan's event set.
+        if (action === 'publish' && statusRef.current?.examYear != null) {
+          trackPublish({
+            examYear: statusRef.current.examYear,
+            attemptCount: statusRef.current.summary?.inserted ?? 0,
+          });
+        }
         setStatus((prev) =>
           prev ? { ...prev, published: result.published } : prev,
         );
