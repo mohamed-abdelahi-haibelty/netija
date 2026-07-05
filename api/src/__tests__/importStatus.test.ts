@@ -70,6 +70,7 @@ describe('GET /api/imports/:id/status', () => {
 
   it('returns 200 with the processing state and progress', async () => {
     const processing: ImportStatusResult = {
+      originalFilename: 'bac_2024.xlsx',
       status: 'processing',
       examYear: 2024,
       progress: 40,
@@ -90,6 +91,7 @@ describe('GET /api/imports/:id/status', () => {
 
   it('returns 200 with the completed state, summary, and no failure reason', async () => {
     const completed: ImportStatusResult = {
+      originalFilename: 'bac_2024.xlsx',
       status: 'completed',
       examYear: 2024,
       progress: 100,
@@ -108,6 +110,7 @@ describe('GET /api/imports/:id/status', () => {
 
   it('returns 200 with the failed state and the recorded failure reason', async () => {
     const failed: ImportStatusResult = {
+      originalFilename: 'bac_2021_bad.xlsx',
       status: 'failed',
       examYear: 2024,
       progress: null,
@@ -154,6 +157,7 @@ describe('getImportStatus service', () => {
     >('../services/importStatus.js');
 
     const row = {
+      originalFilename: 'bac_2024.xlsx',
       status: 'completed' as const,
       examYear: 2024,
       progress: 100,
@@ -175,6 +179,7 @@ describe('getImportStatus service', () => {
 
     const result = await realFn(db as never, 42);
     expect(result).toEqual({
+      originalFilename: 'bac_2024.xlsx',
       status: 'completed',
       examYear: 2024,
       progress: 100,
@@ -191,6 +196,7 @@ describe('getImportStatus service', () => {
     >('../services/importStatus.js');
 
     const row = {
+      originalFilename: 'bac_2025_raw.xlsx',
       status: 'pending' as const,
       examYear: null,
       progress: null,
