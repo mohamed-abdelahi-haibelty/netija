@@ -8,10 +8,85 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — task 026 is complete. Task 025 (rate limiting and cache headers)
-  is implemented on its own branch, not yet merged into main.
+- None — task 031 is complete. Task 025 (rate limiting and cache
+  headers) is implemented on its own branch, not yet merged into main.
 
 ## Completed
+
+- **Task 031 — Delete an Import and All Its Data**
+  - **Original file decision (per the spec's own request to recommend one):
+    kept**, never deleted by code — matches code-standards.md's existing
+    "Original uploaded Excel files are kept... never deleted by code" and
+    architecture.md's "ultimate recovery source." Only the derived rows
+    (attempts, rejects) and the import record are removed; the file on the
+    uploads volume stays for audit or re-import under a corrected mapping.
+  - `api/src/services/deleteImport.ts` (new): `deleteImport(db, meili, redis,
+    importId)`. Returns `null` for an unknown id (route → 404
+    `IMPORT_NOT_FOUND`); throws `ImportProcessingError` (route → 409, new
+    canonical code `IMPORT_PROCESSING`, added to error-handling.md) when the
+    import's status is `'processing'` — a running import must be cancelled
+    first (task 032, not yet built). All-or-nothing DB deletion is one
+    `db.transaction`: attempts and rejects (both reference `imports.id` with
+    no `ON DELETE CASCADE`) are deleted before the import row itself, so a
+    mid-delete failure rolls back completely. Redis/Meilisearch cleanup runs
+    only after the transaction commits (they're rebuildable derived stores,
+    architecture.md invariant 6): every deleted attempt's exam-number and
+    result-page cache keys are pipelined (`examCacheKey`/`resultCacheKey`,
+    reused from `examSearch.ts`/`studentPage.ts` exactly like `publish.ts`
+    already does), the published-years cache is invalidated unconditionally,
+    and Meilisearch gets a full rebuild (`buildNameIndex`) — there's no
+    per-import partial delete, and a full rebuild from Postgres is the same
+    always-correct pattern `publish.ts` uses, which is also what makes a
+    published year's deletion actually update what's publicly searchable.
+  - `api/src/routes/imports.ts`: `DELETE /:id` added to the existing
+    session-protected imports router (404/409/400 mapped as above; 200 with
+    `{ deletedAttempts }` on success).
+  - `shared/src/imports.ts`: `ImportDeleteResult`/`ImportDeleteResponse`.
+    `ImportStatusResult` gained `originalFilename` (populated in
+    `importStatus.ts`'s existing query) — the import detail/publish page
+    needed the filename for its own delete confirmation and didn't have it
+    before this task.
+  - **Confirmation UI**: `web/components/admin/DeleteImportDialog.tsx` (new,
+    shared by both the list and detail pages) — type-to-confirm on the
+    import's *exact original filename* (not a generic "DELETE" word), so an
+    admin has to actually read which file they're removing before the
+    irreversible action fires; shows the attempt count and year that will be
+    removed, keeps the delete button disabled until the typed text matches,
+    and surfaces the API's error message inline on failure without closing.
+    Wired into the imports list (`imports/page.tsx`, a delete action per row,
+    hidden for `processing` rows per the spec's "only allow deleting imports
+    that are NOT currently processing"; deleting removes the row from local
+    state) and the import detail/publish page (`imports/[importId]/page.tsx`,
+    a delete action below the publish controls, or a
+    "still processing, cancel first" note when the status is `processing`;
+    deleting redirects to the imports list). i18n: new `admin.delete` block
+    in both `fr.json` (English, per the existing admin-is-English design
+    decision) and `ar.json` (genuine Arabic).
+  - **Tests**: `api/src/__tests__/deleteImport.test.ts` (9 new: route
+    contract — 401/200/404/409/400 — plus service-level tests against fake
+    db/meili/redis chains proving the processing guard blocks before any
+    delete, the attempts→rejects→imports FK-safe deletion order, the redis
+    pipeline keys, and the zero-attempts case skipping the pipeline but still
+    invalidating the years cache). `importStatus.test.ts` updated for the new
+    `originalFilename` field. Web: `DeleteImportDialog.test.tsx` (9 new —
+    axe-clean, confirm-text gating, Cancel/Escape close without calling the
+    API, success and failure paths, year-present vs. year-absent copy) plus
+    new cases added to the list and detail page test suites (delete action
+    absent for `processing`, full open→type→confirm→removed-from-list /
+    →redirect flows, inline error on failure).
+  - **Manually verified end-to-end** against real Postgres/Redis/Meilisearch
+    (`docker compose up -d`): inserted a throwaway import + 2 attempts + 1
+    reject, warmed both Redis cache families and the Meilisearch index,
+    confirmed the processing guard throws for real before touching anything,
+    then confirmed after deletion: the import row, its attempts, and its
+    rejects are gone from Postgres; both cache key families and the
+    years-list key are gone from Redis; both attempt documents are gone from
+    Meilisearch. `vitest run` (api, 183/183 against real services), `jest`
+    (web, 85/85), `tsc --noEmit` (api/web/shared), `next build`, and
+    `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: cancelling a running
+    import (032) — the route only guards against deleting one; row-level
+    deletion within an import (033).
 
 - **Task 026 follow-up — richer PostHog event set (search/discovery + admin/pipeline + admin_access_attempt)**
   - **`result_searched`** reshaped to `{method: 'name'|'exam_no', year?, found}` — fires *after* the outcome is known, not on submit: exam-number search now tracks on the API's success/`STUDENT_NOT_FOUND` result (`SearchTabs`), name search still on suggestion pick (always `found: true`, since picking an existing suggestion can't miss). `year` only ever accompanies exam-number searches.
