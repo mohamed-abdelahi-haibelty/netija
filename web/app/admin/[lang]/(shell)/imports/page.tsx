@@ -10,11 +10,13 @@ import {
   ChevronRight,
   AlertCircle,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { ImportStatusBadge } from '@/components/admin/ImportStatusBadge';
 import { cn } from '@/lib/utils';
 import { trackUploadCompleted } from '@/lib/analytics';
+import { DeleteImportDialog, type DeleteImportTarget } from '@/components/admin/DeleteImportDialog';
 import type { ImportListItem } from 'shared';
 
 // Polling interval while any import is still processing — the task spec
@@ -45,11 +47,13 @@ function ImportRow({
   lang,
   statusLabel,
   t,
+  onDeleteRequest,
 }: {
   imp: ImportListItem;
   lang: string;
   statusLabel: Record<ImportListItem['status'], string>;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  onDeleteRequest: (target: DeleteImportTarget) => void;
 }) {
   const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '';
 
@@ -208,6 +212,31 @@ function ImportRow({
               <ChevronRight className="size-3" aria-hidden />
             </Link>
           )}
+          {/* Only allow deleting imports that are NOT currently processing
+              (a running import must be cancelled first — task 032). */}
+          {imp.status !== 'processing' && (
+            <button
+              type="button"
+              onClick={() => {
+                onDeleteRequest({
+                  id: imp.id,
+                  originalFilename: imp.originalFilename,
+                  examYear: imp.examYear,
+                  attemptCount: imp.summary?.inserted ?? 0,
+                });
+              }}
+              aria-label={`${t('admin.delete.action')} ${imp.originalFilename}`}
+              className={cn(
+                'inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium',
+                'border border-border text-destructive',
+                'hover:bg-destructive/10 transition-colors duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+            >
+              <Trash2 className="size-3" aria-hidden />
+              {t('admin.delete.action')}
+            </button>
+          )}
         </div>
       </td>
     </tr>
@@ -242,6 +271,7 @@ export default function ImportsPage() {
 
   const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
   const [imports, setImports] = useState<ImportListItem[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteImportTarget | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Tracks each import's last-seen status so a processing -> completed
   // transition can be reported to PostHog exactly once, while this
@@ -426,12 +456,24 @@ export default function ImportsPage() {
                     lang={lang}
                     statusLabel={statusLabel}
                     t={t}
+                    onDeleteRequest={setDeleteTarget}
                   />
                 ))}
               </tbody>
             </table>
           </div>
         ))}
+
+      <DeleteImportDialog
+        target={deleteTarget}
+        onClose={() => {
+          setDeleteTarget(null);
+        }}
+        onDeleted={(deletedId) => {
+          setDeleteTarget(null);
+          setImports((prev) => prev.filter((imp) => imp.id !== deletedId));
+        }}
+      />
     </section>
   );
 }

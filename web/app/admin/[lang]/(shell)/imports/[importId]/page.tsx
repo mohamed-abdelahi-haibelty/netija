@@ -1,19 +1,21 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { trackPublish } from '@/lib/analytics';
 import { PropertyRow } from '@/components/PropertyRow';
+import { DeleteImportDialog, type DeleteImportTarget } from '@/components/admin/DeleteImportDialog';
 import type { ImportPublishResult, ImportStatusResult } from 'shared';
 
 type LoadStatus = 'loading' | 'loaded' | 'notFound' | 'error';
 
 export default function ImportDetailPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const rawParams = useParams();
   const lang = rawParams.lang as string;
   const importId = rawParams.importId as string;
@@ -22,6 +24,7 @@ export default function ImportDetailPage() {
   const [status, setStatus] = useState<ImportStatusResult | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteImportTarget | null>(null);
   // flipPublish is memoized without `status` in its deps (it only needs
   // functional setState below), so it reads the latest status through this
   // ref instead of risking a stale closure over the state value itself.
@@ -308,8 +311,48 @@ export default function ImportDetailPage() {
               )}
             </div>
           )}
+
+          <div className="mt-6 pt-6 border-t border-border">
+            {status.status === 'processing' ? (
+              <p className="text-sm text-muted-foreground">
+                {t('admin.delete.processingNote')}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTarget({
+                    id: Number(importId),
+                    originalFilename: status.originalFilename,
+                    examYear: status.examYear,
+                    attemptCount: status.summary?.inserted ?? 0,
+                  });
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium',
+                  'border border-border text-destructive',
+                  'hover:bg-destructive/10 transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                )}
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+                {t('admin.delete.action')}
+              </button>
+            )}
+          </div>
         </>
       )}
+
+      <DeleteImportDialog
+        target={deleteTarget}
+        onClose={() => {
+          setDeleteTarget(null);
+        }}
+        onDeleted={() => {
+          setDeleteTarget(null);
+          router.push(`/admin/${lang}/imports`);
+        }}
+      />
     </section>
   );
 }
