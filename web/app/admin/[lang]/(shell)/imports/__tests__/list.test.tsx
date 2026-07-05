@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -278,5 +278,72 @@ describe('Admin imports dashboard', () => {
 
     await screen.findByText('bac_2023.xlsx');
     expect(mockTrackUploadCompleted).not.toHaveBeenCalled();
+  });
+
+  it('offers a delete action for every status except processing', async () => {
+    mockApiRequest.mockResolvedValue([PENDING, PROCESSING, COMPLETED, FAILED]);
+    renderPage();
+
+    await screen.findByText('bac_2025_raw.xlsx');
+    expect(
+      screen.getByRole('button', { name: /Delete bac_2025_raw\.xlsx/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Delete bac_2023\.xlsx/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Delete bac_2021_bad\.xlsx/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Delete bac_2024\.xlsx/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the delete dialog for a row, confirms via the exact filename, and removes it from the list on success', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockImplementation((path: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE') return Promise.resolve({ deletedAttempts: 4980 });
+      return Promise.resolve([COMPLETED, FAILED]);
+    });
+    renderPage();
+
+    await screen.findByText('bac_2023.xlsx');
+    await user.click(screen.getByRole('button', { name: /Delete bac_2023\.xlsx/ }));
+
+    const dialog = screen.getByRole('alertdialog');
+    const input = within(dialog).getByLabelText(/Type bac_2023\.xlsx to confirm/);
+    await user.type(input, 'bac_2023.xlsx');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete import' }));
+
+    await waitFor(() => {
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        '/api/imports/2',
+        expect.objectContaining({ method: 'DELETE' }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('bac_2023.xlsx')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('bac_2021_bad.xlsx')).toBeInTheDocument();
+  });
+
+  it('keeps a row in the list and shows an inline error when delete fails', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockImplementation((path: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE')
+        return Promise.reject(new ApiClientError('IMPORT_PROCESSING', 'still running'));
+      return Promise.resolve([COMPLETED]);
+    });
+    renderPage();
+
+    await screen.findByText('bac_2023.xlsx');
+    await user.click(screen.getByRole('button', { name: /Delete bac_2023\.xlsx/ }));
+    const dialog = screen.getByRole('alertdialog');
+    const input = within(dialog).getByLabelText(/Type bac_2023\.xlsx to confirm/);
+    await user.type(input, 'bac_2023.xlsx');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete import' }));
+
+    expect(await within(dialog).findByText('still running')).toBeInTheDocument();
+    expect(screen.getByText('bac_2023.xlsx')).toBeInTheDocument();
   });
 });
