@@ -15,7 +15,7 @@ One command brings up the local infrastructure: PostgreSQL, Redis, and Meilisear
 - README section: starting/stopping infra, where data lives, how to reset.
 
 ## Out of scope
-- Production/staging compose, Caddy, app containers (task 029).
+- Production compose, Caddy, app containers (task 029).
 
 ## Done when
 - [ ] `docker compose up -d` results in three healthy containers.

@@ -120,8 +120,8 @@ Canonical codes (extend in this file before using new ones):
 
 ## Sentry Configuration
 
-- Separate environments: `production` and `staging` tags so
-  staging noise never pages anyone.
+- Environment-tagged as `production` (unset/local in dev, so
+  local noise never pages anyone).
 - `tracesSampleRate` low (≤ 0.1); errors always captured.
 - `beforeSend` scrubs known PII fields defensively even though
   none should be present.

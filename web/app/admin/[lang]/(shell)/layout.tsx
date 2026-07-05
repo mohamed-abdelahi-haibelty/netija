@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { normalizeAdminRoutePattern } from '@/lib/adminRoute';
 import type { Locale } from '@/lib/i18n/settings';
 
 export default async function AdminShellLayout({
@@ -16,6 +17,12 @@ export default async function AdminShellLayout({
   // and redirect to login if no session is found.
   const reqHeaders = await headers();
   const apiUrl = process.env.API_URL ?? 'http://localhost:3001';
+  // Set by proxy.ts for every /admin/* request — the pattern (never the
+  // raw path with ids) is passed to the login page so it can report
+  // admin_access_attempt for this probe.
+  const routePattern = normalizeAdminRoutePattern(
+    reqHeaders.get('x-pathname') ?? `/admin/${lang}`,
+  );
 
   try {
     const sessionRes = await fetch(`${apiUrl}/api/auth/get-session`, {
@@ -24,11 +31,11 @@ export default async function AdminShellLayout({
     });
     const sessionData = (await sessionRes.json().catch(() => null)) as { user?: unknown } | null;
     if (!sessionData?.user) {
-      redirect(`/admin/${lang}/login`);
+      redirect(`/admin/${lang}/login?blocked=${encodeURIComponent(routePattern)}`);
     }
   } catch {
     // API unreachable — fail closed and redirect to login
-    redirect(`/admin/${lang}/login`);
+    redirect(`/admin/${lang}/login?blocked=${encodeURIComponent(routePattern)}`);
   }
 
   return (

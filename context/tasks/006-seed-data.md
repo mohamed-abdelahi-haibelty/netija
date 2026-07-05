@@ -11,7 +11,7 @@ Realistic fake data in the database so the entire public read path (tasks 007–
 - One imports row per seeded year, marked published (and one unpublished year for later publish-flow work).
 - All people are fabricated — no rows copied from real files.
 - Idempotent: running twice produces no duplicates.
-- Dev/staging only; refuses to run against a production-flagged environment.
+- Dev only; refuses to run against a production-flagged environment.
 
 ## Out of scope
 - Real file import logic.

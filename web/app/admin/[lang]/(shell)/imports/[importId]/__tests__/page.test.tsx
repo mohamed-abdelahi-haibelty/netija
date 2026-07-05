@@ -12,9 +12,9 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ lang: 'fr', importId: '42' }),
 }));
 
-const mockTrackAdminPublish = jest.fn<unknown, [string]>();
+const mockTrackPublish = jest.fn<unknown, [{ examYear: number; attemptCount: number }]>();
 jest.mock('@/lib/analytics', () => ({
-  trackAdminPublish: (action: string) => mockTrackAdminPublish(action),
+  trackPublish: (props: { examYear: number; attemptCount: number }) => mockTrackPublish(props),
 }));
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
@@ -55,7 +55,7 @@ function renderPage() {
 
 beforeEach(() => {
   mockApiRequest.mockReset();
-  mockTrackAdminPublish.mockClear();
+  mockTrackPublish.mockClear();
   // jsdom doesn't implement fetch; the page also fires a same-origin,
   // best-effort call to the Next.js revalidate-published-years route
   // handler after a successful publish/unpublish (see page.tsx), which
@@ -123,7 +123,8 @@ describe('Admin import detail / publish page', () => {
     expect(
       await screen.findByRole('button', { name: 'Unpublish' }),
     ).toBeInTheDocument();
-    expect(mockTrackAdminPublish).toHaveBeenCalledWith('publish');
+    // exam_year + attempt_count (rows published) — never any row's content.
+    expect(mockTrackPublish).toHaveBeenCalledWith({ examYear: 2024, attemptCount: 4980 });
   });
 
   it('disables Publish and shows a note when the smoke check has not passed', async () => {
@@ -172,7 +173,9 @@ describe('Admin import detail / publish page', () => {
     expect(
       await screen.findByRole('button', { name: 'Publish' }),
     ).toBeInTheDocument();
-    expect(mockTrackAdminPublish).toHaveBeenCalledWith('unpublish');
+    // Only the agreed 'publish' event is tracked — unpublish is an admin
+    // reversal, not part of the analytics plan's event set.
+    expect(mockTrackPublish).not.toHaveBeenCalled();
   });
 
   it('shows no publish controls before the import has completed', async () => {

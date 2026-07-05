@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider } from '@/components/I18nProvider';
+import { ApiClientError } from '@/lib/api';
 import { SearchTabs } from '../SearchTabs';
 
 const mockPush = jest.fn();
@@ -25,10 +26,11 @@ jest.mock('@/lib/api', () => {
 });
 
 const mockRecordSearchAttempt = jest.fn<unknown, []>();
-const mockTrackResultSearched = jest.fn<unknown, [string]>();
+const mockTrackResultSearched = jest.fn<unknown, [string, { found: boolean; year?: number }]>();
 jest.mock('@/lib/analytics', () => ({
   recordSearchAttempt: () => mockRecordSearchAttempt(),
-  trackResultSearched: (method: string) => mockTrackResultSearched(method),
+  trackResultSearched: (method: string, opts: { found: boolean; year?: number }) =>
+    mockTrackResultSearched(method, opts),
 }));
 
 function renderTabs() {
@@ -44,7 +46,7 @@ beforeEach(() => {
 });
 
 describe('SearchTabs exam search analytics wiring', () => {
-  it('records a search attempt and tracks result_searched({method: "examNo"}) on submit', async () => {
+  it('records a search attempt on submit and tracks result_searched({found: true, year}) once a result is found', async () => {
     const user = userEvent.setup();
     mockApiRequest.mockResolvedValue({ slug: 'abc123' });
     renderTabs();
@@ -53,6 +55,25 @@ describe('SearchTabs exam search analytics wiring', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
     expect(mockRecordSearchAttempt).toHaveBeenCalledTimes(1);
-    expect(mockTrackResultSearched).toHaveBeenCalledWith('examNo');
+    await waitFor(() => {
+      expect(mockTrackResultSearched).toHaveBeenCalledWith('exam_no', { found: true, year: 2024 });
+    });
+  });
+
+  it('tracks result_searched({found: false, year}) when the exam number/year has no result', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockRejectedValue(new ApiClientError('STUDENT_NOT_FOUND', 'not found'));
+    renderTabs();
+
+    await user.type(screen.getByRole('textbox', { name: "Numéro d'examen" }), '00573');
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+
+    expect(mockRecordSearchAttempt).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockTrackResultSearched).toHaveBeenCalledWith('exam_no', {
+        found: false,
+        year: 2024,
+      });
+    });
   });
 });

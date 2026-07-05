@@ -85,8 +85,9 @@ complete in 5 minutes (10 worst case):
 
 1. Pre-staged: the site is already live with historical data, the
    admin is logged in, and a full rehearsal import (last year's
-   file) was run on staging beforehand — which also warmed the
-   column-alias dictionary.
+   file, imported as unpublished on production and then deleted)
+   was run beforehand — which also warmed the column-alias
+   dictionary.
 2. The file is uploaded DIRECTLY TO PRODUCTION. The mapping
    preview auto-maps known columns; the admin confirms (manual
    remap only if a new column format appears — the main risk
@@ -102,13 +103,11 @@ complete in 5 minutes (10 worst case):
 5. The admin clicks Publish: an atomic flag flip makes the year
    public and purges the Cloudflare cache. Reversible.
 
-### Staging
-
-Staging (staging.<domain>) mirrors production with its own
-database and is used for: deploying and verifying code changes
-first, and rehearsing the full results-day import pipeline with
-last year's file before the real day. It is not a same-day gate
-for the new file.
+The pipeline is rehearsed on production itself, not on a separate
+environment: last year's file is imported as unpublished, the
+full pipeline runs end to end, and the rehearsal import is
+deleted afterward. There is no separate staging environment —
+production's unpublished state is the safe rehearsal space.
 
 ## Features
 
@@ -157,6 +156,69 @@ for the new file.
 - PostHog (anonymous-only) product analytics; Sentry error
   monitoring on frontend, API, and worker.
 
+### Analytics
+
+PostHog, browser-only, anonymous-only (`person_profiles:
+'identified_only'`, no `identify()` call anywhere in the app,
+autocapture and session recording both off). Every property is a
+shape, a count, or a safe categorical — never a name, exam
+number, NNI, birth data, or result value.
+
+**Automatic (no custom event needed)** — PostHog's own pageview
+capture (fired manually on each client-side route change so it can
+carry `locale`, since Next.js App Router navigations don't reload
+the page), enriched by posthog-js itself with device type,
+browser, country/region, referrer, and UTM parameters. These give
+us session duration, pages-per-session, and new-vs-returning
+visitors without any custom event. Cloudflare sits in front of the
+app but never touches `document.referrer` or the URL's query
+string — those are computed by the browser/PostHog client-side —
+so it can't strip them.
+
+**Search & discovery**
+
+- `result_searched` — `{ method: 'name' | 'exam_no', year?:
+  number, found: boolean }`. `year` only for exam-number searches.
+  Exam-number: fired once the search resolves (found or
+  `STUDENT_NOT_FOUND`). Name: fired when a suggestion is picked
+  (always `found: true`; an empty autocomplete is its own event
+  below).
+- `autocomplete_shown` — `{ count, query_length }`.
+- `autocomplete_empty` — `{ query_length }`.
+- `result_opened` — `{ searches_before_success, serie? }` — how
+  many searches this session before landing on a result (friction
+  signal, reset per session); `serie` (e.g. `'SN'`, `'LM'`) added
+  when the result page has one, for audience-mix visibility.
+
+**Admin / pipeline**
+
+- `upload_started` — fired when an admin confirms the column
+  mapping and the import actually starts processing; no
+  properties (row counts aren't known before the worker runs).
+- `upload_completed` — `{ row_count, rejected, duration_ms }`,
+  fired when the imports dashboard observes a processing → completed
+  transition. `row_count` = inserted + rejected +
+  duplicatesSkipped; `duration_ms` is measured client-side from
+  when the dashboard first saw the import as processing (an
+  observed, not server-authoritative, duration).
+- `publish` — `{ exam_year, attempt_count }` (`attempt_count` =
+  rows published). Unpublish is an admin reversal, not part of
+  this event set, and isn't tracked.
+- `admin_access_attempt` — `{ route }`, a path *pattern* (e.g.
+  `/admin/imports/[id]/mapping`, ids replaced, never a query
+  string) — fired from the login page when the (shell) layout
+  redirects an unauthenticated `/admin/*` visit there. Direct hits
+  on a protected admin API endpoint with no browser page load
+  (e.g. a bare curl) aren't covered by browser-only PostHog; those
+  stay visible via the existing 401 + structured warn log
+  (error-handling.md), not an analytics event.
+
+**Operational note**: shareable links (Facebook, TikTok bio, etc.)
+should carry UTM parameters (e.g.
+`?utm_source=tiktok&utm_campaign=launch`) so traffic sources stay
+distinguishable in PostHog — this is a publishing habit, not
+something the app enforces in code.
+
 ## Privacy
 
 - The site publishes officially-released national exam results
@@ -175,7 +237,6 @@ for the new file.
 - Public search (name + exam number/year) and result pages.
 - Admin auth, upload, preview/mapping, background import, history,
   publish.
-- Staging environment mirroring production on the same VPS.
 - Performance, SEO (public pages), accessibility, bilingual
   (FR/AR) display; privacy/about page + removal contact.
 
@@ -209,6 +270,6 @@ for the new file.
    ≥ 95, SEO ≥ 95 (mobile).
 7. `npm run build` and all test suites pass in CI before any
    deploy; the import pipeline has been rehearsed end to end on
-   staging with last year's file.
+   production, unpublished, with last year's file.
 8. Results-day drill: file upload → unpublished import → passing
    automated smoke check → publish completes in ≤ 10 minutes.

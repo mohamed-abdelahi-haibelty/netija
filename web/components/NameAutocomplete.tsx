@@ -162,7 +162,9 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
   const select = useCallback((s: NameSearchSuggestion) => {
     close();
     recordSearchAttempt();
-    trackResultSearched('name');
+    // Selecting a suggestion always resolves to an existing result — an
+    // empty autocomplete is tracked separately by trackAutocompleteEmpty.
+    trackResultSearched('name', { found: true });
     router.push(`/${lang}/results/${s.slug}`);
   }, [close, lang, router]);
 

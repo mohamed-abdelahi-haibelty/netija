@@ -2,11 +2,11 @@
 
 ## Branch model
 
-- `main` is the only long-lived branch. It is always deployable
-  and is what STAGING runs.
+- `main` is the only long-lived branch. It is always deployable.
 - PRODUCTION deploys only from annotated tags (`v<major>.<minor>.<patch>`)
-  cut from main after staging verification. The tag is the
-  promotion; every tag is a rollback point.
+  cut from main after verification (CI green; for data releases,
+  the results-day runbook rehearsed on production, unpublished).
+  The tag is the promotion; every tag is a rollback point.
 - One task = one branch = one PR. Branch name:
   `task/<number>-<short-name>` (e.g. `task/021-linking-job`).
   Fixes outside a task use `fix/<short-name>`.
@@ -67,8 +67,9 @@ implication. Footer: `BREAKING CHANGE:` when applicable.
 
 ## Releases (production promotion)
 
-1. main is deployed to staging and verified (for data releases:
-   the results-day runbook; for code: the affected flows).
+1. main is verified (CI green; for data releases: the
+   results-day runbook rehearsed on production, unpublished; for
+   code: the affected flows exercised locally).
 2. Cut an annotated tag from the verified commit:
    `git tag -a v1.4.0 -m "publish flow + suggestion review"`.
 3. Deploy the tag to production via the deploy script.

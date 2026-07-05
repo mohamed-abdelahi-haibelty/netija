@@ -25,12 +25,13 @@ jest.mock('@/lib/api', () => {
 });
 
 const mockRecordSearchAttempt = jest.fn<unknown, []>();
-const mockTrackResultSearched = jest.fn<unknown, [string]>();
+const mockTrackResultSearched = jest.fn<unknown, [string, { found: boolean }]>();
 const mockTrackAutocompleteShown = jest.fn<unknown, [number, number]>();
 const mockTrackAutocompleteEmpty = jest.fn<unknown, [number]>();
 jest.mock('@/lib/analytics', () => ({
   recordSearchAttempt: () => mockRecordSearchAttempt(),
-  trackResultSearched: (method: string) => mockTrackResultSearched(method),
+  trackResultSearched: (method: string, opts: { found: boolean }) =>
+    mockTrackResultSearched(method, opts),
   trackAutocompleteShown: (count: number, queryLength: number) =>
     mockTrackAutocompleteShown(count, queryLength),
   trackAutocompleteEmpty: (queryLength: number) => mockTrackAutocompleteEmpty(queryLength),
@@ -78,7 +79,7 @@ describe('NameAutocomplete analytics wiring', () => {
     expect(mockTrackAutocompleteShown).not.toHaveBeenCalled();
   });
 
-  it('records a search attempt and tracks result_searched({method: "name"}) when a suggestion is picked', async () => {
+  it('records a search attempt and tracks result_searched({method: "name", found: true}) when a suggestion is picked', async () => {
     mockApiRequest.mockResolvedValue({
       suggestions: [
         { slug: 'abc123', examYear: 2024, examNo: '00001', nameFr: 'Mohamed', nameAr: null, serie: 'SN' },
@@ -93,7 +94,7 @@ describe('NameAutocomplete analytics wiring', () => {
     await user.click(screen.getByRole('option'));
 
     expect(mockRecordSearchAttempt).toHaveBeenCalledTimes(1);
-    expect(mockTrackResultSearched).toHaveBeenCalledWith('name');
+    expect(mockTrackResultSearched).toHaveBeenCalledWith('name', { found: true });
     expect(mockPush).toHaveBeenCalledWith('/fr/results/abc123');
   });
 });

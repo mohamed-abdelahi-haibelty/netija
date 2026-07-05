@@ -4,12 +4,14 @@ import {
   trackAutocompleteShown,
   trackAutocompleteEmpty,
   trackResultOpened,
-  trackAdminUploadStarted,
-  trackAdminUploadCompleted,
-  trackAdminPublish,
+  trackUploadStarted,
+  trackUploadCompleted,
+  trackPublish,
+  trackAdminAccessAttempt,
   recordSearchAttempt,
   consumeSearchAttempts,
   initAnalytics,
+  capturePageview,
 } from '../analytics';
 
 jest.mock('posthog-js', () => ({
@@ -40,13 +42,15 @@ describe('track* helpers (error-handling.md / architecture.md invariant 7: no PI
   it('never call posthog.capture when NEXT_PUBLIC_POSTHOG_KEY is absent', () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
-    trackResultSearched('examNo');
+    trackResultSearched('exam_no', { found: true, year: 2024 });
     trackAutocompleteShown(3, 5);
     trackAutocompleteEmpty(2);
-    trackResultOpened(2);
-    trackAdminUploadStarted();
-    trackAdminUploadCompleted();
-    trackAdminPublish('publish');
+    trackResultOpened(2, 'SN');
+    trackUploadStarted();
+    trackUploadCompleted({ rowCount: 100, rejected: 3, durationMs: 4200 });
+    trackPublish({ examYear: 2024, attemptCount: 97 });
+    trackAdminAccessAttempt('/admin/imports/[id]');
+    capturePageview('/fr/results/abc', '');
 
     expect(mockPosthog.capture).not.toHaveBeenCalled();
   });
@@ -54,37 +58,111 @@ describe('track* helpers (error-handling.md / architecture.md invariant 7: no PI
   it('fires each agreed event with a PII-free, shapes-and-counts-only payload when enabled', () => {
     process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test123';
 
-    trackResultSearched('examNo');
-    expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', { method: 'examNo' });
+    trackResultSearched('exam_no', { found: true, year: 2024 });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', {
+      method: 'exam_no',
+      found: true,
+      year: 2024,
+    });
 
-    trackResultSearched('name');
-    expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', { method: 'name' });
+    trackResultSearched('exam_no', { found: false, year: 2023 });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', {
+      method: 'exam_no',
+      found: false,
+      year: 2023,
+    });
+
+    // Name searches never carry a year.
+    trackResultSearched('name', { found: true });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', {
+      method: 'name',
+      found: true,
+    });
 
     trackAutocompleteShown(3, 5);
     expect(mockPosthog.capture).toHaveBeenCalledWith('autocomplete_shown', {
       count: 3,
-      queryLength: 5,
+      query_length: 5,
     });
 
     trackAutocompleteEmpty(2);
-    expect(mockPosthog.capture).toHaveBeenCalledWith('autocomplete_empty', { queryLength: 2 });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('autocomplete_empty', { query_length: 2 });
 
     trackResultOpened(4);
-    expect(mockPosthog.capture).toHaveBeenCalledWith('result_opened', { searchAttempts: 4 });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('result_opened', {
+      searches_before_success: 4,
+    });
 
-    trackAdminUploadStarted();
-    expect(mockPosthog.capture).toHaveBeenCalledWith('admin_upload_started', undefined);
+    // serie is a safe categorical, added only when the result page has one.
+    trackResultOpened(1, 'SN');
+    expect(mockPosthog.capture).toHaveBeenCalledWith('result_opened', {
+      searches_before_success: 1,
+      serie: 'SN',
+    });
 
-    trackAdminUploadCompleted();
-    expect(mockPosthog.capture).toHaveBeenCalledWith('admin_upload_completed', undefined);
+    trackUploadStarted();
+    expect(mockPosthog.capture).toHaveBeenCalledWith('upload_started', undefined);
 
-    trackAdminPublish('unpublish');
-    expect(mockPosthog.capture).toHaveBeenCalledWith('admin_publish', { action: 'unpublish' });
+    trackUploadCompleted({ rowCount: 5000, rejected: 20, durationMs: 12345 });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('upload_completed', {
+      row_count: 5000,
+      rejected: 20,
+      duration_ms: 12345,
+    });
+
+    trackPublish({ examYear: 2024, attemptCount: 4980 });
+    expect(mockPosthog.capture).toHaveBeenCalledWith('publish', {
+      exam_year: 2024,
+      attempt_count: 4980,
+    });
+
+    trackAdminAccessAttempt('/admin/imports/[id]/mapping');
+    expect(mockPosthog.capture).toHaveBeenCalledWith('admin_access_attempt', {
+      route: '/admin/imports/[id]/mapping',
+    });
 
     // Never a name, exam number, NNI, or result value anywhere in an argument.
     for (const call of mockPosthog.capture.mock.calls) {
       expect(JSON.stringify(call)).not.toMatch(/Mohamed|Fatimetou|Admis|Ajourn/i);
     }
+  });
+});
+
+describe('capturePageview', () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test123';
+  });
+
+  it('captures a $pageview with the current URL and, for a locale-prefixed path, the active locale', () => {
+    capturePageview('/fr/results/abc123', 'utm_source=tiktok');
+
+    expect(mockPosthog.capture).toHaveBeenCalledWith('$pageview', {
+      $current_url: `${window.location.origin}/fr/results/abc123?utm_source=tiktok`,
+      locale: 'fr',
+    });
+  });
+
+  it('extracts the locale from admin paths too', () => {
+    capturePageview('/admin/ar/imports', '');
+
+    expect(mockPosthog.capture).toHaveBeenCalledWith('$pageview', {
+      $current_url: `${window.location.origin}/admin/ar/imports`,
+      locale: 'ar',
+    });
+  });
+
+  it('omits locale when the path has none recognizable', () => {
+    capturePageview('/', '');
+
+    expect(mockPosthog.capture).toHaveBeenCalledWith('$pageview', {
+      $current_url: `${window.location.origin}/`,
+    });
+  });
+
+  it('never captures without a PostHog key', () => {
+    delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    capturePageview('/fr', '');
+    expect(mockPosthog.capture).not.toHaveBeenCalled();
   });
 });
 
@@ -110,7 +188,7 @@ describe('initAnalytics', () => {
     expect(mockPosthog.init).not.toHaveBeenCalled();
   });
 
-  it('initializes anonymous-only, with autocapture and session recording off', () => {
+  it('initializes anonymous-only, with autocapture/session recording off and manual pageview capture', () => {
     process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test123';
     process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://example.posthog.com';
 
@@ -123,6 +201,8 @@ describe('initAnalytics', () => {
         person_profiles: 'identified_only',
         autocapture: false,
         disable_session_recording: true,
+        capture_pageview: false,
+        capture_pageleave: true,
       }),
     );
   });

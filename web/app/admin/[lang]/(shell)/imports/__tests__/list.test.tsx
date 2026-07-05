@@ -12,9 +12,13 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ lang: 'fr' }),
 }));
 
-const mockTrackAdminUploadCompleted = jest.fn<unknown, []>();
+const mockTrackUploadCompleted = jest.fn<
+  unknown,
+  [{ rowCount: number; rejected: number; durationMs: number }]
+>();
 jest.mock('@/lib/analytics', () => ({
-  trackAdminUploadCompleted: () => mockTrackAdminUploadCompleted(),
+  trackUploadCompleted: (props: { rowCount: number; rejected: number; durationMs: number }) =>
+    mockTrackUploadCompleted(props),
 }));
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
@@ -97,7 +101,7 @@ const FAILED: ImportListItem = {
 
 beforeEach(() => {
   mockApiRequest.mockReset();
-  mockTrackAdminUploadCompleted.mockClear();
+  mockTrackUploadCompleted.mockClear();
 });
 
 describe('Admin imports dashboard', () => {
@@ -233,34 +237,46 @@ describe('Admin imports dashboard', () => {
     }
   });
 
-  it('tracks admin_upload_completed exactly once when a processing import transitions to completed', async () => {
+  it('tracks upload_completed exactly once, with row/rejected counts and an observed duration, when a processing import transitions to completed', async () => {
     jest.useFakeTimers();
     try {
       mockApiRequest
         .mockResolvedValueOnce([PROCESSING])
-        .mockResolvedValueOnce([{ ...PROCESSING, status: 'completed', progress: 100 }]);
+        .mockResolvedValueOnce([
+          {
+            ...PROCESSING,
+            status: 'completed',
+            progress: 100,
+            summary: { inserted: 4980, rejected: 20, duplicatesSkipped: 5 },
+          },
+        ]);
       renderPage();
 
       await screen.findByText('40%');
-      expect(mockTrackAdminUploadCompleted).not.toHaveBeenCalled();
+      expect(mockTrackUploadCompleted).not.toHaveBeenCalled();
 
       await act(async () => {
         await jest.advanceTimersByTimeAsync(3000);
       });
 
       await waitFor(() => {
-        expect(mockTrackAdminUploadCompleted).toHaveBeenCalledTimes(1);
+        expect(mockTrackUploadCompleted).toHaveBeenCalledTimes(1);
+      });
+      expect(mockTrackUploadCompleted).toHaveBeenCalledWith({
+        rowCount: 5005,
+        rejected: 20,
+        durationMs: 3000,
       });
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it('never tracks admin_upload_completed for an import that was already completed on first load', async () => {
+  it('never tracks upload_completed for an import that was already completed on first load', async () => {
     mockApiRequest.mockResolvedValue([COMPLETED]);
     renderPage();
 
     await screen.findByText('bac_2023.xlsx');
-    expect(mockTrackAdminUploadCompleted).not.toHaveBeenCalled();
+    expect(mockTrackUploadCompleted).not.toHaveBeenCalled();
   });
 });

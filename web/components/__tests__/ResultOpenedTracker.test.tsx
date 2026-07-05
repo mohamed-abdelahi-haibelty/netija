@@ -2,10 +2,10 @@ import { render } from '@testing-library/react';
 import { ResultOpenedTracker } from '../ResultOpenedTracker';
 
 const mockConsumeSearchAttempts = jest.fn<number, []>();
-const mockTrackResultOpened = jest.fn<unknown, [number]>();
+const mockTrackResultOpened = jest.fn<unknown, [number, string?]>();
 jest.mock('@/lib/analytics', () => ({
   consumeSearchAttempts: () => mockConsumeSearchAttempts(),
-  trackResultOpened: (n: number) => mockTrackResultOpened(n),
+  trackResultOpened: (n: number, serie?: string) => mockTrackResultOpened(n, serie),
 }));
 
 beforeEach(() => {
@@ -20,7 +20,15 @@ describe('ResultOpenedTracker', () => {
     render(<ResultOpenedTracker />);
 
     expect(mockConsumeSearchAttempts).toHaveBeenCalledTimes(1);
-    expect(mockTrackResultOpened).toHaveBeenCalledWith(3);
+    expect(mockTrackResultOpened).toHaveBeenCalledWith(3, undefined);
+  });
+
+  it('passes serie through as a safe categorical when the result page has one', () => {
+    mockConsumeSearchAttempts.mockReturnValue(2);
+
+    render(<ResultOpenedTracker serie="SN" />);
+
+    expect(mockTrackResultOpened).toHaveBeenCalledWith(2, 'SN');
   });
 
   it('renders nothing', () => {

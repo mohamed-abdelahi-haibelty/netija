@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { trackUploadStarted } from '@/lib/analytics';
 import {
   Select,
   SelectContent,
@@ -159,6 +160,7 @@ export default function MappingPage() {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
+      trackUploadStarted();
       router.push(`/admin/${lang}/imports`);
     } catch {
       setConfirmError(t('admin.mapping.confirmError'));

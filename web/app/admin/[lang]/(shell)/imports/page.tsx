@@ -14,7 +14,7 @@ import {
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { ImportStatusBadge } from '@/components/admin/ImportStatusBadge';
 import { cn } from '@/lib/utils';
-import { trackAdminUploadCompleted } from '@/lib/analytics';
+import { trackUploadCompleted } from '@/lib/analytics';
 import type { ImportListItem } from 'shared';
 
 // Polling interval while any import is still processing — the task spec
@@ -247,6 +247,10 @@ export default function ImportsPage() {
   // transition can be reported to PostHog exactly once, while this
   // dashboard happens to be open and polling.
   const prevStatusesRef = useRef<Map<number, ImportListItem['status']>>(new Map());
+  // Wall-clock time this dashboard first observed each import as
+  // 'processing' — the only duration signal available client-side, since
+  // the API doesn't expose a processing-started timestamp.
+  const processingStartedAtRef = useRef<Map<number, number>>(new Map());
 
   const load = useCallback(async (background = false) => {
     if (!background) setLoadStatus('loading');
@@ -255,8 +259,19 @@ export default function ImportsPage() {
         credentials: 'include',
       });
       for (const imp of data) {
-        if (prevStatusesRef.current.get(imp.id) === 'processing' && imp.status === 'completed') {
-          trackAdminUploadCompleted();
+        const prevStatus = prevStatusesRef.current.get(imp.id);
+        if (prevStatus === 'processing' && imp.status === 'completed') {
+          const startedAt = processingStartedAtRef.current.get(imp.id);
+          trackUploadCompleted({
+            rowCount: imp.summary
+              ? imp.summary.inserted + imp.summary.rejected + imp.summary.duplicatesSkipped
+              : 0,
+            rejected: imp.summary?.rejected ?? 0,
+            durationMs: startedAt !== undefined ? Date.now() - startedAt : 0,
+          });
+          processingStartedAtRef.current.delete(imp.id);
+        } else if (imp.status === 'processing' && !processingStartedAtRef.current.has(imp.id)) {
+          processingStartedAtRef.current.set(imp.id, Date.now());
         }
         prevStatusesRef.current.set(imp.id, imp.status);
       }

@@ -1,6 +1,7 @@
 'use client';
 
 import posthog from 'posthog-js';
+import { hasLocale, type Locale } from '@/lib/i18n/settings';
 
 // Anonymous-only PostHog wiring (error-handling.md / architecture.md
 // invariant 7: no PII in PostHog events). Inert whenever
@@ -29,12 +30,41 @@ export function initAnalytics(): void {
     autocapture: false,
     // A result page can render a real name; never risk it in a replay.
     disable_session_recording: true,
+    // App Router navigations don't reload the page, so pageviews are fired
+    // manually by <PostHogPageview> instead (capturePageview below) — this
+    // is also what lets each one carry the active locale.
+    capture_pageview: false,
+    // Still emit $pageleave, which PostHog's session-duration and
+    // pages-per-session insights rely on alongside the manual pageviews.
+    capture_pageleave: true,
   });
 }
 
 function capture(event: string, properties?: Record<string, unknown>): void {
   if (!isEnabled()) return;
   posthog.capture(event, properties);
+}
+
+function extractLocale(pathname: string): Locale | null {
+  const segments = pathname.split('/').filter(Boolean);
+  const first = segments[0] === 'admin' ? segments[1] : segments[0];
+  return first && hasLocale(first) ? first : null;
+}
+
+// Fired once per client-side navigation by <PostHogPageview> (mounted in the
+// root layout). Manual capture — not autocapture's pageview listener —
+// because it's the only way to attach `locale` to every $pageview.
+// Referrer, UTM params, device, browser, etc. are still enriched
+// automatically by posthog-js's own event pipeline regardless of how the
+// capture was triggered.
+export function capturePageview(pathname: string, search: string): void {
+  if (!isEnabled()) return;
+  const url = `${window.location.origin}${pathname}${search ? `?${search}` : ''}`;
+  const locale = extractLocale(pathname);
+  posthog.capture('$pageview', {
+    $current_url: url,
+    ...(locale ? { locale } : {}),
+  });
 }
 
 const SEARCH_ATTEMPTS_KEY = 'netija:searchAttempts';
@@ -59,33 +89,77 @@ export function consumeSearchAttempts(): number {
   return current || 1;
 }
 
-export function trackResultSearched(method: 'examNo' | 'name'): void {
-  capture('result_searched', { method });
+interface ResultSearchedOptions {
+  found: boolean;
+  // Exam-number searches only — name searches have no year on their own.
+  year?: number;
+}
+
+export function trackResultSearched(
+  method: 'name' | 'exam_no',
+  { found, year }: ResultSearchedOptions,
+): void {
+  capture('result_searched', {
+    method,
+    found,
+    ...(year !== undefined ? { year } : {}),
+  });
 }
 
 export function trackAutocompleteShown(count: number, queryLength: number): void {
-  capture('autocomplete_shown', { count, queryLength });
+  capture('autocomplete_shown', { count, query_length: queryLength });
 }
 
 export function trackAutocompleteEmpty(queryLength: number): void {
-  capture('autocomplete_empty', { queryLength });
+  capture('autocomplete_empty', { query_length: queryLength });
 }
 
-// searchAttempts: how many searches (exam-number submissions or
+// searchesBeforeSuccess: how many searches (exam-number submissions or
 // autocomplete picks) the user made this session before landing on this
-// result — a friction signal, never row content.
-export function trackResultOpened(searchAttempts: number): void {
-  capture('result_opened', { searchAttempts });
+// result — a friction signal, never row content. serie (e.g. 'SN', 'LM') is
+// a safe categorical for audience mix, added only when the result page
+// knows it.
+export function trackResultOpened(searchesBeforeSuccess: number, serie?: string): void {
+  capture('result_opened', {
+    searches_before_success: searchesBeforeSuccess,
+    ...(serie ? { serie } : {}),
+  });
 }
 
-export function trackAdminUploadStarted(): void {
-  capture('admin_upload_started');
+// Fired when an admin confirms the column mapping and the import pipeline
+// actually starts processing rows — nothing about row counts is known
+// before that point, so this event carries no properties.
+export function trackUploadStarted(): void {
+  capture('upload_started');
 }
 
-export function trackAdminUploadCompleted(): void {
-  capture('admin_upload_completed');
+interface UploadCompletedProps {
+  rowCount: number;
+  rejected: number;
+  durationMs: number;
 }
 
-export function trackAdminPublish(action: 'publish' | 'unpublish'): void {
-  capture('admin_publish', { action });
+export function trackUploadCompleted({ rowCount, rejected, durationMs }: UploadCompletedProps): void {
+  capture('upload_completed', {
+    row_count: rowCount,
+    rejected,
+    duration_ms: durationMs,
+  });
+}
+
+interface PublishProps {
+  examYear: number;
+  attemptCount: number;
+}
+
+// attemptCount: rows published (ImportSummary.inserted) — never any
+// individual row's content.
+export function trackPublish({ examYear, attemptCount }: PublishProps): void {
+  capture('publish', { exam_year: examYear, attempt_count: attemptCount });
+}
+
+// route: an admin path *pattern* (e.g. '/admin/imports/[id]/mapping') —
+// never a query string or anything else that could carry personal data.
+export function trackAdminAccessAttempt(route: string): void {
+  capture('admin_access_attempt', { route });
 }

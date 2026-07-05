@@ -78,17 +78,19 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
     abortRef.current = controller;
     setLoading(true);
     recordSearchAttempt();
-    trackResultSearched('examNo');
+    const searchedYear = Number(year);
 
     try {
       const result = await apiRequest<ExamSearchResult>(
         `/api/search/exam?no=${encodeURIComponent(trimmed)}&year=${year}`,
         { signal: controller.signal },
       );
+      trackResultSearched('exam_no', { found: true, year: searchedYear });
       router.push(`/${lang}/results/${result.slug}`);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       if (err instanceof ApiClientError && err.code === 'STUDENT_NOT_FOUND') {
+        trackResultSearched('exam_no', { found: false, year: searchedYear });
         setNotFound(Number(year));
       } else if (err instanceof TypeError) {
         setFieldError(t('home.errorNetwork'));
