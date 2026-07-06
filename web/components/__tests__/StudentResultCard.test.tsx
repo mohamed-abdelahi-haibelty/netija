@@ -37,3 +37,16 @@ describe('StudentResultCard — serie by exam type', () => {
     expect(screen.queryByText('Série')).not.toBeInTheDocument();
   });
 });
+
+describe('StudentResultCard — exam type row', () => {
+  it('shows "Bac" for a Bac result', () => {
+    renderCard(BAC);
+    expect(screen.getByText('Examen')).toBeInTheDocument();
+    expect(screen.getByText('Bac')).toBeInTheDocument();
+  });
+
+  it('shows "Brevet (BEPC)" for a Brevet result', () => {
+    renderCard({ ...BAC, examType: 'brevet', serie: null });
+    expect(screen.getByText('Brevet (BEPC)')).toBeInTheDocument();
+  });
+});

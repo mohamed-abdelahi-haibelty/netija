@@ -65,7 +65,8 @@
     "copyLink": "Copier le lien",
     "linkCopied": "Lien copié ✓",
     "newSearch": "Nouvelle recherche",
-    "backHome": "Retour à la recherche"
+    "backHome": "Retour à la recherche",
+    "examTypeLabel": "Examen"
   },
   "admin": {
     "siteTitle": "Netija Admin",

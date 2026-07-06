@@ -65,7 +65,8 @@
     "copyLink": "نسخ الرابط",
     "linkCopied": "تم النسخ ✓",
     "newSearch": "بحث جديد",
-    "backHome": "العودة للبحث"
+    "backHome": "العودة للبحث",
+    "examTypeLabel": "الامتحان"
   },
   "admin": {
     "siteTitle": "نتيجة — الإدارة",
