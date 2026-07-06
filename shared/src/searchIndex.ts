@@ -2,6 +2,8 @@
 // Read-only inspection + a manual full-reindex trigger, reusing the same
 // index builder (api/src/services/meiliIndex.ts) publish/delete already call.
 
+import type { ExamType } from './exam-type';
+
 export interface SearchIndexStatusResult {
   documentCount: number;
   isIndexing: boolean;
@@ -20,11 +22,12 @@ export interface SearchIndexStatusResponse {
 export interface SearchIndexDocument {
   slug: string;
   importId: number;
+  examType: ExamType;
   examYear: number;
   examNo: string;
   nameFr: string | null;
   nameAr: string | null;
-  serie: string;
+  serie: string | null;
 }
 
 export interface SearchIndexDocumentsResult {

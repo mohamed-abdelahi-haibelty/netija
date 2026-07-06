@@ -14,11 +14,15 @@ jest.mock('next/navigation', () => ({
 
 const mockTrackUploadCompleted = jest.fn<
   unknown,
-  [{ rowCount: number; rejected: number; durationMs: number }]
+  [{ rowCount: number; rejected: number; durationMs: number; examType: string | null }]
 >();
 jest.mock('@/lib/analytics', () => ({
-  trackUploadCompleted: (props: { rowCount: number; rejected: number; durationMs: number }) =>
-    mockTrackUploadCompleted(props),
+  trackUploadCompleted: (props: {
+    rowCount: number;
+    rejected: number;
+    durationMs: number;
+    examType: string | null;
+  }) => mockTrackUploadCompleted(props),
 }));
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
@@ -50,6 +54,7 @@ function renderPage() {
 const PENDING: ImportListItem = {
   id: 4,
   originalFilename: 'bac_2025_raw.xlsx',
+  examType: 'bac',
   examYear: null,
   status: 'pending',
   progress: null,
@@ -63,6 +68,7 @@ const PENDING: ImportListItem = {
 const PROCESSING: ImportListItem = {
   id: 3,
   originalFilename: 'bac_2024.xlsx',
+  examType: 'bac',
   examYear: 2024,
   status: 'processing',
   progress: 40,
@@ -76,6 +82,7 @@ const PROCESSING: ImportListItem = {
 const COMPLETED: ImportListItem = {
   id: 2,
   originalFilename: 'bac_2023.xlsx',
+  examType: 'bac',
   examYear: 2023,
   status: 'completed',
   progress: 100,
@@ -89,6 +96,7 @@ const COMPLETED: ImportListItem = {
 const FAILED: ImportListItem = {
   id: 1,
   originalFilename: 'bac_2021_bad.xlsx',
+  examType: 'bac',
   examYear: null,
   status: 'failed',
   progress: null,
@@ -266,6 +274,7 @@ describe('Admin imports dashboard', () => {
         rowCount: 5005,
         rejected: 20,
         durationMs: 3000,
+        examType: 'bac',
       });
     } finally {
       jest.useRealTimers();

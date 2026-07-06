@@ -2,6 +2,7 @@
 
 import posthog from 'posthog-js';
 import { hasLocale, type Locale } from '@/lib/i18n/settings';
+import type { ExamType } from 'shared';
 
 // Anonymous-only PostHog wiring (error-handling.md / architecture.md
 // invariant 7: no PII in PostHog events). Inert whenever
@@ -93,25 +94,28 @@ interface ResultSearchedOptions {
   found: boolean;
   // Exam-number searches only — name searches have no year on their own.
   year?: number;
+  // 'bac' | 'brevet' — a safe categorical, so usage can be split per exam type.
+  examType: ExamType;
 }
 
 export function trackResultSearched(
   method: 'name' | 'exam_no',
-  { found, year }: ResultSearchedOptions,
+  { found, year, examType }: ResultSearchedOptions,
 ): void {
   capture('result_searched', {
     method,
     found,
+    exam_type: examType,
     ...(year !== undefined ? { year } : {}),
   });
 }
 
-export function trackAutocompleteShown(count: number, queryLength: number): void {
-  capture('autocomplete_shown', { count, query_length: queryLength });
+export function trackAutocompleteShown(count: number, queryLength: number, examType: ExamType): void {
+  capture('autocomplete_shown', { count, query_length: queryLength, exam_type: examType });
 }
 
-export function trackAutocompleteEmpty(queryLength: number): void {
-  capture('autocomplete_empty', { query_length: queryLength });
+export function trackAutocompleteEmpty(queryLength: number, examType: ExamType): void {
+  capture('autocomplete_empty', { query_length: queryLength, exam_type: examType });
 }
 
 // searchesBeforeSuccess: how many searches (exam-number submissions or
@@ -119,9 +123,14 @@ export function trackAutocompleteEmpty(queryLength: number): void {
 // result — a friction signal, never row content. serie (e.g. 'SN', 'LM') is
 // a safe categorical for audience mix, added only when the result page
 // knows it.
-export function trackResultOpened(searchesBeforeSuccess: number, serie?: string): void {
+export function trackResultOpened(
+  searchesBeforeSuccess: number,
+  examType: ExamType,
+  serie?: string,
+): void {
   capture('result_opened', {
     searches_before_success: searchesBeforeSuccess,
+    exam_type: examType,
     ...(serie ? { serie } : {}),
   });
 }
@@ -129,33 +138,41 @@ export function trackResultOpened(searchesBeforeSuccess: number, serie?: string)
 // Fired when an admin confirms the column mapping and the import pipeline
 // actually starts processing rows — nothing about row counts is known
 // before that point, so this event carries no properties.
-export function trackUploadStarted(): void {
-  capture('upload_started');
+export function trackUploadStarted(examType: ExamType): void {
+  capture('upload_started', { exam_type: examType });
 }
 
 interface UploadCompletedProps {
   rowCount: number;
   rejected: number;
   durationMs: number;
+  // null when an older import row has no recorded type (pre-Brevet uploads).
+  examType: ExamType | null;
 }
 
-export function trackUploadCompleted({ rowCount, rejected, durationMs }: UploadCompletedProps): void {
+export function trackUploadCompleted({ rowCount, rejected, durationMs, examType }: UploadCompletedProps): void {
   capture('upload_completed', {
     row_count: rowCount,
     rejected,
     duration_ms: durationMs,
+    ...(examType ? { exam_type: examType } : {}),
   });
 }
 
 interface PublishProps {
+  examType: ExamType | null;
   examYear: number;
   attemptCount: number;
 }
 
 // attemptCount: rows published (ImportSummary.inserted) — never any
 // individual row's content.
-export function trackPublish({ examYear, attemptCount }: PublishProps): void {
-  capture('publish', { exam_year: examYear, attempt_count: attemptCount });
+export function trackPublish({ examType, examYear, attemptCount }: PublishProps): void {
+  capture('publish', {
+    ...(examType ? { exam_type: examType } : {}),
+    exam_year: examYear,
+    attempt_count: attemptCount,
+  });
 }
 
 // route: an admin path *pattern* (e.g. '/admin/imports/[id]/mapping') —

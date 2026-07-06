@@ -210,8 +210,8 @@ describe('deleteImport service', () => {
             // deleteImport's attempts-lookup query (no .limit chained)
             void fields;
             return Promise.resolve([
-              { examYear: 2024, examNo: '00042', slug: 'slug1' },
-              { examYear: 2024, examNo: '00043', slug: 'slug2' },
+              { examType: 'bac', examYear: 2024, examNo: '00042', slug: 'slug1' },
+              { examType: 'bac', examYear: 2024, examNo: '00043', slug: 'slug2' },
             ]);
           },
         }),
@@ -246,7 +246,7 @@ describe('deleteImport service', () => {
     // attempts + rejects deleted before the import row itself (FK order).
     expect(deletedTables).toHaveLength(3);
     expect(pipelineOps).toEqual(
-      expect.arrayContaining(['exam:2024:00042', 'result:slug1', 'exam:2024:00043', 'result:slug2']),
+      expect.arrayContaining(['exam:bac:2024:00042', 'result:slug1', 'exam:bac:2024:00043', 'result:slug2']),
     );
   });
 
@@ -295,6 +295,7 @@ describe('deleteImport service', () => {
     expect(result).toEqual({ deletedAttempts: 0 });
     expect(pipelineCalled).toBe(false);
     // the years-list cache is still invalidated unconditionally
-    expect(redis.del).toHaveBeenCalledWith('years:published');
+    // The published-years cache is namespaced per exam type; both are cleared.
+    expect(redis.del).toHaveBeenCalledWith('years:published:bac', 'years:published:brevet');
   });
 });

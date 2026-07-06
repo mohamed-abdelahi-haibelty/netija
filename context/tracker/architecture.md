@@ -57,15 +57,35 @@ it does NOT link attempts into shared persons. There is no identity
 resolution, no person entity, no cross-year merging, and no
 "other records" / see-also feature. A "result" is a single attempt.
 
+## Two exam types (Bac + Brevet)
+
+The site serves TWO exams through ONE unified model, distinguished by
+an `exam_type` discriminator (`'bac'` | `'brevet'`): the Baccalauréat
+(Bac) and the Brevet (BEPC — "Examen du Brevet" / مسابقة ختم دروس
+الإعدادية). Both cover the same years (2015–2025), the same fields
+(name, exam number, exam year, decision, moyenne), and the same
+pipeline, search, pages, caching, and analytics. There is exactly ONE
+structural difference: **Brevet has no serie (track)**. So `serie` is
+nullable, present for Bac and absent (null) for Brevet. This is a
+single unified model — NOT duplicated tables or code paths; everything
+is parameterized by `exam_type`, never forked per exam. Exam numbers
+are only unique WITHIN a (type, year): a Bac and a Brevet candidate
+may legitimately share the same year + exam_no, so they never collide.
+
 ## Storage Model
 
 - **PostgreSQL**:
   - `attempts` — the only result-bearing table and the source of
-    truth. One immutable row per exam sitting. Columns: exam_year,
+    truth. One immutable row per exam sitting. Columns: exam_type
+    (NOT NULL enum, `'bac'`|`'brevet'`), exam_year,
     exam_no (TEXT, leading zeros preserved), public_slug, name_fr,
-    name_ar, serie (NOT NULL), decision (NOT NULL, normalized enum),
+    name_ar, serie (NULLABLE — required for Bac, null for Brevet),
+    decision (NOT NULL, normalized enum),
     decision_raw, moyenne (nullable numeric out of 20),
-    import_id. UNIQUE (exam_year, exam_no).
+    import_id. UNIQUE (exam_type, exam_year, exam_no) — exam numbers
+    are unique only within a (type, year), so a Bac and a Brevet may
+    share year + exam_no. `public_slug` stays globally unique and
+    carries no type: a slug already resolves to exactly one typed row.
     There are NO nni, birth_date, birth_place, school, wilaya, or
     match_key columns.
     - `public_slug` (TEXT, NOT NULL, UNIQUE) is the ONLY public URL
@@ -79,7 +99,8 @@ resolution, no person entity, no cross-year merging, and no
       Note: the exam-number search still resolves by (exam_year,
       exam_no); the slug removes URL enumeration, not the by-number
       lookup itself (rate limiting guards that).
-  - `imports` — file metadata, status lifecycle (`pending`,
+  - `imports` — file metadata, the `exam_type` chosen at confirm (nullable
+    until confirmed, exactly like `exam_year`), status lifecycle (`pending`,
     `processing`, `cancelling`, `completed`, `cancelled`, `failed`
     — task 032 added `cancelling`/`cancelled`), summary counts,
     smoke result, the published flag per exam year, and
@@ -98,9 +119,12 @@ resolution, no person entity, no cross-year merging, and no
   - There are NO `persons`, `person_links`, or `link_suggestions`
     tables.
 - **Redis**: cache of result-page payloads (keyed by the attempt's
-  public_slug as `result:{slug}`; TTL >= 300 s, invalidated on
-  import/publish), exam-number lookups (`exam:{year}:{examNo}`,
-  `api/src/services/examSearch.ts`), rate-limit counters, BullMQ job
+  public_slug as `result:{slug}` — globally unique, so it needs no
+  type in the key; TTL >= 300 s, invalidated on
+  import/publish), exam-number lookups (`exam:{type}:{year}:{examNo}`,
+  namespaced by exam_type so a Bac and a Brevet sharing year+exam_no
+  never collide, `api/src/services/examSearch.ts`), the published-years
+  list per type (`years:published:{type}`), rate-limit counters, BullMQ job
   state. An auth-gated admin panel (`/admin/[lang]/cache`, task 035,
   `api/src/services/cacheAdmin.ts`) exposes read-only visibility
   (key counts, a paginated/pattern-filterable key list, per-key value
@@ -113,13 +137,17 @@ resolution, no person entity, no cross-year merging, and no
 - **Meilisearch**: derived search index with one document PER
   PUBLISHED ATTEMPT (not per person). The document id IS the
   attempt's public_slug; the payload carries name_fr, name_ar,
-  exam_year, exam_no, serie, and import_id (task 034: not searched
+  exam_type, exam_year, exam_no, serie (nullable), and import_id
+  (task 034: not searched
   or displayed publicly, only used so the admin index-inspection
   panel can filter documents down to one import exactly, rather
-  than guessing from exam_year alone). `examYear`/`importId` are
-  filterable, `examYear` is sortable, `nameFr`/`nameAr` are
+  than guessing from exam_year alone). `examType`/`examYear`/`importId`
+  are filterable, `examYear` is sortable, `nameFr`/`nameAr` are
   searchable — all set by the same builder
   (`api/src/services/meiliIndex.ts#buildNameIndex`) every rebuild.
+  Name search is scoped by `filter: examType = <type>`, so Bac and
+  Brevet names never intermingle in one autocomplete — a single
+  index, kept separated by filter rather than split into two indices.
   Rebuildable from Postgres at any time; never the source of truth;
   only published years are indexed. An auth-gated admin panel
   (`/admin/[lang]/search-index`, task 034) exposes index status
@@ -133,10 +161,13 @@ resolution, no person entity, no cross-year merging, and no
 
 ## Data Model Invariants (domain-critical)
 
-- `attempts` has UNIQUE (exam_year, exam_no). Exam numbers are
-  digit strings with leading zeros preserved (always TEXT, never
+- `attempts` has UNIQUE (exam_type, exam_year, exam_no). Exam numbers
+  are digit strings with leading zeros preserved (always TEXT, never
   numeric), validated with a sane length bound rather than a
-  hardcoded exact length, and are only unique within a year.
+  hardcoded exact length, and are only unique within a (type, year):
+  a Bac and a Brevet candidate may share the same year + exam_no
+  without colliding. The Python loader's `ON CONFLICT` targets these
+  same three columns.
 - NEVER trust the file's schema. The only columns guaranteed in
   every year's file are the exam number and at least one name
   (French or Arabic). serie, moyenne, decision and everything else
@@ -148,11 +179,14 @@ resolution, no person entity, no cross-year merging, and no
   field, never written to the database, never displayed. The
   pipeline drops them.
 - A row imports only if it has exam_year, exam_no, at least one
-  name, a serie, and a decision. Rows missing a required field are
-  rejected-with-reason into `rejects` (graceful, counted) — never
-  a crash. The NOT NULL constraints on serie/decision are a
-  database backstop behind that validation, not the first line of
-  defense.
+  name, a decision, and — for BAC only — a serie. Rows missing a
+  required field are rejected-with-reason into `rejects` (graceful,
+  counted) — never a crash. For a BREVET import, serie is never
+  required and any mapped serie column is ignored (stored null); the
+  "required for bac, absent/ignored for brevet" rule lives in the
+  cleaning validation (`worker/cleaning.py`), with serie's
+  nullability the DB backstop behind it. The NOT NULL constraint on
+  decision is likewise a backstop, not the first line of defense.
 - Decision values are normalized to a fixed enum on import:
   `Admis`, `Ajourné`, `Sessionnaire`, `Absent`, `Délibérable`,
   `Annulé`. Raw source variants (`Ajourné(e)`, `Ajourné Sn`,
@@ -160,9 +194,11 @@ resolution, no person entity, no cross-year merging, and no
   map onto these; the raw value is preserved in a `decision_raw`
   column. Unknown variants are flagged, never silently passed.
 - Moyenne is stored as numeric out of 20; nullable (e.g. Annulé).
-- SERIE (track: SN, LM, LO, M, TM, TS, LA, ...) is stored as text on
-  the attempt; new series may appear in future years and must not
-  break imports.
+- SERIE (track: SN, LM, LO, M, TM, TS, LA, ...) is a BAC-only concept,
+  stored as nullable text on the attempt; new series may appear in
+  future years and must not break imports. Brevet attempts have no
+  serie (null), and the result page/search omit it entirely for
+  Brevet rather than showing a blank field.
 - Multiple attempts sharing a name are INDEPENDENT rows. The system
   never asserts they are the same person; name search simply
   returns each matching attempt as its own year-labeled result.

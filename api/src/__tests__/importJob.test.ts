@@ -62,7 +62,7 @@ describe('runImportJob', () => {
     );
     const { db, updates } = makeFakeDb();
 
-    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no' } });
+    await runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: { NODOSS: 'exam_no' } });
 
     // [0] the initial claim, [1] clearing workerPid once the process
     // exits, [2] progress: 100 (status/summary are now written by
@@ -83,7 +83,7 @@ describe('runImportJob', () => {
     mockRunSmokeVerification.mockResolvedValue({ passed: false, reason: 'mismatch' });
     const { db, updates } = makeFakeDb();
 
-    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no' } });
+    await runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: { NODOSS: 'exam_no' } });
 
     expect(updates[3]).toMatchObject({ smokePassed: false });
   });
@@ -95,7 +95,7 @@ describe('runImportJob', () => {
     mockRunSmokeVerification.mockRejectedValue(new Error('db exploded'));
     const { db, updates } = makeFakeDb();
 
-    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no' } });
+    await runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: { NODOSS: 'exam_no' } });
 
     expect(updates[3]).toMatchObject({ smokePassed: false });
   });
@@ -108,7 +108,7 @@ describe('runImportJob', () => {
     mockRunSmokeVerification.mockRejectedValue(thrown);
     const { db } = makeFakeDb();
 
-    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no' } });
+    await runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: { NODOSS: 'exam_no' } });
 
     expect(mockCaptureException).toHaveBeenCalledWith(thrown, {
       extra: { importId: 42, stage: 'smoke-verification' },
@@ -123,6 +123,7 @@ describe('runImportJob', () => {
 
     await runImportJob(db as never, {
       importId: 7,
+      examType: 'brevet',
       examYear: 2023,
       mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' },
     });
@@ -130,7 +131,16 @@ describe('runImportJob', () => {
     expect(mockRunPythonScript).toHaveBeenCalledWith(
       expect.any(String),
       expect.stringMatching(/worker\.py$/),
-      ['--file-id', '7', '--exam-year', '2023', '--mapping', JSON.stringify({ NODOSS: 'exam_no', NOMPL: 'name_fr' })],
+      [
+        '--file-id',
+        '7',
+        '--exam-type',
+        'brevet',
+        '--exam-year',
+        '2023',
+        '--mapping',
+        JSON.stringify({ NODOSS: 'exam_no', NOMPL: 'name_fr' }),
+      ],
       expect.any(Function),
     );
   });
@@ -142,7 +152,7 @@ describe('runImportJob', () => {
     });
     const { db, updates } = makeFakeDb();
 
-    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: {} });
+    await runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: {} });
 
     expect(updates.some((u) => u['workerPid'] === 4321)).toBe(true);
   });
@@ -154,7 +164,7 @@ describe('runImportJob', () => {
     const { db, updates } = makeFakeDb();
 
     await expect(
-      runImportJob(db as never, { importId: 42, examYear: 2024, mapping: {} }),
+      runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: {} }),
     ).rejects.toMatchObject({ code: 'MISSING_REQUIRED_COLUMNS', message: 'no exam_no column' });
 
     // The initial "processing" claim, then the workerPid clear — never a
@@ -169,7 +179,7 @@ describe('runImportJob', () => {
     const { db, updates } = makeFakeDb({ statusOnSelect: 'processing' });
 
     await expect(
-      runImportJob(db as never, { importId: 42, examYear: 2024, mapping: {} }),
+      runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: {} }),
     ).rejects.not.toBeInstanceOf(ImportCancelledError);
     expect(updates).toHaveLength(2);
     expect(updates[1]).toMatchObject({ workerPid: null });
@@ -178,7 +188,7 @@ describe('runImportJob', () => {
   it('does not run at all when the import is already cancelling/cancelled (claim loses the race)', async () => {
     const { db, updates } = makeFakeDb({ claims: false });
 
-    await runImportJob(db as never, { importId: 42, examYear: 2024, mapping: {} });
+    await runImportJob(db as never, { importId: 42, examType: 'bac', examYear: 2024, mapping: {} });
 
     expect(mockRunPythonScript).not.toHaveBeenCalled();
     expect(updates).toHaveLength(1);
@@ -192,7 +202,7 @@ describe('runImportJob', () => {
 
     const err = await runImportJob(
       db as never,
-      { importId: 42, examYear: 2024, mapping: {} },
+      { importId: 42, examType: 'bac', examYear: 2024, mapping: {} },
     ).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(ImportCancelledError);
@@ -207,7 +217,7 @@ describe('runImportJob', () => {
 
     const err = await runImportJob(
       db as never,
-      { importId: 42, examYear: 2024, mapping: {} },
+      { importId: 42, examType: 'bac', examYear: 2024, mapping: {} },
     ).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(ImportCancelledError);

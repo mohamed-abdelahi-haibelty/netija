@@ -13,14 +13,15 @@ import {
   trackResultSearched,
 } from '@/lib/analytics';
 import { ClearButton } from '@/components/ClearButton';
-import type { NameSearchSuggestion } from 'shared';
+import type { ExamType, NameSearchSuggestion } from 'shared';
 
 interface Props {
   lang: string;
+  examType: ExamType;
   onSwitchToExam?: () => void;
 }
 
-export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
+export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
   const listboxId = useId();
@@ -84,7 +85,7 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
 
     try {
       const data = await apiRequest<{ suggestions: NameSearchSuggestion[] }>(
-        `/api/search/name?q=${encodeURIComponent(q)}`,
+        `/api/search/name?q=${encodeURIComponent(q)}&type=${examType}`,
         { signal: ctrl.signal },
       );
       if (id !== requestIdRef.current) return;
@@ -100,9 +101,9 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
           : t('home.nameSearchAnnounceResults', { count: hits.length }),
       );
       if (hits.length === 0) {
-        trackAutocompleteEmpty(q.length);
+        trackAutocompleteEmpty(q.length, examType);
       } else {
-        trackAutocompleteShown(hits.length, q.length);
+        trackAutocompleteShown(hits.length, q.length, examType);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -185,9 +186,9 @@ export function NameAutocomplete({ lang, onSwitchToExam }: Props) {
     recordSearchAttempt();
     // Selecting a suggestion always resolves to an existing result — an
     // empty autocomplete is tracked separately by trackAutocompleteEmpty.
-    trackResultSearched('name', { found: true });
+    trackResultSearched('name', { found: true, examType });
     router.push(`/${lang}/results/${s.slug}`);
-  }, [close, lang, router]);
+  }, [close, lang, router, examType]);
 
   const displayName = (s: NameSearchSuggestion) =>
     lang === 'ar' ? (s.nameAr ?? s.nameFr ?? '—') : (s.nameFr ?? s.nameAr ?? '—');

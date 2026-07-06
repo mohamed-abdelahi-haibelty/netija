@@ -30,7 +30,7 @@ HISTORICAL_FIXTURES = ["2024", "2023", "2022", "2021", "2020", "2019", "2018", "
 def test_missing_file_id_is_reported_as_validation_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    exit_code = worker.main(["--exam-year", "2024", "--mapping", "{}"])
+    exit_code = worker.main(["--exam-type", "bac", "--exam-year", "2024", "--mapping", "{}"])
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -40,7 +40,9 @@ def test_missing_file_id_is_reported_as_validation_error(
 
 
 def test_blank_file_id_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = worker.main(["--file-id", "   ", "--exam-year", "2024", "--mapping", "{}"])
+    exit_code = worker.main(
+        ["--file-id", "   ", "--exam-type", "bac", "--exam-year", "2024", "--mapping", "{}"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -48,7 +50,9 @@ def test_blank_file_id_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_non_numeric_file_id_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = worker.main(["--file-id", "abc123", "--exam-year", "2024", "--mapping", "{}"])
+    exit_code = worker.main(
+        ["--file-id", "abc123", "--exam-type", "bac", "--exam-year", "2024", "--mapping", "{}"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -58,7 +62,9 @@ def test_non_numeric_file_id_is_rejected(capsys: pytest.CaptureFixture[str]) -> 
 
 @pytest.mark.parametrize("file_id", ["0", "-5"])
 def test_non_positive_file_id_is_rejected(file_id: str, capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = worker.main(["--file-id", file_id, "--exam-year", "2024", "--mapping", "{}"])
+    exit_code = worker.main(
+        ["--file-id", file_id, "--exam-type", "bac", "--exam-year", "2024", "--mapping", "{}"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -68,7 +74,7 @@ def test_non_positive_file_id_is_rejected(file_id: str, capsys: pytest.CaptureFi
 def test_missing_exam_year_is_reported_as_validation_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    exit_code = worker.main(["--file-id", "123", "--mapping", "{}"])
+    exit_code = worker.main(["--file-id", "123", "--exam-type", "bac", "--mapping", "{}"])
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -76,8 +82,32 @@ def test_missing_exam_year_is_reported_as_validation_error(
     assert "exam-year" in out["reason"]
 
 
+def test_missing_exam_type_is_reported_as_validation_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = worker.main(["--file-id", "123", "--exam-year", "2024", "--mapping", "{}"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert out["code"] == "VALIDATION_ERROR"
+    assert "exam-type" in out["reason"]
+
+
+def test_unknown_exam_type_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = worker.main(
+        ["--file-id", "123", "--exam-type", "licence", "--exam-year", "2024", "--mapping", "{}"]
+    )
+    out = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert out["code"] == "VALIDATION_ERROR"
+    assert "exam-type" in out["reason"]
+
+
 def test_non_numeric_exam_year_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = worker.main(["--file-id", "123", "--exam-year", "twenty-24", "--mapping", "{}"])
+    exit_code = worker.main(
+        ["--file-id", "123", "--exam-type", "bac", "--exam-year", "twenty-24", "--mapping", "{}"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -86,7 +116,9 @@ def test_non_numeric_exam_year_is_rejected(capsys: pytest.CaptureFixture[str]) -
 
 @pytest.mark.parametrize("year", ["1899", "2101", "0", "-5"])
 def test_out_of_range_exam_year_is_rejected(year: str, capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = worker.main(["--file-id", "123", "--exam-year", year, "--mapping", "{}"])
+    exit_code = worker.main(
+        ["--file-id", "123", "--exam-type", "bac", "--exam-year", year, "--mapping", "{}"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -96,7 +128,7 @@ def test_out_of_range_exam_year_is_rejected(year: str, capsys: pytest.CaptureFix
 def test_missing_mapping_is_reported_as_validation_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    exit_code = worker.main(["--file-id", "123", "--exam-year", "2024"])
+    exit_code = worker.main(["--file-id", "123", "--exam-type", "bac", "--exam-year", "2024"])
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -105,7 +137,9 @@ def test_missing_mapping_is_reported_as_validation_error(
 
 
 def test_malformed_mapping_json_is_rejected(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = worker.main(["--file-id", "123", "--exam-year", "2024", "--mapping", "{not json"])
+    exit_code = worker.main(
+        ["--file-id", "123", "--exam-type", "bac", "--exam-year", "2024", "--mapping", "{not json"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -115,7 +149,9 @@ def test_malformed_mapping_json_is_rejected(capsys: pytest.CaptureFixture[str]) 
 def test_mapping_must_be_a_json_object_not_an_array(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    exit_code = worker.main(["--file-id", "123", "--exam-year", "2024", "--mapping", "[1, 2, 3]"])
+    exit_code = worker.main(
+        ["--file-id", "123", "--exam-type", "bac", "--exam-year", "2024", "--mapping", "[1, 2, 3]"]
+    )
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -123,7 +159,9 @@ def test_mapping_must_be_a_json_object_not_an_array(
 
 
 def test_output_is_exactly_one_json_line(capsys: pytest.CaptureFixture[str]) -> None:
-    worker.main(["--file-id", "123", "--exam-year", "2024", "--mapping", "{not json"])
+    worker.main(
+        ["--file-id", "123", "--exam-type", "bac", "--exam-year", "2024", "--mapping", "{not json"]
+    )
     captured = capsys.readouterr().out.strip().splitlines()
 
     assert len(captured) == 1
@@ -140,6 +178,8 @@ def test_unknown_import_id_fails_the_job(dsn: str, capsys: pytest.CaptureFixture
         [
             "--file-id",
             "999999",
+            "--exam-type",
+            "bac",
             "--exam-year",
             str(EXAM_YEAR),
             "--mapping",
@@ -160,6 +200,8 @@ def test_mapping_missing_the_floor_fails_the_job(
         [
             "--file-id",
             str(import_id),
+            "--exam-type",
+            "bac",
             "--exam-year",
             str(EXAM_YEAR),
             "--mapping",
@@ -186,6 +228,8 @@ def test_unreadable_file_fails_the_job(
         [
             "--file-id",
             str(import_id),
+            "--exam-type",
+            "bac",
             "--exam-year",
             str(EXAM_YEAR),
             "--mapping",
@@ -226,6 +270,8 @@ def test_a_rejected_rows_raw_data_never_stores_a_pii_banned_column(
         [
             "--file-id",
             str(import_id),
+            "--exam-type",
+            "bac",
             "--exam-year",
             str(EXAM_YEAR),
             "--mapping",
@@ -260,13 +306,15 @@ def test_every_fixture_loads_with_self_consistent_counts(
     # on its own (test_cleaning.py) — here it just tells us how many rows
     # THIS fixture should produce, so the loader's counts can be checked
     # against reality instead of a hand-maintained magic number per file.
-    expected = clean_dataframe(df, mapping, EXAM_YEAR)
+    expected = clean_dataframe(df, mapping, EXAM_YEAR, "bac")
 
     import_id = make_import(fixture_filename)
     exit_code = worker.main(
         [
             "--file-id",
             str(import_id),
+            "--exam-type",
+            "bac",
             "--exam-year",
             str(EXAM_YEAR),
             "--mapping",
@@ -291,6 +339,43 @@ def test_every_fixture_loads_with_self_consistent_counts(
         assert cur.fetchone()[0] == len(expected.rejects)
 
 
+def test_brevet_import_loads_rows_with_null_serie(
+    dsn: str, make_import, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A file imported as Brevet stores serie = null for every row, even
+    though the fixture carries a SERIE column (Brevet has no track, so it's
+    ignored). The row still imports — serie is never a Brevet reject reason.
+    """
+    fixture_filename = "2024.xlsx"
+    df = pd.read_excel(FIXTURES_DIR / fixture_filename, dtype=str)
+    mapping = analyze_headers(list(df.columns)).mapping
+    import_id = make_import(fixture_filename)
+
+    exit_code = worker.main(
+        [
+            "--file-id",
+            str(import_id),
+            "--exam-type",
+            "brevet",
+            "--exam-year",
+            str(EXAM_YEAR),
+            "--mapping",
+            json.dumps(mapping),
+        ]
+    )
+    out = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert out["inserted"] > 0
+
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM attempts WHERE import_id = %s AND serie IS NOT NULL",
+            [import_id],
+        )
+        assert cur.fetchone()[0] == 0
+
+
 def test_an_import_already_flagged_cancelling_reports_cancelled_and_loads_nothing(
     dsn: str, make_import, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -310,6 +395,8 @@ def test_an_import_already_flagged_cancelling_reports_cancelled_and_loads_nothin
         [
             "--file-id",
             str(import_id),
+            "--exam-type",
+            "bac",
             "--exam-year",
             str(EXAM_YEAR),
             "--mapping",
@@ -344,6 +431,8 @@ def test_running_the_same_import_twice_yields_zero_new_rows_and_says_so(
     argv = [
         "--file-id",
         str(import_id),
+        "--exam-type",
+        "bac",
         "--exam-year",
         str(EXAM_YEAR),
         "--mapping",

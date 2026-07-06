@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { hasLocale } from '@/lib/i18n/settings';
 import { getTranslations } from '@/lib/i18n/server';
 import { SearchTabs } from '@/components/SearchTabs';
-import type { PublishedYearsResponse } from 'shared';
+import { ExamTypeSwitcher } from '@/components/ExamTypeSwitcher';
+import { isExamType, type ExamType, type PublishedYearsResponse } from 'shared';
 
 interface PublishedYears {
   years: number[];
@@ -16,10 +17,20 @@ interface PublishedYears {
 // with a "require is not defined" error; a literal string sidesteps it.
 const PUBLISHED_YEARS_TAG = 'published-years';
 
-async function getPublishedYears(): Promise<PublishedYears> {
+// The exam type is a URL query param (?type=bac|brevet) so a refreshed,
+// bookmarked, or shared search link keeps the same type. Missing/invalid ->
+// 'bac' (the default, and every pre-Brevet link's implied type).
+function resolveExamType(raw: string | string[] | undefined): ExamType {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return isExamType(value) ? value : 'bac';
+}
+
+async function getPublishedYears(examType: ExamType): Promise<PublishedYears> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-    const res = await fetch(`${baseUrl}/api/search/years`, {
+    const res = await fetch(`${baseUrl}/api/search/years?type=${examType}`, {
+      // Both type variants share one revalidate tag: publishing either type
+      // invalidates both cached fetches, which is correct and cheap.
       next: { revalidate: 3600, tags: [PUBLISHED_YEARS_TAG] },
     });
     if (!res.ok) return { years: [], error: true };
@@ -32,16 +43,21 @@ async function getPublishedYears(): Promise<PublishedYears> {
 
 export default async function HomePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ lang: string }>;
+  searchParams: Promise<{ type?: string | string[] }>;
 }) {
   const { lang } = await params;
 
   if (!hasLocale(lang)) notFound();
 
+  const { type } = await searchParams;
+  const examType = resolveExamType(type);
+
   const [i18n, { years, error: yearsError }] = await Promise.all([
     getTranslations(lang),
-    getPublishedYears(),
+    getPublishedYears(examType),
   ]);
 
   return (
@@ -58,7 +74,11 @@ export default async function HomePage({
           </p>
         </header>
 
-        <SearchTabs lang={lang} years={years} yearsError={yearsError} />
+        <ExamTypeSwitcher lang={lang} examType={examType} />
+
+        {/* key on examType so switching resets the tabs' local input state to a
+            clean slate for the newly-chosen exam. */}
+        <SearchTabs key={examType} lang={lang} examType={examType} years={years} yearsError={yearsError} />
 
         <hr className="border-border mt-14 mb-5" />
 

@@ -151,7 +151,7 @@ describe('GET /api/search-index/documents', () => {
   it('defaults page/pageSize and returns the page payload, unfiltered', async () => {
     const result: SearchIndexDocumentsResult = {
       documents: [
-        { slug: 's1', importId: 1, examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' },
+        { slug: 's1', importId: 1, examType: 'bac', examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' },
       ],
       total: 1,
       page: 1,
@@ -304,7 +304,7 @@ describe('listSearchIndexDocuments service', () => {
       typeof import('../services/searchIndexAdmin.js')
     >('../services/searchIndexAdmin.js');
 
-    const doc = { id: 'slug1', importId: 42, examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' };
+    const doc = { id: 'slug1', importId: 42, examType: 'bac', examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' };
     const getDocuments = vi.fn().mockResolvedValue({ results: [doc], total: 1, offset: 0, limit: 20 });
     const db = { select: () => makeChain([{ id: 42 }]) };
     const meili = { index: () => ({ getDocuments }) };
@@ -312,7 +312,7 @@ describe('listSearchIndexDocuments service', () => {
     const result = await realFn(db as never, meili as never, { importId: 42, page: 1, pageSize: 20 });
 
     expect(result).toEqual({
-      documents: [{ slug: 'slug1', importId: 42, examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' }],
+      documents: [{ slug: 'slug1', importId: 42, examType: 'bac', examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' }],
       total: 1,
       page: 1,
       pageSize: 20,
@@ -327,7 +327,7 @@ describe('listSearchIndexDocuments service', () => {
       typeof import('../services/searchIndexAdmin.js')
     >('../services/searchIndexAdmin.js');
 
-    const hit = { id: 'slug2', importId: 7, examYear: 2023, examNo: '00002', nameFr: 'Fatima', nameAr: null, serie: 'LM' };
+    const hit = { id: 'slug2', importId: 7, examType: 'bac', examYear: 2023, examNo: '00002', nameFr: 'Fatima', nameAr: null, serie: 'LM' };
     const search = vi.fn().mockResolvedValue({ hits: [hit], estimatedTotalHits: 1 });
     const dbSelect = vi.fn();
     const db = { select: dbSelect };
@@ -336,7 +336,7 @@ describe('listSearchIndexDocuments service', () => {
     const result = await realFn(db as never, meili as never, { q: 'Fatima', page: 1, pageSize: 20 });
 
     expect(result).toEqual({
-      documents: [{ slug: 'slug2', importId: 7, examYear: 2023, examNo: '00002', nameFr: 'Fatima', nameAr: null, serie: 'LM' }],
+      documents: [{ slug: 'slug2', importId: 7, examType: 'bac', examYear: 2023, examNo: '00002', nameFr: 'Fatima', nameAr: null, serie: 'LM' }],
       total: 1,
       page: 1,
       pageSize: 20,

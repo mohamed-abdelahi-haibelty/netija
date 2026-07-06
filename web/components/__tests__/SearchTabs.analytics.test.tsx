@@ -26,17 +26,18 @@ jest.mock('@/lib/api', () => {
 });
 
 const mockRecordSearchAttempt = jest.fn<unknown, []>();
-const mockTrackResultSearched = jest.fn<unknown, [string, { found: boolean; year?: number }]>();
+const mockTrackResultSearched =
+  jest.fn<unknown, [string, { found: boolean; year?: number; examType?: string }]>();
 jest.mock('@/lib/analytics', () => ({
   recordSearchAttempt: () => mockRecordSearchAttempt(),
-  trackResultSearched: (method: string, opts: { found: boolean; year?: number }) =>
+  trackResultSearched: (method: string, opts: { found: boolean; year?: number; examType?: string }) =>
     mockTrackResultSearched(method, opts),
 }));
 
 function renderTabs() {
   return render(
     <I18nProvider locale="fr">
-      <SearchTabs lang="fr" years={[2024, 2023]} />
+      <SearchTabs lang="fr" examType="bac" years={[2024, 2023]} />
     </I18nProvider>,
   );
 }
@@ -56,7 +57,11 @@ describe('SearchTabs exam search analytics wiring', () => {
 
     expect(mockRecordSearchAttempt).toHaveBeenCalledTimes(1);
     await waitFor(() => {
-      expect(mockTrackResultSearched).toHaveBeenCalledWith('exam_no', { found: true, year: 2024 });
+      expect(mockTrackResultSearched).toHaveBeenCalledWith('exam_no', {
+        found: true,
+        year: 2024,
+        examType: 'bac',
+      });
     });
   });
 
@@ -73,6 +78,7 @@ describe('SearchTabs exam search analytics wiring', () => {
       expect(mockTrackResultSearched).toHaveBeenCalledWith('exam_no', {
         found: false,
         year: 2024,
+        examType: 'bac',
       });
     });
   });

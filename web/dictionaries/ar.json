@@ -42,7 +42,10 @@
     "nameSearchMetaYear": "السنة",
     "inputClear": "مسح",
     "examExample": "مثال: 04938",
-    "footerDisclaimer": "نتيجة منصة مستقلة — غير تابعة لأي وزارة أو جهة رسمية."
+    "footerDisclaimer": "نتيجة منصة مستقلة — غير تابعة لأي وزارة أو جهة رسمية.",
+    "examTypeLabel": "نوع الامتحان",
+    "examType_bac": "الباكالوريا",
+    "examType_brevet": "مسابقة ختم دروس الإعدادية"
   },
   "student": {
     "decisionAdmis": "ناجح",
@@ -62,7 +65,8 @@
     "copyLink": "نسخ الرابط",
     "linkCopied": "تم النسخ ✓",
     "newSearch": "بحث جديد",
-    "backHome": "العودة للبحث"
+    "backHome": "العودة للبحث",
+    "examTypeLabel": "الامتحان"
   },
   "admin": {
     "siteTitle": "نتيجة — الإدارة",
@@ -114,7 +118,8 @@
       "viewDetails": "التفاصيل",
       "failureReason": "السبب: {{reason}}",
       "loading": "جارٍ تحميل الاستيرادات…",
-      "loadError": "تعذّر تحميل الاستيرادات. يرجى المحاولة مرة أخرى."
+      "loadError": "تعذّر تحميل الاستيرادات. يرجى المحاولة مرة أخرى.",
+      "colType": "النوع"
     },
     "upload": {
       "pageTitle": "استيراد جديد",
@@ -160,7 +165,10 @@
       "loadError": "تعذّر تحميل معاينة التعيين. يرجى المحاولة مرة أخرى.",
       "unsupportedFileType": "تعذّرت قراءة هذا الملف. تأكد من أنه ملف .xlsx أو .xls صالح وغير تالف، ثم أعد رفعه.",
       "notFound": "تعذّر العثور على هذا الاستيراد.",
-      "confirmError": "حدث خطأ أثناء تأكيد هذا الاستيراد. يرجى المحاولة مرة أخرى."
+      "confirmError": "حدث خطأ أثناء تأكيد هذا الاستيراد. يرجى المحاولة مرة أخرى.",
+      "examTypeLabel": "نوع الامتحان",
+      "examType_bac": "الباكالوريا",
+      "examType_brevet": "مسابقة ختم دروس الإعدادية"
     },
     "publish": {
       "pageTitle": "نشر",

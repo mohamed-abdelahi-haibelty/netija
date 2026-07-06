@@ -128,19 +128,28 @@ function arName(i: number): string {
 type NewAttempt = typeof attempts.$inferInsert;
 
 // Builds one attempt row. `seed` drives deterministic variation; `kind`
-// (0..2) selects FR-only / AR-only / bilingual names.
-function makeAttempt(year: number, importId: number, no: number, seed: number): NewAttempt {
+// (0..2) selects FR-only / AR-only / bilingual names. Brevet has no serie
+// (track), so its rows store serie = null — the same shape the pipeline
+// produces for a Brevet import.
+function makeAttempt(
+  examType: 'bac' | 'brevet',
+  year: number,
+  importId: number,
+  no: number,
+  seed: number,
+): NewAttempt {
   const dec = pick(DECISION_POOL, seed);
   const kind = seed % 3;
   const nameFr = kind === 1 ? null : frName(seed);
   const nameAr = kind === 0 ? null : arName(seed);
   const isAnnule = dec.decision === 'Annulé';
   return {
+    examType,
     examYear: year,
     examNo: eno(no),
     nameFr,
     nameAr,
-    serie: pick(SERIES, seed),
+    serie: examType === 'brevet' ? null : pick(SERIES, seed),
     // Annulé attempts have no grade
     moyenne: isAnnule ? null : moy(dec.decision, seed),
     decision: dec.decision,
@@ -172,90 +181,117 @@ async function main(): Promise<void> {
   // ---- 1. Import rows -------------------------------------------------------
   // 2022 and 2023: published. 2024: unpublished (for the publish flow).
 
-  const [imp2022, imp2023, imp2024] = await db
+  const [imp2022, imp2023, imp2024, impBrevet2023] = await db
     .insert(imports)
     .values([
       {
-        originalFilename: 'seed/2022', filePath: 'seed/2022',
-        status: 'completed', examYear: 2022,
+        originalFilename: 'seed/bac-2022', filePath: 'seed/bac-2022',
+        status: 'completed', examType: 'bac', examYear: 2022,
         summaryInserted: 100, summaryRejected: 0,
         smokePassed: true, published: true,
       },
       {
-        originalFilename: 'seed/2023', filePath: 'seed/2023',
-        status: 'completed', examYear: 2023,
+        originalFilename: 'seed/bac-2023', filePath: 'seed/bac-2023',
+        status: 'completed', examType: 'bac', examYear: 2023,
         summaryInserted: 100, summaryRejected: 0,
         smokePassed: true, published: true,
       },
       {
-        originalFilename: 'seed/2024', filePath: 'seed/2024',
-        status: 'completed', examYear: 2024,
+        originalFilename: 'seed/bac-2024', filePath: 'seed/bac-2024',
+        status: 'completed', examType: 'bac', examYear: 2024,
         summaryInserted: 100, summaryRejected: 0,
         smokePassed: true, published: false,
+      },
+      {
+        // Brevet 2023 deliberately reuses exam numbers 1..60 that also exist
+        // in Bac 2023 — proving a Bac and a Brevet can share (year, exam_no)
+        // without colliding, thanks to UNIQUE(exam_type, exam_year, exam_no).
+        originalFilename: 'seed/brevet-2023', filePath: 'seed/brevet-2023',
+        status: 'completed', examType: 'brevet', examYear: 2023,
+        summaryInserted: 60, summaryRejected: 0,
+        smokePassed: true, published: true,
       },
     ])
     .returning();
 
-  if (!imp2022 || !imp2023 || !imp2024) {
-    throw new Error('Expected 3 import rows to come back from the insert.');
+  if (!imp2022 || !imp2023 || !imp2024 || !impBrevet2023) {
+    throw new Error('Expected 4 import rows to come back from the insert.');
   }
   const iid22 = imp2022.id;
   const iid23 = imp2023.id;
   const iid24 = imp2024.id;
+  const iidBrevet23 = impBrevet2023.id;
 
   // ---- 2. Bulk attempts, one batch per year --------------------------------
   // Each year gets exam numbers 1..100. The seed offsets differ per year so
   // most rows vary, but a handful of names deliberately repeat across years —
   // stored as SEPARATE rows, never merged.
 
-  const rows2022 = Array.from({ length: 100 }, (_, i) => makeAttempt(2022, iid22, i + 1, i));
-  const rows2023 = Array.from({ length: 100 }, (_, i) => makeAttempt(2023, iid23, i + 1, i + 40));
-  const rows2024 = Array.from({ length: 100 }, (_, i) => makeAttempt(2024, iid24, i + 1, i + 80));
+  const rows2022 = Array.from({ length: 100 }, (_, i) => makeAttempt('bac', 2022, iid22, i + 1, i));
+  const rows2023 = Array.from({ length: 100 }, (_, i) => makeAttempt('bac', 2023, iid23, i + 1, i + 40));
+  const rows2024 = Array.from({ length: 100 }, (_, i) => makeAttempt('bac', 2024, iid24, i + 1, i + 80));
+  // Brevet 2023: exam numbers 1..60 overlap Bac 2023's — same (year, exam_no),
+  // different exam_type, no collision. serie is null (Brevet has no track).
+  const rowsBrevet2023 = Array.from({ length: 60 }, (_, i) =>
+    makeAttempt('brevet', 2023, iidBrevet23, i + 1, i + 15),
+  );
 
   // ---- 3. Repeated-name-across-years scenarios (separate rows) -------------
   // Same fabricated name appears in 2022 and 2023 as two independent attempts
   // with different exam numbers, series, and decisions.
   rows2022[0] = {
-    examYear: 2022, examNo: eno(1), nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد',
+    examType: 'bac', examYear: 2022, examNo: eno(1), nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد',
     serie: 'SN', moyenne: '08.50', decision: 'Ajourné', decisionRaw: 'Ajourné(e)',
     importId: iid22,
   };
   rows2023[0] = {
-    examYear: 2023, examNo: eno(1), nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد',
+    examType: 'bac', examYear: 2023, examNo: eno(1), nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد',
     serie: 'SN', moyenne: '12.75', decision: 'Admis', decisionRaw: 'Admis Sn',
     importId: iid23,
   };
 
   // Same name, same year, different exam numbers — two distinct candidates.
   rows2022[1] = {
-    examYear: 2022, examNo: eno(2), nameFr: 'Mohamed Ould Ahmed', nameAr: null,
+    examType: 'bac', examYear: 2022, examNo: eno(2), nameFr: 'Mohamed Ould Ahmed', nameAr: null,
     serie: 'LM', moyenne: '13.00', decision: 'Admis', decisionRaw: 'Admis',
     importId: iid22,
   };
   rows2022[2] = {
-    examYear: 2022, examNo: eno(3), nameFr: 'Mohamed Ould Ahmed', nameAr: null,
+    examType: 'bac', examYear: 2022, examNo: eno(3), nameFr: 'Mohamed Ould Ahmed', nameAr: null,
     serie: 'TS', moyenne: '09.25', decision: 'Ajourné', decisionRaw: 'Ajourné',
     importId: iid22,
   };
 
   // Arabic-only and French-only rows.
   rows2022[3] = {
-    examYear: 2022, examNo: eno(4), nameFr: null, nameAr: 'فاطمة بنت عبد الله',
+    examType: 'bac', examYear: 2022, examNo: eno(4), nameFr: null, nameAr: 'فاطمة بنت عبد الله',
     serie: 'M', moyenne: '10.25', decision: 'Sessionnaire', decisionRaw: 'Sessionnaire',
     importId: iid22,
   };
   rows2022[4] = {
-    examYear: 2022, examNo: eno(5), nameFr: 'Marie Dupont', nameAr: null,
+    examType: 'bac', examYear: 2022, examNo: eno(5), nameFr: 'Marie Dupont', nameAr: null,
     serie: 'LA', moyenne: null, decision: 'Absent', decisionRaw: 'Abscent',
     importId: iid22,
   };
 
-  await db.insert(attempts).values([...rows2022, ...rows2023, ...rows2024]);
+  // A Brevet 2023 candidate sharing name "Ahmed Ould Mohamed" and exam_no 1
+  // with the Bac 2023 row above — same year + exam_no, different type, its own
+  // (different) public_slug. No serie.
+  rowsBrevet2023[0] = {
+    examType: 'brevet', examYear: 2023, examNo: eno(1), nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد',
+    serie: null, moyenne: '11.20', decision: 'Admis', decisionRaw: 'Admis',
+    importId: iidBrevet23,
+  };
+
+  await db.insert(attempts).values([...rows2022, ...rows2023, ...rows2024, ...rowsBrevet2023]);
 
   // ---- Summary -------------------------------------------------------------
 
   const [countRow] = await db.select({ n: sql<string>`count(*)` }).from(attempts);
-  console.log(`Done — ${countRow?.n ?? '0'} attempts across 3 exam years (2022, 2023 published; 2024 unpublished).`);
+  console.log(
+    `Done — ${countRow?.n ?? '0'} attempts. Bac 2022/2023 published, Bac 2024 unpublished; ` +
+      `Brevet 2023 published (overlaps Bac 2023 exam numbers, no collision).`,
+  );
 }
 
 main().catch((e: unknown) => { console.error(e); process.exit(1); }).finally(() => pool.end());

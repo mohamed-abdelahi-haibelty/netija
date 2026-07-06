@@ -56,7 +56,7 @@ const mockSearchByName = vi.mocked(searchByName);
 
 const SUGGESTIONS: NameSearchSuggestion[] = [
   {
-    slug: 'slug2023aaaa0000bbbb1111cccc2222',
+    slug: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac',
     examYear: 2023,
     examNo: '00101',
     nameFr: 'Ahmed Ould Mohamed',
@@ -64,7 +64,7 @@ const SUGGESTIONS: NameSearchSuggestion[] = [
     serie: 'SN',
   },
   {
-    slug: 'slug2022dddd3333eeee4444ffff5555',
+    slug: 'slug2022dddd3333eeee4444ffff5555', examType: 'bac',
     examYear: 2022,
     examNo: '00202',
     nameFr: 'Ahmed Ould Mohamed',
@@ -90,7 +90,7 @@ describe('GET /api/search/name', () => {
     const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
     expect(body.data.suggestions).toHaveLength(2);
     expect(body.data.suggestions[0]).toMatchObject({
-      slug: 'slug2023aaaa0000bbbb1111cccc2222',
+      slug: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac',
       examYear: 2023,
       examNo: '00101',
       nameFr: 'Ahmed Ould Mohamed',
@@ -131,9 +131,9 @@ describe('GET /api/search/name', () => {
     // Same name in three years — returned as three independent rows, newest first,
     // each carrying its own year + serie.
     const threeYears: NameSearchSuggestion[] = [
-      { slug: 'slug25aaaa0000bbbb1111cccc222233', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
-      { slug: 'slug24dddd3333eeee4444ffff555566', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
-      { slug: 'slug23gggg7777hhhh8888iiii999900', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
+      { slug: 'slug25aaaa0000bbbb1111cccc222233', examType: 'bac', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
+      { slug: 'slug24dddd3333eeee4444ffff555566', examType: 'bac', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
+      { slug: 'slug23gggg7777hhhh8888iiii999900', examType: 'bac', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
     ];
     mockSearchByName.mockResolvedValue(threeYears);
     const app = createApp();
@@ -158,6 +158,7 @@ describe('GET /api/search/name', () => {
   it('returns at most 10 suggestions (enforced by the service)', async () => {
     const tenSuggestions: NameSearchSuggestion[] = Array.from({ length: 10 }, (_, i) => ({
       slug: `slug${String(i + 1).padStart(4, '0')}00000000000000000000000000`,
+      examType: 'bac' as const,
       examYear: 2023,
       examNo: String(i + 1).padStart(5, '0'),
       nameFr: `Person ${String(i + 1)}`,
@@ -180,6 +181,24 @@ describe('GET /api/search/name', () => {
     expect(res.status).toBe(200);
     expect(mockSearchByName).toHaveBeenCalledOnce();
   });
+
+  it('defaults type to bac and forwards a requested type to the service', async () => {
+    mockSearchByName.mockResolvedValue([]);
+    const app = createApp();
+
+    await app.request('/api/search/name?q=ahmed');
+    expect(mockSearchByName).toHaveBeenLastCalledWith(expect.anything(), 'ahmed', 'bac');
+
+    await app.request('/api/search/name?q=ahmed&type=brevet');
+    expect(mockSearchByName).toHaveBeenLastCalledWith(expect.anything(), 'ahmed', 'brevet');
+  });
+
+  it('returns 400 for an unknown exam type', async () => {
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=ahmed&type=licence');
+    expect(res.status).toBe(400);
+    expect(mockSearchByName).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -196,8 +215,8 @@ describe('buildNameIndex service', () => {
     // The SQL selects `public_slug AS id` and WHERE i.published = true excludes
     // unpublished attempts before they reach the mapper. The document id IS the slug.
     const dbRows = [
-      { id: 'slug2023aaaa0000bbbb1111cccc2222', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', serie: 'SN' },
-      { id: 'slug2022dddd3333eeee4444ffff5555', examYear: 2022, examNo: '00202', nameFr: 'Fatima Mint Ali', nameAr: null, serie: 'LM' },
+      { id: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', serie: 'SN' },
+      { id: 'slug2022dddd3333eeee4444ffff5555', examType: 'bac', examYear: 2022, examNo: '00202', nameFr: 'Fatima Mint Ali', nameAr: null, serie: 'LM' },
     ];
     const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
 
@@ -243,7 +262,7 @@ describe('buildNameIndex service', () => {
     const [firstDoc] = capturedDocs;
     if (!firstDoc) throw new Error('expected at least one captured document');
     expect(firstDoc).toMatchObject({
-      id: 'slug2023aaaa0000bbbb1111cccc2222',
+      id: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac',
       examYear: 2023,
       examNo: '00101',
       nameFr: 'Ahmed Ould Mohamed',
@@ -261,9 +280,9 @@ describe('buildNameIndex service', () => {
     // The SQL returns one row per published attempt, newest year first. The same
     // name in 2025/2024/2023 is three independent attempts → three documents.
     const dbRows = [
-      { id: 'slug25aaaa0000bbbb1111cccc222233', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
-      { id: 'slug24dddd3333eeee4444ffff555566', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
-      { id: 'slug23gggg7777hhhh8888iiii999900', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
+      { id: 'slug25aaaa0000bbbb1111cccc222233', examType: 'bac', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
+      { id: 'slug24dddd3333eeee4444ffff555566', examType: 'bac', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
+      { id: 'slug23gggg7777hhhh8888iiii999900', examType: 'bac', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
     ];
     const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
 
@@ -328,27 +347,47 @@ describe('searchByName service', () => {
 
     // The Meili document id is the attempt's slug; searchByName maps it to `slug`.
     const meiliHits = [
-      { id: 'slug55aaaa0000bbbb1111cccc222233', examYear: 2023, examNo: '00055', nameFr: 'Cheikh Ould Brahim', nameAr: null, serie: 'TM' },
+      { id: 'slug55aaaa0000bbbb1111cccc222233', examType: 'bac', examYear: 2023, examNo: '00055', nameFr: 'Cheikh Ould Brahim', nameAr: null, serie: 'TM' },
     ];
     const searchMock = vi.fn().mockResolvedValue({ hits: meiliHits });
     const indexMock = { search: searchMock };
     const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
 
-    const results = await realSearchByName(mockMeili as never, 'cheikh');
+    const results = await realSearchByName(mockMeili as never, 'cheikh', 'bac');
 
+    // The examType filter is what keeps Bac and Brevet names from intermingling.
     expect(searchMock).toHaveBeenCalledWith('cheikh', {
       limit: 10,
       sort: ['examYear:desc'],
+      filter: 'examType = bac',
     });
 
     expect(results).toHaveLength(1);
     expect(results[0]).toEqual({
       slug: 'slug55aaaa0000bbbb1111cccc222233',
+      examType: 'bac',
       examYear: 2023,
       examNo: '00055',
       nameFr: 'Cheikh Ould Brahim',
       nameAr: null,
       serie: 'TM',
+    });
+  });
+
+  it('scopes the Meili filter to the requested exam type (Brevet returns only Brevet)', async () => {
+    const { searchByName: realSearchByName } =
+      await vi.importActual<typeof import('../services/nameSearch.js')>(
+        '../services/nameSearch.js',
+      );
+
+    const searchMock = vi.fn().mockResolvedValue({ hits: [] });
+    const mockMeili = { index: vi.fn().mockReturnValue({ search: searchMock }) };
+
+    await realSearchByName(mockMeili as never, 'ahmed', 'brevet');
+    expect(searchMock).toHaveBeenCalledWith('ahmed', {
+      limit: 10,
+      sort: ['examYear:desc'],
+      filter: 'examType = brevet',
     });
   });
 
@@ -361,7 +400,7 @@ describe('searchByName service', () => {
     const searchMock = vi.fn().mockResolvedValue({ hits: [] });
     const mockMeili = { index: vi.fn().mockReturnValue({ search: searchMock }) };
 
-    const results = await realSearchByName(mockMeili as never, 'zzz');
+    const results = await realSearchByName(mockMeili as never, 'zzz', 'bac');
     expect(results).toEqual([]);
   });
 });

@@ -83,6 +83,7 @@ describe('GET /api/imports', () => {
       {
         id: 3,
         originalFilename: 'bac_2024.xlsx',
+        examType: 'bac',
         examYear: 2024,
         status: 'processing',
         progress: 40,
@@ -95,6 +96,7 @@ describe('GET /api/imports', () => {
       {
         id: 2,
         originalFilename: 'bac_2023.xlsx',
+        examType: 'bac',
         examYear: 2023,
         status: 'completed',
         progress: 100,
@@ -107,6 +109,7 @@ describe('GET /api/imports', () => {
       {
         id: 1,
         originalFilename: 'bac_2021_bad.xlsx',
+        examType: 'bac',
         examYear: null,
         status: 'failed',
         progress: null,
@@ -142,6 +145,7 @@ describe('listImports service', () => {
       {
         id: 2,
         originalFilename: 'bac_2024.xlsx',
+        examType: 'bac',
         examYear: 2024,
         status: 'completed' as const,
         progress: 100,
@@ -156,6 +160,7 @@ describe('listImports service', () => {
       {
         id: 1,
         originalFilename: 'bac_2023.xlsx',
+        examType: 'bac',
         examYear: 2023,
         status: 'pending' as const,
         progress: null,
@@ -190,6 +195,7 @@ describe('listImports service', () => {
       {
         id: 2,
         originalFilename: 'bac_2024.xlsx',
+        examType: 'bac',
         examYear: 2024,
         status: 'completed',
         progress: 100,
@@ -202,6 +208,7 @@ describe('listImports service', () => {
       {
         id: 1,
         originalFilename: 'bac_2023.xlsx',
+        examType: 'bac',
         examYear: 2023,
         status: 'pending',
         progress: null,

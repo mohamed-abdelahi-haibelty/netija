@@ -30,6 +30,7 @@ from cleaning import clean_dataframe
 
 MIN_EXAM_YEAR = 1900
 MAX_EXAM_YEAR = 2100
+EXAM_TYPES = ("bac", "brevet")
 
 
 def init_sentry() -> None:
@@ -80,6 +81,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     # standard {ok, code, reason} JSON contract, not argparse's own
     # usage-and-exit-2 behavior.
     parser.add_argument("--file-id")
+    parser.add_argument("--exam-type")
     parser.add_argument("--exam-year")
     parser.add_argument("--mapping", help="JSON-encoded column mapping")
     return parser.parse_args(argv)
@@ -100,6 +102,15 @@ def validate(args: argparse.Namespace) -> ValidationResult:
     if import_id <= 0:
         return ValidationResult(
             False, "VALIDATION_ERROR", f"--file-id must be positive, got {import_id}"
+        )
+
+    if not args.exam_type:
+        return ValidationResult(False, "VALIDATION_ERROR", "--exam-type is required")
+    if args.exam_type not in EXAM_TYPES:
+        return ValidationResult(
+            False,
+            "VALIDATION_ERROR",
+            f"--exam-type must be one of {EXAM_TYPES}, got {args.exam_type!r}",
         )
 
     if not args.exam_year:
@@ -136,7 +147,9 @@ def validate(args: argparse.Namespace) -> ValidationResult:
     return ValidationResult(True, None, None)
 
 
-def run_import(dsn: str, import_id: int, exam_year: int, mapping: dict[str, str]) -> ImportOutcome:
+def run_import(
+    dsn: str, import_id: int, exam_type: str, exam_year: int, mapping: dict[str, str]
+) -> ImportOutcome:
     """Read the confirmed file, clean it, and load it — the whole pipeline
     for one import. Returns a precise failure code/reason for every
     file-level problem (error-handling.md: "unreadable file, missing
@@ -181,12 +194,13 @@ def run_import(dsn: str, import_id: int, exam_year: int, mapping: dict[str, str]
         row_number: {k: v for k, v in row.items() if k not in banned_headers}
         for row_number, row in enumerate(df.to_dict(orient="records"), start=1)
     }
-    cleaning_result = clean_dataframe(df, mapping, exam_year)
+    cleaning_result = clean_dataframe(df, mapping, exam_year, exam_type)
     loader.report_progress(dsn, import_id, 20)
 
     load_result = loader.load_import(
         dsn,
         import_id,
+        exam_type,
         exam_year,
         cleaning_result.rows,
         cleaning_result.rejects,
@@ -211,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     import_id = int(args.file_id)
+    exam_type = args.exam_type
     exam_year = int(args.exam_year)
     mapping = json.loads(args.mapping)
 
@@ -220,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        outcome = run_import(dsn, import_id, exam_year, mapping)
+        outcome = run_import(dsn, import_id, exam_type, exam_year, mapping)
     except loader.ImportCancelled as exc:
         # An admin cancelled this import mid-load (task 032) — loader.py's
         # transaction has already rolled back (zero rows for this run), so

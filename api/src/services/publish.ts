@@ -26,14 +26,19 @@ export class SmokeNotPassedError extends Error {
 // trip at a time. The years-list cache is a single key, invalidated once.
 async function invalidateImportCaches(db: Db, redis: RedisClient, importId: number): Promise<void> {
   const rows = await db
-    .select({ examYear: attempts.examYear, examNo: attempts.examNo, slug: attempts.publicSlug })
+    .select({
+      examType: attempts.examType,
+      examYear: attempts.examYear,
+      examNo: attempts.examNo,
+      slug: attempts.publicSlug,
+    })
     .from(attempts)
     .where(eq(attempts.importId, importId));
 
   if (rows.length > 0) {
     const pipeline = redis.pipeline();
     for (const row of rows) {
-      pipeline.del(examCacheKey(row.examYear, row.examNo));
+      pipeline.del(examCacheKey(row.examType, row.examYear, row.examNo));
       pipeline.del(resultCacheKey(row.slug));
     }
     await pipeline.exec();

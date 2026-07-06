@@ -76,8 +76,13 @@ function ImportRow({
         </p>
       </td>
 
-      {/* Year */}
+      {/* Type + Year (admin UI is English) */}
       <td className="px-4 py-3 text-foreground tabular-nums">
+        {imp.examType && (
+          <span className="me-1.5 inline-block rounded bg-muted px-1.5 text-xs font-medium not-tabular-nums text-muted-foreground align-middle">
+            {imp.examType === 'brevet' ? 'Brevet' : 'Bac'}
+          </span>
+        )}
         {imp.examYear ?? '—'}
       </td>
 
@@ -322,6 +327,7 @@ export default function ImportsPage() {
               : 0,
             rejected: imp.summary?.rejected ?? 0,
             durationMs: startedAt !== undefined ? Date.now() - startedAt : 0,
+            examType: imp.examType,
           });
           processingStartedAtRef.current.delete(imp.id);
         } else if (imp.status === 'processing' && !processingStartedAtRef.current.has(imp.id)) {

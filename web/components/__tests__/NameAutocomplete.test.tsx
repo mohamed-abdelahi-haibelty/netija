@@ -28,10 +28,10 @@ jest.mock('@/lib/api', () => {
   };
 });
 
-function renderAutocomplete() {
+function renderAutocomplete(examType: 'bac' | 'brevet' = 'bac') {
   return render(
     <I18nProvider locale="fr">
-      <NameAutocomplete lang="fr" />
+      <NameAutocomplete lang="fr" examType={examType} />
     </I18nProvider>,
   );
 }
@@ -64,5 +64,21 @@ describe('NameAutocomplete — rate limited state', () => {
     await act(async () => { await jest.advanceTimersByTimeAsync(300); });
 
     expect(mockApiRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('NameAutocomplete — exam-type scoping', () => {
+  it('scopes the name-search request to the active exam type', async () => {
+    mockApiRequest.mockResolvedValue({ suggestions: [] });
+
+    const user = userEvent.setup({ delay: null });
+    renderAutocomplete('brevet');
+
+    await user.type(screen.getByRole('combobox'), 'ahmed');
+    await act(async () => { await jest.advanceTimersByTimeAsync(300); });
+
+    expect(mockApiRequest).toHaveBeenCalledTimes(1);
+    const url = mockApiRequest.mock.calls[0]?.[0];
+    expect(url).toContain('type=brevet');
   });
 });

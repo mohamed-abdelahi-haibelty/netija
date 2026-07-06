@@ -58,7 +58,7 @@ const STATUS: SearchIndexStatusResult = {
 
 const DOCS: SearchIndexDocumentsResult = {
   documents: [
-    { slug: 's1', importId: 7, examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' },
+    { slug: 's1', importId: 7, examType: 'bac', examYear: 2024, examNo: '00001', nameFr: 'Ahmed', nameAr: null, serie: 'SN' },
   ],
   total: 1,
   page: 1,

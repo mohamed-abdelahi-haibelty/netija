@@ -67,7 +67,7 @@ def test_unexpected_run_import_exception_is_captured_with_import_file_stage_cont
     monkeypatch.setattr(
         worker,
         "run_import",
-        lambda dsn, import_id, exam_year, mapping: (_ for _ in ()).throw(boom),
+        lambda dsn, import_id, exam_type, exam_year, mapping: (_ for _ in ()).throw(boom),
     )
     mock_capture = MagicMock()
     mock_set_context = MagicMock()
@@ -78,6 +78,8 @@ def test_unexpected_run_import_exception_is_captured_with_import_file_stage_cont
         [
             "--file-id",
             "42",
+            "--exam-type",
+            "bac",
             "--exam-year",
             "2024",
             "--mapping",
@@ -100,7 +102,9 @@ def test_cli_validation_error_never_reaches_sentry(
     mock_capture = MagicMock()
     monkeypatch.setattr(worker.sentry_sdk, "capture_exception", mock_capture)
 
-    exit_code = worker.main(["--exam-year", "2024", "--mapping", "{}"])  # missing --file-id
+    exit_code = worker.main(
+        ["--exam-type", "bac", "--exam-year", "2024", "--mapping", "{}"]
+    )  # missing --file-id
     out = json.loads(capsys.readouterr().out)
 
     assert exit_code == 1
@@ -116,7 +120,7 @@ def test_expected_import_outcome_failure_never_reaches_sentry(
     monkeypatch.setattr(
         worker,
         "run_import",
-        lambda dsn, import_id, exam_year, mapping: worker.ImportOutcome(
+        lambda dsn, import_id, exam_type, exam_year, mapping: worker.ImportOutcome(
             False, code="IMPORT_NOT_FOUND", reason="no such import"
         ),
     )
@@ -127,6 +131,8 @@ def test_expected_import_outcome_failure_never_reaches_sentry(
         [
             "--file-id",
             "999999",
+            "--exam-type",
+            "bac",
             "--exam-year",
             "2024",
             "--mapping",

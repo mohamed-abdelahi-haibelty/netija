@@ -75,6 +75,7 @@ const SAMPLE_ROW: {
 function previewFrom(row: typeof SAMPLE_ROW): StudentResult {
   return {
     slug: row.slug,
+    examType: 'bac',
     examYear: row.examYear,
     examNo: row.examNo,
     nameFr: row.nameFr,

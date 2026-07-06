@@ -35,6 +35,13 @@ export const importStatusEnum = pgEnum('import_status', [
   'failed',
 ]);
 
+// Discriminates the exam a result belongs to. 'bac' is the Baccalauréat;
+// 'brevet' is the Brevet (BEPC — "Examen du Brevet" / مسابقة ختم دروس
+// الإعدادية). Both share the same fields and pipeline; the only structural
+// difference is that Brevet has no serie (track), so serie is nullable and
+// its presence is enforced per-type in validation, not by the column.
+export const examTypeEnum = pgEnum('exam_type', ['bac', 'brevet']);
+
 // ---------------------------------------------------------------------------
 // imports — one row per uploaded file, tracks full lifecycle
 // ---------------------------------------------------------------------------
@@ -44,6 +51,10 @@ export const imports = pgTable('imports', {
   originalFilename: text('original_filename').notNull(),
   filePath: text('file_path').notNull(),
   status: importStatusEnum('status').notNull().default('pending'),
+  // Which exam this file's rows belong to. Nullable until confirm, exactly
+  // like examYear: an uploaded-but-unconfirmed import has neither yet — the
+  // admin chooses both on the mapping/confirm screen.
+  examType: examTypeEnum('exam_type'),
   examYear: integer('exam_year'),
   // 0-100, set by the queue worker as the job progresses; null before the
   // job starts running (see the status endpoint, task 019).
@@ -76,6 +87,9 @@ export const attempts = pgTable(
   'attempts',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
+    // 'bac' | 'brevet' — the discriminator that lets a Bac and a Brevet
+    // candidate share the same (exam_year, exam_no) without colliding.
+    examType: examTypeEnum('exam_type').notNull(),
     examYear: integer('exam_year').notNull(),
     // TEXT, not numeric — leading zeros must be preserved
     examNo: text('exam_no').notNull(),
@@ -89,7 +103,11 @@ export const attempts = pgTable(
       .default(sql`replace(gen_random_uuid()::text, '-', '')`),
     nameFr: text('name_fr'),
     nameAr: text('name_ar'),
-    serie: text('serie').notNull(),
+    // Nullable: required for Bac, absent for Brevet. The "required for bac,
+    // ignored for brevet" rule is enforced per-type in cleaning validation
+    // (worker/cleaning.py); this nullable column is the DB backstop behind
+    // that, not the first line of defense.
+    serie: text('serie'),
     // Nullable — absent for Annulé (cancelled exam) attempts
     moyenne: numeric('moyenne', { precision: 4, scale: 2 }),
     decision: decisionEnum('decision').notNull(),
@@ -99,7 +117,10 @@ export const attempts = pgTable(
       .references(() => imports.id),
   },
   (t) => [
-    uniqueIndex('attempts_exam_year_exam_no_unique').on(t.examYear, t.examNo),
+    // Exam numbers are only unique within a (type, year): a Bac and a Brevet
+    // candidate may legitimately share the same year + exam_no. The loader's
+    // ON CONFLICT clause (worker/loader.py) targets these same three columns.
+    uniqueIndex('attempts_exam_type_year_no_unique').on(t.examType, t.examYear, t.examNo),
     uniqueIndex('attempts_public_slug_unique').on(t.publicSlug),
   ],
 );

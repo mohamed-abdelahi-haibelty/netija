@@ -26,6 +26,7 @@ export async function getStudentPage(
   const rows = await db
     .select({
       slug: attempts.publicSlug,
+      examType: attempts.examType,
       examYear: attempts.examYear,
       examNo: attempts.examNo,
       nameFr: attempts.nameFr,
@@ -60,6 +61,7 @@ export async function getAdminResultPreview(db: Db, slug: string): Promise<Stude
   const rows = await db
     .select({
       slug: attempts.publicSlug,
+      examType: attempts.examType,
       examYear: attempts.examYear,
       examNo: attempts.examNo,
       nameFr: attempts.nameFr,

@@ -1,13 +1,15 @@
 CREATE TYPE "public"."decision" AS ENUM('Admis', 'Ajourné', 'Sessionnaire', 'Absent', 'Délibérable', 'Annulé');--> statement-breakpoint
-CREATE TYPE "public"."import_status" AS ENUM('pending', 'processing', 'completed', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."exam_type" AS ENUM('bac', 'brevet');--> statement-breakpoint
+CREATE TYPE "public"."import_status" AS ENUM('pending', 'processing', 'cancelling', 'completed', 'cancelled', 'failed');--> statement-breakpoint
 CREATE TABLE "attempts" (
 	"id" bigserial PRIMARY KEY NOT NULL,
+	"exam_type" "exam_type" NOT NULL,
 	"exam_year" integer NOT NULL,
 	"exam_no" text NOT NULL,
 	"public_slug" text DEFAULT replace(gen_random_uuid()::text, '-', '') NOT NULL,
 	"name_fr" text,
 	"name_ar" text,
-	"serie" text NOT NULL,
+	"serie" text,
 	"moyenne" numeric(4, 2),
 	"decision" "decision" NOT NULL,
 	"decision_raw" text,
@@ -75,6 +77,7 @@ CREATE TABLE "imports" (
 	"original_filename" text NOT NULL,
 	"file_path" text NOT NULL,
 	"status" "import_status" DEFAULT 'pending' NOT NULL,
+	"exam_type" "exam_type",
 	"exam_year" integer,
 	"progress" integer,
 	"summary_inserted" integer,
@@ -84,6 +87,7 @@ CREATE TABLE "imports" (
 	"smoke_passed" boolean,
 	"published" boolean DEFAULT false NOT NULL,
 	"failure_reason" text,
+	"worker_pid" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -101,5 +105,5 @@ ALTER TABLE "attempts" ADD CONSTRAINT "attempts_import_id_imports_id_fk" FOREIGN
 ALTER TABLE "auth_account" ADD CONSTRAINT "auth_account_user_id_auth_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."auth_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_session" ADD CONSTRAINT "auth_session_user_id_auth_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."auth_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "rejects" ADD CONSTRAINT "rejects_import_id_imports_id_fk" FOREIGN KEY ("import_id") REFERENCES "public"."imports"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "attempts_exam_year_exam_no_unique" ON "attempts" USING btree ("exam_year","exam_no");--> statement-breakpoint
+CREATE UNIQUE INDEX "attempts_exam_type_year_no_unique" ON "attempts" USING btree ("exam_type","exam_year","exam_no");--> statement-breakpoint
 CREATE UNIQUE INDEX "attempts_public_slug_unique" ON "attempts" USING btree ("public_slug");

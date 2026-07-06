@@ -19,17 +19,18 @@ import { recordSearchAttempt, trackResultSearched } from '@/lib/analytics';
 import { Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/NameAutocomplete';
 import { ClearButton } from '@/components/ClearButton';
-import type { ExamSearchResult } from 'shared';
+import type { ExamSearchResult, ExamType } from 'shared';
 
 type TabId = 'exam' | 'name';
 
 interface Props {
   lang: string;
+  examType: ExamType;
   years: number[];
   yearsError?: boolean;
 }
 
-export function SearchTabs({ lang, years, yearsError }: Props) {
+export function SearchTabs({ lang, examType, years, yearsError }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -96,15 +97,15 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
 
     try {
       const result = await apiRequest<ExamSearchResult>(
-        `/api/search/exam?no=${encodeURIComponent(trimmed)}&year=${year}`,
+        `/api/search/exam?no=${encodeURIComponent(trimmed)}&year=${year}&type=${examType}`,
         { signal: controller.signal },
       );
-      trackResultSearched('exam_no', { found: true, year: searchedYear });
+      trackResultSearched('exam_no', { found: true, year: searchedYear, examType });
       router.push(`/${lang}/results/${result.slug}`);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       if (err instanceof ApiClientError && err.code === 'STUDENT_NOT_FOUND') {
-        trackResultSearched('exam_no', { found: false, year: searchedYear });
+        trackResultSearched('exam_no', { found: false, year: searchedYear, examType });
         setNotFound(Number(year));
       } else if (err instanceof ApiClientError && err.code === 'RATE_LIMITED') {
         setRateLimitedFor(err.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_RETRY_SECONDS);
@@ -276,7 +277,7 @@ export function SearchTabs({ lang, years, yearsError }: Props) {
       </TabsContent>
 
       <TabsContent value="name" className="pt-6">
-        <NameAutocomplete lang={lang} onSwitchToExam={() => { setActiveTab('exam'); }} />
+        <NameAutocomplete lang={lang} examType={examType} onSwitchToExam={() => { setActiveTab('exam'); }} />
       </TabsContent>
     </Tabs>
   );

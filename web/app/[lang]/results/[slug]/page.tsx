@@ -45,7 +45,7 @@ export default async function ResultPage({
 
   return (
     <div className="min-h-[calc(100vh-var(--nav-height))]">
-      <ResultOpenedTracker serie={student.serie} />
+      <ResultOpenedTracker examType={student.examType} serie={student.serie ?? undefined} />
       <div className="mx-auto max-w-140 px-6 pt-[9vh] pb-20">
         <StudentResultCard student={student} lang={lang} />
       </div>

@@ -1,5 +1,5 @@
 {
-  "id": "087e4e23-2fb7-47be-966e-6650da282e5d",
+  "id": "58d21a89-0af3-477a-b575-a7c3a1bd83d9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -12,6 +12,13 @@
           "name": "id",
           "type": "bigserial",
           "primaryKey": true,
+          "notNull": true
+        },
+        "exam_type": {
+          "name": "exam_type",
+          "type": "exam_type",
+          "typeSchema": "public",
+          "primaryKey": false,
           "notNull": true
         },
         "exam_year": {
@@ -49,7 +56,7 @@
           "name": "serie",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "moyenne": {
           "name": "moyenne",
@@ -78,9 +85,15 @@
         }
       },
       "indexes": {
-        "attempts_exam_year_exam_no_unique": {
-          "name": "attempts_exam_year_exam_no_unique",
+        "attempts_exam_type_year_no_unique": {
+          "name": "attempts_exam_type_year_no_unique",
           "columns": [
+            {
+              "expression": "exam_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "exam_year",
               "isExpression": false,
@@ -513,6 +526,13 @@
           "notNull": true,
           "default": "'pending'"
         },
+        "exam_type": {
+          "name": "exam_type",
+          "type": "exam_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "exam_year": {
           "name": "exam_year",
           "type": "integer",
@@ -565,6 +585,12 @@
         "failure_reason": {
           "name": "failure_reason",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "worker_pid": {
+          "name": "worker_pid",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -669,13 +695,23 @@
         "Annulé"
       ]
     },
+    "public.exam_type": {
+      "name": "exam_type",
+      "schema": "public",
+      "values": [
+        "bac",
+        "brevet"
+      ]
+    },
     "public.import_status": {
       "name": "import_status",
       "schema": "public",
       "values": [
         "pending",
         "processing",
+        "cancelling",
         "completed",
+        "cancelled",
         "failed"
       ]
     }

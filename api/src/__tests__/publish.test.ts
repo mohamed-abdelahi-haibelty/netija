@@ -224,8 +224,8 @@ describe('publishImport service', () => {
             // invalidateImportCaches' attempts query (no .limit chained)
             void fields;
             return Promise.resolve([
-              { examYear: 2024, examNo: '00042', slug: 'slug1' },
-              { examYear: 2024, examNo: '00043', slug: 'slug2' },
+              { examType: 'bac', examYear: 2024, examNo: '00042', slug: 'slug1' },
+              { examType: 'bac', examYear: 2024, examNo: '00043', slug: 'slug2' },
             ]);
           },
         }),
@@ -271,7 +271,7 @@ describe('publishImport service', () => {
     expect(result).toEqual({ published: true });
     expect(updateSetValues).toMatchObject({ published: true });
     expect(pipelineOps).toEqual(
-      expect.arrayContaining(['exam:2024:00042', 'result:slug1', 'exam:2024:00043', 'result:slug2']),
+      expect.arrayContaining(['exam:bac:2024:00042', 'result:slug1', 'exam:bac:2024:00043', 'result:slug2']),
     );
   });
 });

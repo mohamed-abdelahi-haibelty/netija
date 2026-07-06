@@ -1,16 +1,22 @@
-# Bac Results Portal (Mauritania)
+# National Exam Results Portal (Mauritania)
 
 ## Overview
 
-A public website where anyone can look up Mauritanian Baccalauréat
-(Bac) results. Visitors search by exam number (Numéro Bac) for a
-specific year, or by student name with instant autocomplete. A
-result page shows the candidate's decision (Admis, Ajourné,
-Sessionnaire, etc.), their Moyenne Générale (out of 20), the SERIE
-(track), and the year. Admins upload the yearly Excel result files
-through an authenticated dashboard; a Python/pandas pipeline cleans
-and imports them. The site must survive results-day traffic spikes
-(~20,000 requests in 1 minute).
+A public website where anyone can look up Mauritanian national exam
+results for TWO exams: the Baccalauréat (Bac) and the Brevet (BEPC —
+"Examen du Brevet" / مسابقة ختم دروس الإعدادية). The visitor first
+chooses which exam (a Bac/Brevet selector, carried in the URL as
+`?type=`), then searches by exam number for a specific year, or by
+student name with instant autocomplete — the whole search operating
+within the chosen exam type. A result page shows the candidate's
+decision (Admis, Ajourné, Sessionnaire, etc.), their Moyenne Générale
+(out of 20), the year, and — for Bac only — the SERIE (track). The two
+exams share one unified model, pipeline, and pages, distinguished by an
+`exam_type` discriminator; the only difference is that Brevet has no
+serie. Admins upload the yearly Excel result files through an
+authenticated dashboard, choosing the exam type (and year) at import;
+a Python/pandas pipeline cleans and imports them. The site must survive
+results-day traffic spikes (~20,000 requests in 1 minute).
 
 The project deliberately stores and displays the minimum personal
 data — name, exam number, year, serie, decision, moyenne — and never
@@ -42,10 +48,14 @@ identity linking across years: each result is an independent record.
 
 ## Core User Flow (public)
 
-1. Visitor lands on the home page and sees two tabs:
-   "Search by Name" and "Search by Exam Number".
+1. Visitor lands on the home page, chooses the exam type (Bac vs
+   Brevet — a quiet selector that sets `?type=` in the URL, so a
+   refreshed/shared/bookmarked search link keeps the same type), and
+   sees two tabs: "Search by Name" and "Search by Exam Number". The
+   whole search experience then operates within the chosen type.
 2. Exam-number tab: enter the exam number + select the year
-   (a select input, defaulting to the most recent year).
+   (a select input, defaulting to the most recent year with data for
+   that exam type).
 3. Name tab: type a name (no year selector); typo-tolerant
    autocomplete shows up to 10 matching results. Each suggestion
    is a single result labeled with its year and SERIE (e.g.
@@ -55,9 +65,13 @@ identity linking across years: each result is an independent record.
 4. Clicking a suggestion, or submitting a valid exam-number
    search, opens that result's page.
 5. Result page shows: name (French and Arabic when available),
-   decision, Moyenne Générale (out of 20), SERIE (track), and the
-   exam year. There is no multi-attempt history and no "other
-   records with this name" section.
+   decision, Moyenne Générale (out of 20), the exam year, and — for
+   Bac only — the SERIE (track). A Brevet result omits the serie row
+   entirely (not a blank field). The result URL is `/results/{slug}`
+   where the slug alone determines the exam type (it maps to exactly
+   one typed attempt), so a shared/refreshed result link always
+   resolves the correct type. There is no multi-attempt history and no
+   "other records with this name" section.
 
 ## Core User Flow (admin)
 
@@ -68,7 +82,9 @@ identity linking across years: each result is an independent record.
    summaries (rows inserted, rejected).
 3. Admin uploads a new Excel file → sees a column-mapping preview
    (detected columns, sample values, unrecognized columns flagged)
-   → corrects mappings via dropdowns → confirms.
+   → corrects mappings via dropdowns → picks the exam type (Bac or
+   Brevet) and year → confirms. The dashboard labels each import with
+   its exam type.
 4. Import runs as a BullMQ background job; the dashboard shows
    live progress and the final summary.
 5. The automated smoke verification result is shown; once it
@@ -162,7 +178,9 @@ PostHog, browser-only, anonymous-only (`person_profiles:
 'identified_only'`, no `identify()` call anywhere in the app,
 autocapture and session recording both off). Every property is a
 shape, a count, or a safe categorical — never a name, exam
-number, NNI, birth data, or result value.
+number, NNI, birth data, or result value. Every search/discovery and
+admin/pipeline event carries an `exam_type` property (`'bac'` |
+`'brevet'`, a safe categorical) so usage can be split per exam type.
 
 **Automatic (no custom event needed)** — PostHog's own pageview
 capture (fired manually on each client-side route change so it can
@@ -177,33 +195,34 @@ so it can't strip them.
 
 **Search & discovery**
 
-- `result_searched` — `{ method: 'name' | 'exam_no', year?:
-  number, found: boolean }`. `year` only for exam-number searches.
+- `result_searched` — `{ method: 'name' | 'exam_no', exam_type,
+  year?: number, found: boolean }`. `year` only for exam-number searches.
   Exam-number: fired once the search resolves (found or
   `STUDENT_NOT_FOUND`). Name: fired when a suggestion is picked
   (always `found: true`; an empty autocomplete is its own event
   below).
-- `autocomplete_shown` — `{ count, query_length }`.
-- `autocomplete_empty` — `{ query_length }`.
-- `result_opened` — `{ searches_before_success, serie? }` — how
-  many searches this session before landing on a result (friction
-  signal, reset per session); `serie` (e.g. `'SN'`, `'LM'`) added
-  when the result page has one, for audience-mix visibility.
+- `autocomplete_shown` — `{ count, query_length, exam_type }`.
+- `autocomplete_empty` — `{ query_length, exam_type }`.
+- `result_opened` — `{ searches_before_success, exam_type, serie? }` —
+  how many searches this session before landing on a result (friction
+  signal, reset per session); `serie` (e.g. `'SN'`, `'LM'`) added only
+  for Bac results (Brevet has no track), for audience-mix visibility.
 
 **Admin / pipeline**
 
-- `upload_started` — fired when an admin confirms the column
-  mapping and the import actually starts processing; no
-  properties (row counts aren't known before the worker runs).
-- `upload_completed` — `{ row_count, rejected, duration_ms }`,
+- `upload_started` — `{ exam_type }`, fired when an admin confirms the
+  column mapping and the import actually starts processing; row counts
+  aren't known before the worker runs.
+- `upload_completed` — `{ row_count, rejected, duration_ms, exam_type? }`,
   fired when the imports dashboard observes a processing → completed
-  transition. `row_count` = inserted + rejected +
+  transition (`exam_type` omitted only for older imports with no
+  recorded type). `row_count` = inserted + rejected +
   duplicatesSkipped; `duration_ms` is measured client-side from
   when the dashboard first saw the import as processing (an
   observed, not server-authoritative, duration).
-- `publish` — `{ exam_year, attempt_count }` (`attempt_count` =
-  rows published). Unpublish is an admin reversal, not part of
-  this event set, and isn't tracked.
+- `publish` — `{ exam_type?, exam_year, attempt_count }`
+  (`attempt_count` = rows published). Unpublish is an admin reversal,
+  not part of this event set, and isn't tracked.
 - `admin_access_attempt` — `{ route }`, a path *pattern* (e.g.
   `/admin/imports/[id]/mapping`, ids replaced, never a query
   string) — fired from the login page when the (shell) layout
@@ -234,6 +253,8 @@ something the app enforces in code.
 
 ### In Scope
 
+- Two exam types (Bac + Brevet) through one unified `exam_type`-keyed
+  model; a home-page type selector scoping the whole search.
 - Public search (name + exam number/year) and result pages.
 - Admin auth, upload, preview/mapping, background import, history,
   publish.
@@ -255,7 +276,9 @@ something the app enforces in code.
 
 1. Searching exam number `00573` for year 2024 returns the correct
    result; the same number for 2025 returns a different (correct)
-   result.
+   result. The same year + exam number under a different exam type
+   (Bac vs Brevet) returns a different (correct) result, never a
+   collision; searching within one type never returns the other's rows.
 2. Typing a partial/typo'd name (e.g. "fatimto") returns relevant
    suggestions including "Fatimetou ..." within 300 ms, each
    labeled with year + SERIE.

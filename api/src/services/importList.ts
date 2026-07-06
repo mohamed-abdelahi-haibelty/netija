@@ -11,6 +11,7 @@ export async function listImports(db: Db): Promise<ImportListItem[]> {
     .select({
       id: imports.id,
       originalFilename: imports.originalFilename,
+      examType: imports.examType,
       examYear: imports.examYear,
       status: imports.status,
       progress: imports.progress,
@@ -28,6 +29,7 @@ export async function listImports(db: Db): Promise<ImportListItem[]> {
   return rows.map((row) => ({
     id: row.id,
     originalFilename: row.originalFilename,
+    examType: row.examType,
     examYear: row.examYear,
     status: row.status,
     progress: row.progress,

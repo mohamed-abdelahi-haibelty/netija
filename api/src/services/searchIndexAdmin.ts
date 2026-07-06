@@ -5,6 +5,7 @@ import { ATTEMPTS_INDEX } from '../lib/meili.js';
 import { imports } from '../db/schema.js';
 import { buildNameIndex } from './meiliIndex.js';
 import type {
+  ExamType,
   SearchIndexStatusResult,
   SearchIndexDocument,
   SearchIndexDocumentsResult,
@@ -17,17 +18,19 @@ import type {
 interface AttemptDocument {
   id: string;
   importId: number;
+  examType: ExamType;
   examYear: number;
   examNo: string;
   nameFr: string | null;
   nameAr: string | null;
-  serie: string;
+  serie: string | null;
 }
 
 function toSearchIndexDocument(doc: AttemptDocument): SearchIndexDocument {
   return {
     slug: doc.id,
     importId: doc.importId,
+    examType: doc.examType,
     examYear: doc.examYear,
     examNo: doc.examNo,
     nameFr: doc.nameFr,

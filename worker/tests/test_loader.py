@@ -15,6 +15,7 @@ import loader
 from cleaning import CleanRow, RejectedRow
 
 EXAM_YEAR = 2024
+EXAM_TYPE = "bac"
 
 
 def _row(exam_no: str) -> CleanRow:
@@ -64,7 +65,7 @@ def test_inserts_clean_rows_with_an_auto_populated_public_slug(dsn, make_import)
     import_id = make_import("future_minimal.xlsx")
     rows = [_row("00001"), _row("00002")]
 
-    result = loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+    result = loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, [], {})
 
     assert result.inserted == 2
     assert result.duplicates_skipped == 0
@@ -93,7 +94,7 @@ def test_load_import_reports_progress_via_a_separate_connection(dsn, make_import
     import_id = make_import("future_minimal.xlsx")
     rows = [_row("00001"), _row("00002")]
 
-    loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+    loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, [], {})
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("SELECT progress FROM imports WHERE id = %s", [import_id])
@@ -107,7 +108,7 @@ def test_records_rejects_with_row_number_reason_and_raw_data(dsn, make_import) -
     rejects = [RejectedRow(row_number=3, reason="missing serie", column="serie")]
     raw_rows = {3: {"N° Bac": "00003", "Nom Complet": "Someone"}}
 
-    result = loader.load_import(dsn, import_id, EXAM_YEAR, [], rejects, raw_rows)
+    result = loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, [], rejects, raw_rows)
 
     assert result.inserted == 0
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
@@ -131,7 +132,7 @@ def test_a_blank_cell_in_a_rejected_rows_raw_data_does_not_crash_the_load(dsn, m
     rejects = [RejectedRow(row_number=3, reason="missing serie", column="serie")]
     raw_rows = {3: {"N° Bac": "00003", "LIEUN_FR": float("nan")}}
 
-    result = loader.load_import(dsn, import_id, EXAM_YEAR, [], rejects, raw_rows)
+    result = loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, [], rejects, raw_rows)
 
     assert result.inserted == 0
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
@@ -147,11 +148,11 @@ def test_rerunning_the_same_import_is_idempotent_on_attempts(dsn, make_import) -
     import_id = make_import("future_minimal.xlsx")
     rows = [_row("00001"), _row("00002")]
 
-    first = loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+    first = loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, [], {})
     assert first.inserted == 2
     assert first.duplicates_skipped == 0
 
-    second = loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+    second = loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, [], {})
     assert second.inserted == 0
     assert second.duplicates_skipped == 2
 
@@ -165,8 +166,8 @@ def test_rerun_replaces_rejects_instead_of_duplicating_them(dsn, make_import) ->
     rejects = [RejectedRow(row_number=1, reason="missing serie", column="serie")]
     raw_rows = {1: {"N° Bac": "00001"}}
 
-    loader.load_import(dsn, import_id, EXAM_YEAR, [], rejects, raw_rows)
-    loader.load_import(dsn, import_id, EXAM_YEAR, [], rejects, raw_rows)
+    loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, [], rejects, raw_rows)
+    loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, [], rejects, raw_rows)
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM rejects WHERE import_id = %s", [import_id])
@@ -176,12 +177,49 @@ def test_rerun_replaces_rejects_instead_of_duplicating_them(dsn, make_import) ->
 def test_a_conflicting_row_from_a_different_import_counts_as_a_duplicate(dsn, make_import) -> None:
     first_import = make_import("future_minimal.xlsx")
     second_import = make_import("future_minimal.xlsx")
-    loader.load_import(dsn, first_import, EXAM_YEAR, [_row("00001")], [], {})
+    loader.load_import(dsn, first_import, EXAM_TYPE, EXAM_YEAR, [_row("00001")], [], {})
 
-    result = loader.load_import(dsn, second_import, EXAM_YEAR, [_row("00001")], [], {})
+    result = loader.load_import(dsn, second_import, EXAM_TYPE, EXAM_YEAR, [_row("00001")], [], {})
 
     assert result.inserted == 0
     assert result.duplicates_skipped == 1
+
+
+def test_a_bac_and_brevet_row_sharing_year_and_exam_no_do_not_collide(dsn, make_import) -> None:
+    """The uniqueness key is (exam_type, exam_year, exam_no): a Bac and a
+    Brevet candidate can share the same year + exam_no. Loading one of each
+    must insert BOTH, not treat the second as a duplicate — the core
+    two-exam-type guarantee.
+    """
+    bac_import = make_import("future_minimal.xlsx")
+    brevet_import = make_import("future_minimal.xlsx")
+
+    bac = loader.load_import(dsn, bac_import, "bac", EXAM_YEAR, [_row("00001")], [], {})
+    # Brevet has no serie -> null; same year + exam_no as the Bac row above.
+    brevet_row = CleanRow(
+        exam_year=EXAM_YEAR,
+        exam_no="00001",
+        name_fr="Test Person",
+        name_ar=None,
+        serie=None,
+        decision="Admis",
+        decision_raw="Admis",
+        moyenne=12.5,
+    )
+    brevet = loader.load_import(dsn, brevet_import, "brevet", EXAM_YEAR, [brevet_row], [], {})
+
+    assert bac.inserted == 1
+    assert brevet.inserted == 1
+    assert brevet.duplicates_skipped == 0
+
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT exam_type, serie FROM attempts WHERE exam_year = %s AND exam_no = %s "
+            "ORDER BY exam_type",
+            [EXAM_YEAR, "00001"],
+        )
+        rows = cur.fetchall()
+    assert rows == [("bac", "SN"), ("brevet", None)]
 
 
 def test_a_mid_load_failure_leaves_the_database_untouched(dsn, make_import) -> None:
@@ -203,7 +241,7 @@ def test_a_mid_load_failure_leaves_the_database_untouched(dsn, make_import) -> N
 
     with patch.object(psycopg.Cursor, "execute", _flaky_execute):
         with pytest.raises(RuntimeError, match="simulated mid-load failure"):
-            loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+            loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, [], {})
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM attempts WHERE import_id = %s", [import_id])
@@ -223,7 +261,7 @@ def test_load_import_atomically_marks_the_import_completed_with_summary_counts(
     rejects = [RejectedRow(row_number=3, reason="missing serie", column="serie")]
     raw_rows = {3: {"N° Bac": "00003"}}
 
-    result = loader.load_import(dsn, import_id, EXAM_YEAR, rows, rejects, raw_rows)
+    result = loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, rejects, raw_rows)
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(
@@ -254,7 +292,7 @@ def test_cancellation_mid_batch_rolls_back_everything_already_inserted(dsn, make
 
     with patch.object(loader, "_cancel_requested", side_effect=_fake_cancel_requested):
         with pytest.raises(loader.ImportCancelled):
-            loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+            loader.load_import(dsn, import_id, EXAM_TYPE, EXAM_YEAR, rows, [], {})
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM attempts WHERE import_id = %s", [import_id])

@@ -47,7 +47,12 @@ export async function deleteImport(
   // Read the affected attempts' cache keys before deleting them — once the
   // transaction commits there's nothing left in Postgres to look them up by.
   const attemptRows = await db
-    .select({ examYear: attempts.examYear, examNo: attempts.examNo, slug: attempts.publicSlug })
+    .select({
+      examType: attempts.examType,
+      examYear: attempts.examYear,
+      examNo: attempts.examNo,
+      slug: attempts.publicSlug,
+    })
     .from(attempts)
     .where(eq(attempts.importId, importId));
 
@@ -62,7 +67,7 @@ export async function deleteImport(
   if (attemptRows.length > 0) {
     const pipeline = redis.pipeline();
     for (const row of attemptRows) {
-      pipeline.del(examCacheKey(row.examYear, row.examNo));
+      pipeline.del(examCacheKey(row.examType, row.examYear, row.examNo));
       pipeline.del(resultCacheKey(row.slug));
     }
     await pipeline.exec();

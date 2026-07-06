@@ -8,3 +8,17 @@ global.IntersectionObserver = class IntersectionObserver {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof IntersectionObserver;
+
+// jsdom has no matchMedia; components that respect prefers-reduced-motion
+// (e.g. StudentResultCard's count-up) call it on mount. Default to
+// reduced-motion so animated values settle instantly in tests.
+window.matchMedia = (query: string): MediaQueryList => ({
+  matches: true,
+  media: query,
+  onchange: null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+  dispatchEvent: () => false,
+});

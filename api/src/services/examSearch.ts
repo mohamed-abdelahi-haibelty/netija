@@ -2,24 +2,29 @@ import { eq, and } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import type { RedisClient } from '../lib/redis.js';
 import { attempts, imports } from '../db/schema.js';
-import type { ExamSearchResult } from 'shared';
+import { EXAM_TYPES, type ExamSearchResult, type ExamType } from 'shared';
 
 const EXAM_CACHE_TTL = 300;
 const YEARS_CACHE_TTL = 3600;
 
-export function examCacheKey(year: number, examNo: string): string {
-  return `exam:${String(year)}:${examNo}`;
+// Namespaced by exam_type: a Bac and a Brevet candidate can share
+// (year, exam_no), so their cache entries must never collide.
+export function examCacheKey(examType: ExamType, year: number, examNo: string): string {
+  return `exam:${examType}:${String(year)}:${examNo}`;
 }
 
-const YEARS_CACHE_KEY = 'years:published';
+export function yearsCacheKey(examType: ExamType): string {
+  return `years:published:${examType}`;
+}
 
 export async function searchByExamNo(
   db: Db,
   redis: RedisClient,
+  examType: ExamType,
   examNo: string,
   year: number,
 ): Promise<ExamSearchResult | null> {
-  const cacheKey = examCacheKey(year, examNo);
+  const cacheKey = examCacheKey(examType, year, examNo);
   const cached = await redis.get(cacheKey);
   if (cached !== null) {
     return JSON.parse(cached) as ExamSearchResult;
@@ -28,6 +33,7 @@ export async function searchByExamNo(
   const rows = await db
     .select({
       slug: attempts.publicSlug,
+      examType: attempts.examType,
       nameFr: attempts.nameFr,
       nameAr: attempts.nameAr,
       examNo: attempts.examNo,
@@ -40,6 +46,7 @@ export async function searchByExamNo(
     .innerJoin(imports, eq(imports.id, attempts.importId))
     .where(
       and(
+        eq(attempts.examType, examType),
         eq(attempts.examYear, year),
         eq(attempts.examNo, examNo),
         eq(imports.published, true),
@@ -51,6 +58,7 @@ export async function searchByExamNo(
   if (!row) return null;
   const result: ExamSearchResult = {
     slug: row.slug,
+    examType: row.examType,
     nameFr: row.nameFr,
     nameAr: row.nameAr,
     examNo: row.examNo,
@@ -64,8 +72,12 @@ export async function searchByExamNo(
   return result;
 }
 
-export async function getPublishedYears(db: Db, redis: RedisClient): Promise<number[]> {
-  const cached = await redis.get(YEARS_CACHE_KEY);
+export async function getPublishedYears(
+  db: Db,
+  redis: RedisClient,
+  examType: ExamType,
+): Promise<number[]> {
+  const cached = await redis.get(yearsCacheKey(examType));
   if (cached !== null) {
     return JSON.parse(cached) as number[];
   }
@@ -73,25 +85,29 @@ export async function getPublishedYears(db: Db, redis: RedisClient): Promise<num
   const rows = await db
     .selectDistinct({ year: imports.examYear })
     .from(imports)
-    .where(eq(imports.published, true));
+    .where(and(eq(imports.published, true), eq(imports.examType, examType)));
 
   const years = rows
     .map((r) => r.year)
     .filter((y): y is number => y !== null)
     .sort((a, b) => b - a);
 
-  await redis.set(YEARS_CACHE_KEY, JSON.stringify(years), 'EX', YEARS_CACHE_TTL);
+  await redis.set(yearsCacheKey(examType), JSON.stringify(years), 'EX', YEARS_CACHE_TTL);
   return years;
 }
 
 export async function invalidateExamCache(
   redis: RedisClient,
+  examType: ExamType,
   year: number,
   examNo: string,
 ): Promise<void> {
-  await redis.del(examCacheKey(year, examNo));
+  await redis.del(examCacheKey(examType, year, examNo));
 }
 
+// A publish/delete touching one type still can't know the other type's list is
+// unaffected without extra bookkeeping, so both type year-lists are cleared —
+// two keys, always correct, negligible cost.
 export async function invalidateYearsCache(redis: RedisClient): Promise<void> {
-  await redis.del(YEARS_CACHE_KEY);
+  await redis.del(...EXAM_TYPES.map((t) => yearsCacheKey(t)));
 }

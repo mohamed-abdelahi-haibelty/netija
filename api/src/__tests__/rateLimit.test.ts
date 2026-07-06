@@ -73,6 +73,7 @@ const mockGetStudentPage = vi.mocked(getStudentPage);
 
 const EXAM_RESULT: ExamSearchResult = {
   slug: 'aaaa1111bbbb2222cccc3333dddd4444',
+  examType: 'bac',
   nameFr: 'Ahmed Ould Mohamed',
   nameAr: null,
   examNo: '00123',
@@ -84,6 +85,7 @@ const EXAM_RESULT: ExamSearchResult = {
 
 const STUDENT_RESULT: StudentResult = {
   slug: 'aaaa1111bbbb2222cccc3333dddd4444',
+  examType: 'bac',
   examYear: 2022,
   examNo: '00123',
   nameFr: 'Ahmed Ould Mohamed',

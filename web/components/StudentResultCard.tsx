@@ -171,13 +171,20 @@ export function StudentResultCard({
 
       {/* ── Properties — flat Notion rows ── */}
       <div className="flex flex-col items-center">
+        <PropertyRow label={t("student.examTypeLabel")}>
+          <span className="inline-block rounded bg-muted px-2 text-sm leading-6">
+            {t(`home.examType_${student.examType}`)}
+          </span>
+        </PropertyRow>
         <PropertyRow label={t("student.examNoColumn")}>
           <span className="font-mono tabular-nums">{student.examNo}</span>
         </PropertyRow>
         <PropertyRow label={t("student.yearColumn")}>
           <span className="font-mono tabular-nums">{student.examYear}</span>
         </PropertyRow>
-        {student.serie && (
+        {/* Serie is a Bac-only concept; Brevet has no track, so the row is
+            omitted entirely rather than shown blank. */}
+        {student.examType === "bac" && student.serie && (
           <PropertyRow label={t("student.serieLabel")}>
             <span className="inline-block rounded bg-muted px-2 font-mono text-sm leading-6">
               {student.serie}

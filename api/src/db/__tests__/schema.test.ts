@@ -51,17 +51,23 @@ async function seedImport() {
   return imp.id;
 }
 
-async function seedAttempt(importId: number, examNo = '00001') {
+async function seedAttempt(
+  importId: number,
+  examNo = '00001',
+  examType: 'bac' | 'brevet' = 'bac',
+) {
   const [attempt] = await db
     .insert(schema.attempts)
     .values({
+      examType,
       examYear: 2024,
       examNo,
       nameFr: 'Test',
       importId,
       decision: 'Admis',
       moyenne: '14.50',
-      serie: 'SN',
+      // Brevet has no track; serie is null.
+      serie: examType === 'brevet' ? null : 'SN',
     })
     .returning({ id: schema.attempts.id });
   if (!attempt) throw new Error('attempt insert failed');
@@ -69,17 +75,17 @@ async function seedAttempt(importId: number, examNo = '00001') {
 }
 
 // ---------------------------------------------------------------------------
-// attempts: UNIQUE (exam_year, exam_no)
+// attempts: UNIQUE (exam_type, exam_year, exam_no)
 // ---------------------------------------------------------------------------
 
-describe('attempts.UNIQUE(exam_year, exam_no)', () => {
+describe('attempts.UNIQUE(exam_type, exam_year, exam_no)', () => {
   it('inserts an attempt successfully', async () => {
     const importId = await seedImport();
     const id = await seedAttempt(importId, '00001');
     expect(id).toBeTypeOf('number');
   });
 
-  it('rejects a duplicate (exam_year, exam_no) pair', async () => {
+  it('rejects a duplicate (exam_type, exam_year, exam_no) triple', async () => {
     const importId = await seedImport();
     await seedAttempt(importId, '00001');
 
@@ -99,16 +105,34 @@ describe('attempts.UNIQUE(exam_year, exam_no)', () => {
     // Different year — must succeed
     const [second] = await db
       .insert(schema.attempts)
-      .values({ examYear: 2023, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
+      .values({ examType: 'bac', examYear: 2023, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
       .returning({ id: schema.attempts.id });
     expect(second?.id).toBeTypeOf('number');
+  });
+
+  it('allows the same (year, exam_no) across different exam types (Bac vs Brevet)', async () => {
+    const importId = await seedImport();
+    await seedAttempt(importId, '00001', 'bac');
+
+    // Same year + exam_no, different type — must succeed (the core two-type guarantee).
+    const brevetId = await seedAttempt(importId, '00001', 'brevet');
+    expect(brevetId).toBeTypeOf('number');
+
+    const rows = await db
+      .select({ examType: schema.attempts.examType, serie: schema.attempts.serie })
+      .from(schema.attempts)
+      .where(eq(schema.attempts.examNo, '00001'));
+    expect(rows).toHaveLength(2);
+    // The Brevet row carries a null serie.
+    const brevet = rows.find((r) => r.examType === 'brevet');
+    expect(brevet?.serie).toBeNull();
   });
 
   it('preserves leading zeros in exam_no', async () => {
     const importId = await seedImport();
     await db
       .insert(schema.attempts)
-      .values({ examYear: 2024, examNo: '00042', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' });
+      .values({ examType: 'bac', examYear: 2024, examNo: '00042', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' });
 
     const rows = await db
       .select({ examNo: schema.attempts.examNo })
@@ -147,7 +171,7 @@ describe('attempts — required and nullable fields', () => {
     const [attempt] = await db
       .insert(schema.attempts)
       .values({
-        examYear: 2024, examNo: '00002', nameFr: 'Test',
+        examType: 'bac', examYear: 2024, examNo: '00002', nameFr: 'Test',
         importId, decision: 'Annulé', moyenne: null, serie: 'SN',
       })
       .returning({ id: schema.attempts.id });
@@ -171,7 +195,7 @@ describe('attempts.public_slug', () => {
     const importId = await seedImport();
     const [attempt] = await db
       .insert(schema.attempts)
-      .values({ examYear: 2024, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
+      .values({ examType: 'bac', examYear: 2024, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
       .returning({ publicSlug: schema.attempts.publicSlug });
 
     assertDefined(attempt);
@@ -215,7 +239,7 @@ describe('attempts.public_slug', () => {
     const importId = await seedImport();
     const [first] = await db
       .insert(schema.attempts)
-      .values({ examYear: 2024, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
+      .values({ examType: 'bac', examYear: 2024, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN' })
       .returning({ publicSlug: schema.attempts.publicSlug });
 
     assertDefined(first);
@@ -223,7 +247,7 @@ describe('attempts.public_slug', () => {
     try {
       await db
         .insert(schema.attempts)
-        .values({ examYear: 2023, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN', publicSlug: first.publicSlug });
+        .values({ examType: 'bac', examYear: 2023, examNo: '00001', nameFr: 'Test', importId, decision: 'Admis', moyenne: '14.50', serie: 'SN', publicSlug: first.publicSlug });
     } catch (e) {
       err = e;
     }
@@ -235,8 +259,8 @@ describe('attempts.public_slug', () => {
     let err: unknown;
     try {
       await db.execute(
-        sql`INSERT INTO attempts (exam_year, exam_no, name_fr, serie, decision, import_id, public_slug)
-            VALUES (2024, '00001', 'Test', 'SN', 'Admis', ${importId}, NULL)`,
+        sql`INSERT INTO attempts (exam_type, exam_year, exam_no, name_fr, serie, decision, import_id, public_slug)
+            VALUES ('bac', 2024, '00001', 'Test', 'SN', 'Admis', ${importId}, NULL)`,
       );
     } catch (e) {
       err = e;
@@ -286,6 +310,7 @@ describe('schema exports', () => {
   it('exports the remaining enum definitions', () => {
     expect(schema.decisionEnum).toBeDefined();
     expect(schema.importStatusEnum).toBeDefined();
+    expect(schema.examTypeEnum).toBeDefined();
   });
 
   it('does not export the removed link enums', () => {

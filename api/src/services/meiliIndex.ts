@@ -12,11 +12,12 @@ import { ATTEMPTS_INDEX } from '../lib/meili.js';
 interface AttemptDocument {
   id: string;
   importId: number;
+  examType: string;
   examYear: number;
   examNo: string;
   nameFr: string | null;
   nameAr: string | null;
-  serie: string;
+  serie: string | null;
 }
 
 // One row per published attempt. A name appearing in several years produces
@@ -27,6 +28,7 @@ const PUBLISHED_ATTEMPTS_SQL = sql`
   SELECT
     a.public_slug        AS "id",
     a.import_id::int     AS "importId",
+    a.exam_type          AS "examType",
     a.exam_year           AS "examYear",
     a.exam_no             AS "examNo",
     a.name_fr             AS "nameFr",
@@ -44,11 +46,12 @@ export async function buildNameIndex(db: Db, meili: MeiliClient): Promise<number
   const docs: AttemptDocument[] = result.rows.map((row) => ({
     id: row['id'] as string,
     importId: row['importId'] as number,
+    examType: row['examType'] as string,
     examYear: row['examYear'] as number,
     examNo: row['examNo'] as string,
     nameFr: (row['nameFr'] as string | null) ?? null,
     nameAr: (row['nameAr'] as string | null) ?? null,
-    serie: row['serie'] as string,
+    serie: (row['serie'] as string | null) ?? null,
   }));
 
   const index = meili.index<AttemptDocument>(ATTEMPTS_INDEX);
@@ -56,7 +59,9 @@ export async function buildNameIndex(db: Db, meili: MeiliClient): Promise<number
   await index.updateSettings({
     searchableAttributes: ['nameFr', 'nameAr'],
     sortableAttributes: ['examYear'],
-    filterableAttributes: ['importId', 'examYear'],
+    // examType is filterable so name search can scope to one exam (Bac vs
+    // Brevet) — Bac and Brevet names must never intermingle in one autocomplete.
+    filterableAttributes: ['importId', 'examType', 'examYear'],
   });
 
   await index.deleteAllDocuments();
