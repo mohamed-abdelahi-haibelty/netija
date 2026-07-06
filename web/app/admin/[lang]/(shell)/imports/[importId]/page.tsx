@@ -3,13 +3,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Ban, ChevronLeft, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { trackPublish } from '@/lib/analytics';
 import { PropertyRow } from '@/components/PropertyRow';
 import { DeleteImportDialog, type DeleteImportTarget } from '@/components/admin/DeleteImportDialog';
-import type { ImportPublishResult, ImportStatusResult } from 'shared';
+import { CancelImportDialog, type CancelImportTarget } from '@/components/admin/CancelImportDialog';
+import type { ImportCancelResult, ImportPublishResult, ImportStatusResult } from 'shared';
 
 type LoadStatus = 'loading' | 'loaded' | 'notFound' | 'error';
 
@@ -25,6 +26,7 @@ export default function ImportDetailPage() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteImportTarget | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<CancelImportTarget | null>(null);
   // flipPublish is memoized without `status` in its deps (it only needs
   // functional setState below), so it reads the latest status through this
   // ref instead of risking a stale closure over the state value itself.
@@ -313,11 +315,30 @@ export default function ImportDetailPage() {
           )}
 
           <div className="mt-6 pt-6 border-t border-border">
-            {status.status === 'processing' ? (
-              <p className="text-sm text-muted-foreground">
-                {t('admin.delete.processingNote')}
+            {status.status === 'processing' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelTarget({ id: Number(importId), originalFilename: status.originalFilename });
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium',
+                  'border border-border text-destructive',
+                  'hover:bg-destructive/10 transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                )}
+              >
+                <Ban className="size-3.5" aria-hidden />
+                {t('admin.cancel.action')}
+              </button>
+            )}
+            {status.status === 'cancelling' && (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                {t('admin.cancel.cancellingNote')}
               </p>
-            ) : (
+            )}
+            {status.status !== 'processing' && status.status !== 'cancelling' && (
               <button
                 type="button"
                 onClick={() => {
@@ -351,6 +372,17 @@ export default function ImportDetailPage() {
         onDeleted={() => {
           setDeleteTarget(null);
           router.push(`/admin/${lang}/imports`);
+        }}
+      />
+
+      <CancelImportDialog
+        target={cancelTarget}
+        onClose={() => {
+          setCancelTarget(null);
+        }}
+        onCancelled={(_cancelledId, result: ImportCancelResult) => {
+          setCancelTarget(null);
+          setStatus((prev) => (prev ? { ...prev, status: result.status } : prev));
         }}
       />
     </section>

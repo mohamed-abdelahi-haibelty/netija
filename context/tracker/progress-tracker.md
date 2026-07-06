@@ -8,10 +8,113 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — task 031 is complete. Task 025 (rate limiting and cache
-  headers) is implemented on its own branch, not yet merged into main.
+- None — tasks 031 and 032 are complete. Task 025 (rate limiting and
+  cache headers) is implemented on its own branch, not yet merged into
+  main.
 
 ## Completed
+
+- **Task 032 — Cancel a Running/Stuck Import (+ a Task 020 loader-atomicity fix it surfaced)**
+  - **Investigated first, per the spec's own request**: found the loader
+    (`worker/loader.py`) already wrapped its data inserts in one
+    transaction, but the terminal `status: 'completed'` + summary-count
+    write happened SEPARATELY, afterward, from Node (`importJob.ts`), on a
+    different connection in a different process. A crash of that
+    coordinating Node process between "Python's transaction committed" and
+    "Node wrote completed" could leave an import with real, committed rows
+    stuck reading `'processing'` forever — self-healing eventually via
+    BullMQ's stalled-job retry (the loader is idempotent), but not truly
+    atomic, and exactly the ambiguity a cancel feature needs to reason
+    about cleanly.
+  - **Fix (task 020's code, no migration — pure logic relocation)**:
+    `loader.py`'s `load_import` now writes `status='completed'`,
+    `summary_inserted/rejected/duplicates_skipped`, and clears
+    `failure_reason` as the LAST statement inside its own transaction,
+    right before commit. `importJob.ts` no longer performs that write
+    itself — it only sets cosmetic `progress: 100` after Python exits 0.
+    Net effect: data and "this import is done" can never disagree; either
+    both commit together or neither does (architecture.md invariant 12).
+  - **Cancellation contract**: two new `import_status` enum values,
+    `'cancelling'` and `'cancelled'` (migration `0001_nervous_payback.sql`,
+    also adds nullable `imports.worker_pid`). `POST /api/imports/:id/cancel`
+    (`api/src/services/cancelImport.ts`) only accepts `status='processing'`
+    (atomic conditional UPDATE, 409 `IMPORT_NOT_CANCELLABLE` otherwise).
+    - If the BullMQ job (`import-{id}`) is still `waiting`/`delayed`
+      (Python never spawned) or already gone: finalizes to `'cancelled'`
+      immediately — nothing was ever written for that run.
+    - If the job is `active`: flips to `'cancelling'`, which `loader.py`
+      polls for once per batch (same cadence as its existing progress
+      reporting, on its own connection) and, if seen, raises inside the
+      main load transaction — rolling back everything the run had written
+      so far, then reporting `{ok: false, code: "CANCELLED", reason}` (a
+      new, expected worker outcome, never sent to Sentry). Also signals
+      the recorded `worker_pid` with SIGTERM immediately, escalating to
+      SIGKILL after a 3 s grace period if still alive — the fallback for a
+      run stuck somewhere a cooperative check can't reach (e.g. still
+      inside `pd.read_excel` on a very large file). Killing the process
+      drops its Postgres connection, which implicitly rolls back the same
+      uncommitted transaction — the identical zero-rows guarantee, just
+      via the OS instead of application code.
+    - `runImportJob` (`importJob.ts`) treats either path (Python's own
+      `CANCELLED` report, or its `runPythonScript` call rejecting because
+      the process was killed while status was already `'cancelling'`) by
+      finalizing the row to `'cancelled'` and throwing a new
+      `ImportCancelledError` — extends BullMQ's `UnrecoverableError` so the
+      queue never retries a deliberate cancellation, regardless of
+      attempts remaining. `queueWorker.ts`'s `'failed'` handler special-
+      cases this error to a no-op (the row is already finalized; must not
+      be overwritten back to `'failed'`).
+    - A race guard: `runImportJob`'s very first write (claiming
+      `'processing'`) is now a conditional UPDATE excluding
+      `'cancelling'`/`'cancelled'`, so a cancel that lands in the tiny
+      window before a job's first write can't get stomped back to
+      `'processing'`.
+    - `deleteImport.ts`'s existing processing-guard (task 031) now also
+      blocks `'cancelling'` — a kill/rollback may still be in flight.
+  - **Dashboard**: a "Cancel" action on `processing` rows/imports (imports
+    list and detail pages), a plain confirm/dismiss dialog
+    (`CancelImportDialog.tsx` — deliberately lighter than delete's
+    type-to-confirm gate, since cancelling isn't the same permanent-data-
+    loss action), a `cancelling` status badge (reuses the `processing`
+    pulsing-dot style — still "something is happening") and a `cancelled`
+    badge (reuses the neutral `pending` style — a calm, non-error terminal
+    state). i18n: new `admin.cancel` block in both `fr.json`/`ar.json`;
+    removed the now-superseded `admin.delete.processingNote` (a real Cancel
+    action replaces the old "cancel it first" note).
+  - **Tests**: `worker/tests/test_loader.py` (+2: the atomic
+    status/summary write, and cancellation mid-batch rolling back
+    everything already inserted in that not-yet-committed transaction —
+    via a patched `_cancel_requested`); `worker/tests/test_worker_cli.py`
+    (+1: a real, unmocked `'cancelling'` row end-to-end through
+    `worker.main()`). `api/src/__tests__/importJob.test.ts` rewritten for
+    the new claim guard, pid persistence, and both cancellation paths (+5
+    net). `api/src/__tests__/cancelImport.test.ts` (new, 15): route
+    contract, the waiting/active job branches, SIGTERM + SIGKILL
+    escalation via fake timers, and escalation correctly skipped once
+    already finalized or once the pid no longer matches (guards against
+    signalling the wrong process). `api/src/__tests__/deleteImport.test.ts`
+    (+1: `'cancelling'` also guarded). Web: `CancelImportDialog.test.tsx`
+    (new, 7, axe-clean) plus wiring assertions in the list and detail page
+    suites (action visibility, dialog open → confirm → in-place status
+    update, `'cancelling'` copy on the detail page).
+  - **Manually verified end-to-end against real Postgres/Redis/BullMQ and
+    a real spawned Python process** (`docker compose up -d`, a real
+    in-process `Worker` + a synthetic 150k-row file): confirmed a genuinely
+    active import got SIGTERM→SIGKILL force-killed, the BullMQ `'failed'`
+    event reported `ImportCancelledError` exactly once (no retry), the row
+    settled on `status: 'cancelled'` with `worker_pid` cleared, and — the
+    core guarantee — **zero orphan `attempts` rows** for that import.
+    `vitest run` (api, 203/203), `jest` (web, 96/96), `pytest` (worker,
+    198/198), `tsc --noEmit` (api/web/shared), `next build`, `ruff check`,
+    `black --check`, and `npm run lint` all clean.
+  - **Deliberately out of scope / known simplifications**: the SIGKILL
+    escalation timer lives in the API process's own event loop (a plain
+    `setTimeout`, not a durable BullMQ delayed job) — it would be lost on
+    an API server restart mid-escalation; acceptable for this project's
+    single-admin, non-HA scope, but worth a durable queue-based escalation
+    if that ever changes. Row-level deletion within an import (033) and
+    Meilisearch/Redis dashboard visibility (034/035) remain separate,
+    not-yet-built tasks.
 
 - **Task 031 — Delete an Import and All Its Data**
   - **Original file decision (per the spec's own request to recommend one):

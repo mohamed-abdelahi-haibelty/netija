@@ -96,7 +96,9 @@
       "colActions": "إجراءات",
       "statusPending": "في الانتظار",
       "statusProcessing": "جارٍ المعالجة",
+      "statusCancelling": "جارٍ الإلغاء",
       "statusCompleted": "مكتمل",
+      "statusCancelled": "أُلغي",
       "statusFailed": "فشل",
       "summaryInserted": "{{count}} مُدرج",
       "summaryRejected": "{{count}} مرفوض",
@@ -167,7 +169,9 @@
       "notFound": "تعذّر العثور على هذا الاستيراد.",
       "statusPending": "قيد الانتظار",
       "statusProcessing": "قيد المعالجة",
+      "statusCancelling": "جارٍ الإلغاء",
       "statusCompleted": "مكتمل",
+      "statusCancelled": "أُلغي",
       "statusFailed": "فشل",
       "failureReasonLabel": "سبب الفشل",
       "publishButton": "نشر",
@@ -184,8 +188,16 @@
       "confirmLabel": "اكتب {{filename}} للتأكيد",
       "cancel": "إلغاء",
       "confirmButton": "حذف الاستيراد",
-      "error": "حدث خطأ أثناء حذف هذا الاستيراد. يرجى المحاولة مرة أخرى.",
-      "processingNote": "لا يزال هذا الاستيراد قيد المعالجة. يرجى إلغاؤه أولاً قبل حذفه."
+      "error": "حدث خطأ أثناء حذف هذا الاستيراد. يرجى المحاولة مرة أخرى."
+    },
+    "cancel": {
+      "action": "إلغاء",
+      "dialogTitle": "إلغاء الاستيراد",
+      "dialogBody": "سيؤدي هذا إلى إيقاف معالجة {{filename}}. سيتم التراجع عن أي سجلات حُمّلت في هذه العملية — يُحتفظ بالملف الأصلي المرفوع، لذا يمكنك إعادة تشغيله لاحقًا.",
+      "dismiss": "متابعة المعالجة",
+      "confirmButton": "إلغاء الاستيراد",
+      "cancellingNote": "جارٍ الإلغاء — إيقاف المهمة الجارية والتراجع عن أي بيانات جزئية.",
+      "error": "حدث خطأ أثناء إلغاء هذا الاستيراد. يرجى المحاولة مرة أخرى."
     }
   }
 }

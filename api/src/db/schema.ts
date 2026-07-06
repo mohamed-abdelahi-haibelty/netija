@@ -29,7 +29,9 @@ export const decisionEnum = pgEnum('decision', [
 export const importStatusEnum = pgEnum('import_status', [
   'pending',
   'processing',
+  'cancelling',
   'completed',
+  'cancelled',
   'failed',
 ]);
 
@@ -53,6 +55,13 @@ export const imports = pgTable('imports', {
   smokePassed: boolean('smoke_passed'),
   published: boolean('published').notNull().default(false),
   failureReason: text('failure_reason'),
+  // The OS pid of the currently-running worker/worker.py subprocess (task
+  // 032) — set by the queue worker right after spawning, cleared when it
+  // exits. Lets a cancel request signal a specific run's process from a
+  // DIFFERENT Node process (the API server, not the queue worker) on the
+  // same host, for a genuinely stuck import that isn't reaching one of the
+  // loader's cooperative cancellation checkpoints.
+  workerPid: integer('worker_pid'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

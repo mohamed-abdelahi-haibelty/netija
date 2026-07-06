@@ -96,7 +96,9 @@
       "colActions": "Actions",
       "statusPending": "Pending",
       "statusProcessing": "Processing",
+      "statusCancelling": "Cancelling",
       "statusCompleted": "Completed",
+      "statusCancelled": "Cancelled",
       "statusFailed": "Failed",
       "summaryInserted": "{{count}} inserted",
       "summaryRejected": "{{count}} rejected",
@@ -167,7 +169,9 @@
       "notFound": "This import could not be found.",
       "statusPending": "Pending",
       "statusProcessing": "Processing",
+      "statusCancelling": "Cancelling",
       "statusCompleted": "Completed",
+      "statusCancelled": "Cancelled",
       "statusFailed": "Failed",
       "failureReasonLabel": "Failure reason",
       "publishButton": "Publish",
@@ -184,8 +188,16 @@
       "confirmLabel": "Type {{filename}} to confirm",
       "cancel": "Cancel",
       "confirmButton": "Delete import",
-      "error": "Something went wrong deleting this import. Please try again.",
-      "processingNote": "This import is still processing. Cancel it first before deleting."
+      "error": "Something went wrong deleting this import. Please try again."
+    },
+    "cancel": {
+      "action": "Cancel",
+      "dialogTitle": "Cancel import",
+      "dialogBody": "This stops {{filename}} from processing. Any rows already loaded for this run are rolled back — the original uploaded file is kept, so you can re-run it later.",
+      "dismiss": "Keep running",
+      "confirmButton": "Cancel import",
+      "cancellingNote": "Cancelling — stopping the running job and rolling back any partial data.",
+      "error": "Something went wrong cancelling this import. Please try again."
     }
   }
 }

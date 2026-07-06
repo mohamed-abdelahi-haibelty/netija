@@ -291,6 +291,49 @@ def test_every_fixture_loads_with_self_consistent_counts(
         assert cur.fetchone()[0] == len(expected.rejects)
 
 
+def test_an_import_already_flagged_cancelling_reports_cancelled_and_loads_nothing(
+    dsn: str, make_import, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """End-to-end (task 032): if the imports row is 'cancelling' when the
+    loader gets to it, worker.py must report the precise CANCELLED contract
+    (not a generic failure) and the transactional rollback must mean zero
+    attempts/rejects for this run — the real, unmocked cancellation check.
+    """
+    fixture_filename = "2024.xlsx"
+    df = pd.read_excel(FIXTURES_DIR / fixture_filename, dtype=str)
+    mapping = analyze_headers(list(df.columns)).mapping
+    import_id = make_import(fixture_filename)
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("UPDATE imports SET status = 'cancelling' WHERE id = %s", [import_id])
+
+    exit_code = worker.main(
+        [
+            "--file-id",
+            str(import_id),
+            "--exam-year",
+            str(EXAM_YEAR),
+            "--mapping",
+            json.dumps(mapping),
+        ]
+    )
+    out = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert out == {
+        "ok": False,
+        "code": "CANCELLED",
+        "reason": "Import was cancelled by an admin.",
+    }
+
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM attempts WHERE import_id = %s", [import_id])
+        assert cur.fetchone()[0] == 0
+        # worker.py never finalizes status itself — that's importJob.ts's
+        # job once it sees the CANCELLED outcome — so it's untouched here.
+        cur.execute("SELECT status FROM imports WHERE id = %s", [import_id])
+        assert cur.fetchone()[0] == "cancelling"
+
+
 def test_running_the_same_import_twice_yields_zero_new_rows_and_says_so(
     dsn: str, make_import, capsys: pytest.CaptureFixture[str]
 ) -> None:

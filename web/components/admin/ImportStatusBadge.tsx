@@ -6,14 +6,18 @@ export type { ImportStatus };
 const STATUS_STYLES: Record<ImportStatus, string> = {
   pending: 'bg-status-neutral-bg  text-status-neutral-fg',
   processing: 'bg-secondary/15       text-secondary-foreground',
+  cancelling: 'bg-secondary/15       text-secondary-foreground',
   completed: 'bg-status-pass-bg     text-status-pass-fg',
+  cancelled: 'bg-status-neutral-bg  text-status-neutral-fg',
   failed: 'bg-status-fail-bg     text-status-fail-fg',
 };
 
 const STATUS_DOT: Record<ImportStatus, string> = {
   pending: 'bg-status-neutral-fg',
   processing: 'bg-secondary animate-pulse',
+  cancelling: 'bg-secondary animate-pulse',
   completed: 'bg-status-pass-fg',
+  cancelled: 'bg-status-neutral-fg',
   failed: 'bg-status-fail-fg',
 };
 
