@@ -126,6 +126,53 @@ export interface ImportDeleteResponse {
   data: ImportDeleteResult;
 }
 
+// All 6 canonical decision values (mirrors api/src/db/schema.ts's
+// decisionEnum) — duplicated here because shared/ has no dependency on the
+// api's Drizzle schema; the admin rows filter dropdown (task 033) needs the
+// full fixed list regardless of what's present in any one import.
+export const DECISIONS = ['Admis', 'Ajourné', 'Sessionnaire', 'Absent', 'Délibérable', 'Annulé'] as const;
+export type Decision = (typeof DECISIONS)[number];
+
+// One row in an import's attempts table (task 033 — browse/filter/delete
+// rows within an import). Deliberately excludes publicSlug: never needed by
+// the admin table UI, and not worth exposing beyond what's displayed.
+export interface ImportAttemptRow {
+  id: number;
+  examNo: string;
+  nameFr: string | null;
+  nameAr: string | null;
+  serie: string;
+  moyenne: string | null;
+  decision: string;
+}
+
+export interface ImportAttemptsListResult {
+  rows: ImportAttemptRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  // Distinct serie values present anywhere in this import (not affected by
+  // the current search/filter), so the filter dropdown's options don't
+  // shrink as an admin narrows the table down.
+  availableSeries: string[];
+}
+
+export interface ImportAttemptsListResponse {
+  data: ImportAttemptsListResult;
+}
+
+// Result of deleting one or several attempt rows within an import (task
+// 033) — a single attempt is just a one-element selection through the same
+// endpoint. deletedAttempts is how many rows actually matched and were
+// removed, for the confirmation UI's outcome message.
+export interface ImportAttemptsDeleteResult {
+  deletedAttempts: number;
+}
+
+export interface ImportAttemptsDeleteResponse {
+  data: ImportAttemptsDeleteResult;
+}
+
 // Result of requesting cancellation (task 032). 'cancelled' means the
 // import never actually started running (still waiting in the queue) or
 // had already finished processing, so it was finalized immediately.

@@ -8,11 +8,94 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — tasks 031 and 032 are complete. Task 025 (rate limiting and
-  cache headers) is implemented on its own branch, not yet merged into
-  main.
+- None — tasks 031, 032, and 033 are complete. Task 025 (rate limiting
+  and cache headers) is implemented on its own branch, not yet merged
+  into main.
 
 ## Completed
+
+- **Task 033 — Browse, Filter, and Delete Rows Within an Import**
+  - `GET /api/imports/:id/attempts` (`api/src/services/importAttempts.ts#listImportAttempts`):
+    offset-paginated (`page`/`pageSize`, default 50, max 200 —
+    `api/src/schemas/attempts.ts`), server-side `search` (ILIKE substring
+    match across `name_fr`, `name_ar`, and `exam_no` — a 50k-row scan is
+    within an admin dashboard's latency budget and this table is never
+    queried publicly), and exact-match `serie`/`decision` filters. Also
+    returns `availableSeries` — every distinct serie in the import,
+    unaffected by the current filters, so the filter dropdown's own options
+    never shrink as an admin narrows the table. Returns null for an unknown
+    import id (route -> 404); an existing import with no matching rows is a
+    normal 200 with an empty page.
+  - `DELETE /api/imports/:id/attempts` (`#deleteImportAttempts`): body
+    `{ attemptIds: number[] }` — a single-row delete is just a one-element
+    array through the same endpoint. Reuses `deleteImport.ts`'s
+    `ImportProcessingError` (409 `IMPORT_PROCESSING`) for the same reason
+    task 031/032 guard whole-import deletion: a processing or cancelling
+    import may still be writing/rolling back rows on a different connection.
+    Ids scoped to `and(importId, inArray(ids))` — an id from another import,
+    or already deleted, is silently ignored rather than erroring. Fan-out
+    per architecture.md invariant 6 (no ghosts in derived stores): the
+    deleted rows' Redis exam-cache and result-cache keys are pipelined-deleted
+    (reusing `examCacheKey`/`resultCacheKey`), then a full Meilisearch
+    rebuild (`buildNameIndex`) — a no-op if the import isn't published, since
+    only published attempts are ever indexed. **New, judgment-call behavior
+    not spelled out in the task spec**: `imports.summary_inserted` is
+    decremented by the deleted count inside the same transaction as the row
+    deletes, so the status/publish page's "N inserted" doesn't go stale
+    relative to the real row count — leaving it untouched would have been a
+    correctness bug in an already-existing display, not scope creep.
+  - `shared/src/imports.ts`: `ImportAttemptRow`, `ImportAttemptsListResult`
+    (+ `availableSeries`), `ImportAttemptsDeleteResult`, and a new
+    `DECISIONS`/`Decision` constant tuple — duplicated from
+    `api/src/db/schema.ts`'s `decisionEnum` (shared/ has no dependency on the
+    api's Drizzle schema) since the admin filter dropdown needs the full
+    fixed list regardless of what one import contains. `shared/src/index.ts`
+    switched `./imports`'s re-export from `export type *` to a plain
+    `export *` — the first shared/ runtime value (not just types), needed so
+    `DECISIONS` is usable as a value in web/, not just a type.
+  - **Dashboard**: new page `web/app/admin/[lang]/(shell)/imports/[importId]/rows/page.tsx`
+    — paginated table (checkboxes, search input debounced 300ms, serie/decision
+    `Select` filters that reset to page 1), a bulk-action bar that appears once
+    ≥1 row is selected, and a per-row delete action — both routed through the
+    same `web/components/admin/DeleteAttemptsDialog.tsx`. That dialog is a
+    plain confirm/dismiss pattern (like `CancelImportDialog`, not
+    `DeleteImportDialog`'s type-to-confirm gate): row-level deletion doesn't
+    carry the same blast radius as deleting a whole import, since the
+    original file is kept and rows are recoverable by re-running the import.
+    Selection is page-scoped only (no "select all N rows across every page")
+    — kept deliberately simple given the task spec's own pagination
+    requirement. A link to the rows page ("Browse rows") was added to the
+    import detail/publish page, shown once the import has produced a summary.
+  - i18n: new `admin.rows` block in both `fr.json` (English, per the
+    existing admin-is-English decision) and `ar.json` (genuine Arabic);
+    key-parity verified.
+  - **Tests**: `api/src/__tests__/importAttempts.test.ts` (23 new — route
+    contract for both endpoints: auth, validation, 404, 409, pagination/filter
+    param forwarding; service-level tests against a fake db using a generic
+    thenable chain mock — every chain method returns `this`, and `await` at
+    any point resolves the next queued response, which stands in for the
+    differently-shaped select chains `listImportAttempts` issues in
+    sequence). Web: `DeleteAttemptsDialog.test.tsx` (9, axe-clean, singular
+    vs. bulk copy, Escape/Cancel close without calling the API),
+    `rows/__tests__/page.test.tsx` (11 — load, empty state, not-found,
+    debounced search, both filters, pagination, select-all, bulk delete,
+    single-row delete), plus 2 new assertions on the import detail page's
+    "Browse rows" link (shown only once a summary exists).
+  - **Manually verified end-to-end against real Postgres/Redis/Meilisearch**
+    (`docker compose up -d`, a throwaway published import + 5 attempts
+    inserted directly): confirmed pagination/search/serie/decision filters
+    over curl with a real admin session; warmed both Redis cache families
+    and the Meilisearch index via the public search/result endpoints; bulk-
+    deleted 2 of 5 rows and confirmed all three stores lost exactly those
+    rows (zero ghosts) and `summary_inserted` dropped from 5 to 3; confirmed
+    the 409 `IMPORT_PROCESSING` guard while `status='processing'`, then a
+    single-row delete and the empty-body 400 once restored to `completed`.
+    `vitest run` (api, 249/249), `jest` (web, 129/129), `tsc --noEmit`
+    (api/web/shared), `next build`, and `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: import-level delete
+    (031, already built) and Meilisearch/Redis admin visibility panels
+    (034/035, separate not-yet-built tasks) — this task's delete fan-out
+    reuses their underlying primitives but adds no dashboard for them.
 
 - **Task 032 — Cancel a Running/Stuck Import (+ a Task 020 loader-atomicity fix it surfaced)**
   - **Investigated first, per the spec's own request**: found the loader
