@@ -1,3 +1,5 @@
+import type { ExamType } from './exam-type';
+
 export interface ImportUploadResult {
   importId: number;
 }
@@ -37,10 +39,11 @@ export interface ImportPreviewResponse {
 }
 
 // The confirm payload: the admin's (possibly corrected) mapping plus the
-// exam year for this file. Matches worker/mapping.py's shape — every header
-// not listed here was left "— Ignore —" in the mapping UI.
+// exam type and year for this file. Matches worker/mapping.py's shape — every
+// header not listed here was left "— Ignore —" in the mapping UI.
 export interface ImportConfirmPayload {
   mapping: Record<string, CanonicalField>;
+  examType: ExamType;
   examYear: number;
 }
 
@@ -73,6 +76,8 @@ export interface ImportSummary {
 export interface ImportStatusResult {
   originalFilename: string;
   status: ImportStatus;
+  // null until the import is confirmed (the admin picks type + year together).
+  examType: ExamType | null;
   examYear: number | null;
   // 0-100 while processing; null before the job has started.
   progress: number | null;
@@ -101,6 +106,7 @@ export interface ImportPublishResponse {
 export interface ImportListItem {
   id: number;
   originalFilename: string;
+  examType: ExamType | null;
   examYear: number | null;
   status: ImportStatus;
   progress: number | null;
@@ -141,7 +147,8 @@ export interface ImportAttemptRow {
   examNo: string;
   nameFr: string | null;
   nameAr: string | null;
-  serie: string;
+  // null for Brevet rows (no track).
+  serie: string | null;
   moyenne: string | null;
   decision: string;
 }
