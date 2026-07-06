@@ -31,7 +31,7 @@ jest.mock('@/lib/api', () => {
 function renderTabs() {
   return render(
     <I18nProvider locale="fr">
-      <SearchTabs lang="fr" years={[2024, 2023]} />
+      <SearchTabs lang="fr" examType="bac" years={[2024, 2023]} />
     </I18nProvider>,
   );
 }

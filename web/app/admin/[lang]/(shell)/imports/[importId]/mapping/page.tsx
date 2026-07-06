@@ -20,10 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type {
-  CanonicalField,
-  ImportPreviewColumn,
-  ImportPreviewResult,
+import {
+  EXAM_TYPES,
+  isExamType,
+  type CanonicalField,
+  type ExamType,
+  type ImportPreviewColumn,
+  type ImportPreviewResult,
 } from 'shared';
 
 const CANONICAL_FIELDS: CanonicalField[] = [
@@ -58,6 +61,7 @@ export default function MappingPage() {
     {},
   );
   const [year, setYear] = useState<string>('');
+  const [examType, setExamType] = useState<ExamType>('bac');
   const [submitting, setSubmitting] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
@@ -149,6 +153,7 @@ export default function MappingPage() {
           (entry): entry is [string, CanonicalField] => entry[1] !== null,
         ),
       ),
+      examType,
       examYear: Number(year),
     };
 
@@ -160,7 +165,7 @@ export default function MappingPage() {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      trackUploadStarted();
+      trackUploadStarted(examType);
       router.push(`/admin/${lang}/imports`);
     } catch {
       setConfirmError(t('admin.mapping.confirmError'));
@@ -350,6 +355,31 @@ export default function MappingPage() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="mb-6 max-w-xs space-y-1.5">
+            <label
+              htmlFor="examType"
+              className="block text-sm font-medium text-foreground"
+            >
+              {t('admin.mapping.examTypeLabel')}
+            </label>
+            <Select value={examType} onValueChange={(v) => { if (isExamType(v)) setExamType(v); }}>
+              <SelectTrigger id="examType" className="w-full h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXAM_TYPES.map((type) => (
+                  <SelectItem
+                    key={type}
+                    value={type}
+                    className="focus:bg-muted! focus:text-foreground!"
+                  >
+                    {t(`admin.mapping.examType_${type}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="mb-6 max-w-xs space-y-1.5">

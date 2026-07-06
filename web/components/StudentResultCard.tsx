@@ -177,7 +177,9 @@ export function StudentResultCard({
         <PropertyRow label={t("student.yearColumn")}>
           <span className="font-mono tabular-nums">{student.examYear}</span>
         </PropertyRow>
-        {student.serie && (
+        {/* Serie is a Bac-only concept; Brevet has no track, so the row is
+            omitted entirely rather than shown blank. */}
+        {student.examType === "bac" && student.serie && (
           <PropertyRow label={t("student.serieLabel")}>
             <span className="inline-block rounded bg-muted px-2 font-mono text-sm leading-6">
               {student.serie}

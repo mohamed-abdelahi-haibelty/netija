@@ -83,6 +83,7 @@ export default function ImportDetailPage() {
         // admin reversal, not part of the analytics plan's event set.
         if (action === 'publish' && statusRef.current?.examYear != null) {
           trackPublish({
+            examType: statusRef.current.examType,
             examYear: statusRef.current.examYear,
             attemptCount: statusRef.current.summary?.inserted ?? 0,
           });
@@ -191,6 +192,9 @@ export default function ImportDetailPage() {
       {loadStatus === 'loaded' && status && (
         <>
           <div className="border-t border-border pt-1 mb-6">
+            <PropertyRow label={t('admin.imports.colType')}>
+              {status.examType ? (status.examType === 'brevet' ? 'Brevet' : 'Bac') : '—'}
+            </PropertyRow>
             <PropertyRow label={t('admin.imports.colYear')}>
               {status.examYear ?? '—'}
             </PropertyRow>

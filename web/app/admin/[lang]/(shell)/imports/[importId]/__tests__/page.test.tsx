@@ -14,9 +14,11 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-const mockTrackPublish = jest.fn<unknown, [{ examYear: number; attemptCount: number }]>();
+const mockTrackPublish =
+  jest.fn<unknown, [{ examType: string | null; examYear: number; attemptCount: number }]>();
 jest.mock('@/lib/analytics', () => ({
-  trackPublish: (props: { examYear: number; attemptCount: number }) => mockTrackPublish(props),
+  trackPublish: (props: { examType: string | null; examYear: number; attemptCount: number }) =>
+    mockTrackPublish(props),
 }));
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
@@ -40,6 +42,7 @@ jest.mock('@/lib/api', () => {
 const COMPLETED_UNPUBLISHED_PASSED: ImportStatusResult = {
   originalFilename: 'bac_2024.xlsx',
   status: 'completed',
+  examType: 'bac',
   examYear: 2024,
   progress: 100,
   summary: { inserted: 4980, rejected: 20, duplicatesSkipped: 0 },
@@ -93,6 +96,7 @@ describe('Admin import detail / publish page', () => {
     mockApiRequest.mockResolvedValue({
       originalFilename: 'bac_2024.xlsx',
       status: 'processing',
+      examType: 'bac',
       examYear: 2024,
       progress: 40,
       summary: null,
@@ -153,7 +157,7 @@ describe('Admin import detail / publish page', () => {
       await screen.findByRole('button', { name: 'Unpublish' }),
     ).toBeInTheDocument();
     // exam_year + attempt_count (rows published) — never any row's content.
-    expect(mockTrackPublish).toHaveBeenCalledWith({ examYear: 2024, attemptCount: 4980 });
+    expect(mockTrackPublish).toHaveBeenCalledWith({ examType: 'bac', examYear: 2024, attemptCount: 4980 });
   });
 
   it('disables Publish and shows a note when the smoke check has not passed', async () => {
@@ -211,6 +215,7 @@ describe('Admin import detail / publish page', () => {
     mockApiRequest.mockResolvedValue({
       originalFilename: 'bac_2024.xlsx',
       status: 'processing',
+      examType: 'bac',
       examYear: 2024,
       progress: 40,
       summary: null,
@@ -233,6 +238,7 @@ describe('Admin import detail / publish page', () => {
     mockApiRequest.mockResolvedValue({
       originalFilename: 'bac_2024.xlsx',
       status: 'processing',
+      examType: 'bac',
       examYear: 2024,
       progress: 40,
       summary: null,
@@ -253,6 +259,7 @@ describe('Admin import detail / publish page', () => {
     mockApiRequest.mockResolvedValue({
       originalFilename: 'bac_2024.xlsx',
       status: 'cancelling',
+      examType: 'bac',
       examYear: 2024,
       progress: null,
       summary: null,
@@ -280,6 +287,7 @@ describe('Admin import detail / publish page', () => {
       return Promise.resolve({
         originalFilename: 'bac_2024.xlsx',
         status: 'processing',
+        examType: 'bac',
         examYear: 2024,
         progress: 40,
         summary: null,

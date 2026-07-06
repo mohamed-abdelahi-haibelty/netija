@@ -25,22 +25,23 @@ jest.mock('@/lib/api', () => {
 });
 
 const mockRecordSearchAttempt = jest.fn<unknown, []>();
-const mockTrackResultSearched = jest.fn<unknown, [string, { found: boolean }]>();
-const mockTrackAutocompleteShown = jest.fn<unknown, [number, number]>();
-const mockTrackAutocompleteEmpty = jest.fn<unknown, [number]>();
+const mockTrackResultSearched = jest.fn<unknown, [string, { found: boolean; examType?: string }]>();
+const mockTrackAutocompleteShown = jest.fn<unknown, [number, number, string]>();
+const mockTrackAutocompleteEmpty = jest.fn<unknown, [number, string]>();
 jest.mock('@/lib/analytics', () => ({
   recordSearchAttempt: () => mockRecordSearchAttempt(),
-  trackResultSearched: (method: string, opts: { found: boolean }) =>
+  trackResultSearched: (method: string, opts: { found: boolean; examType?: string }) =>
     mockTrackResultSearched(method, opts),
-  trackAutocompleteShown: (count: number, queryLength: number) =>
-    mockTrackAutocompleteShown(count, queryLength),
-  trackAutocompleteEmpty: (queryLength: number) => mockTrackAutocompleteEmpty(queryLength),
+  trackAutocompleteShown: (count: number, queryLength: number, examType: string) =>
+    mockTrackAutocompleteShown(count, queryLength, examType),
+  trackAutocompleteEmpty: (queryLength: number, examType: string) =>
+    mockTrackAutocompleteEmpty(queryLength, examType),
 }));
 
 function renderAutocomplete() {
   return render(
     <I18nProvider locale="fr">
-      <NameAutocomplete lang="fr" />
+      <NameAutocomplete lang="fr" examType="bac" />
     </I18nProvider>,
   );
 }
@@ -63,7 +64,7 @@ describe('NameAutocomplete analytics wiring', () => {
     await user.type(screen.getByRole('combobox'), 'moha');
     await waitFor(() => { expect(mockTrackAutocompleteShown).toHaveBeenCalled(); });
 
-    expect(mockTrackAutocompleteShown).toHaveBeenCalledWith(2, 4);
+    expect(mockTrackAutocompleteShown).toHaveBeenCalledWith(2, 4, 'bac');
     expect(mockTrackAutocompleteEmpty).not.toHaveBeenCalled();
   });
 
@@ -75,7 +76,7 @@ describe('NameAutocomplete analytics wiring', () => {
     await user.type(screen.getByRole('combobox'), 'zzzz');
     await waitFor(() => { expect(mockTrackAutocompleteEmpty).toHaveBeenCalled(); });
 
-    expect(mockTrackAutocompleteEmpty).toHaveBeenCalledWith(4);
+    expect(mockTrackAutocompleteEmpty).toHaveBeenCalledWith(4, 'bac');
     expect(mockTrackAutocompleteShown).not.toHaveBeenCalled();
   });
 
@@ -94,7 +95,7 @@ describe('NameAutocomplete analytics wiring', () => {
     await user.click(screen.getByRole('option'));
 
     expect(mockRecordSearchAttempt).toHaveBeenCalledTimes(1);
-    expect(mockTrackResultSearched).toHaveBeenCalledWith('name', { found: true });
+    expect(mockTrackResultSearched).toHaveBeenCalledWith('name', { found: true, examType: 'bac' });
     expect(mockPush).toHaveBeenCalledWith('/fr/results/abc123');
   });
 });

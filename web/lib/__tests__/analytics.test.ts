@@ -42,13 +42,13 @@ describe('track* helpers (error-handling.md / architecture.md invariant 7: no PI
   it('never call posthog.capture when NEXT_PUBLIC_POSTHOG_KEY is absent', () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
-    trackResultSearched('exam_no', { found: true, year: 2024 });
-    trackAutocompleteShown(3, 5);
-    trackAutocompleteEmpty(2);
-    trackResultOpened(2, 'SN');
-    trackUploadStarted();
-    trackUploadCompleted({ rowCount: 100, rejected: 3, durationMs: 4200 });
-    trackPublish({ examYear: 2024, attemptCount: 97 });
+    trackResultSearched('exam_no', { found: true, year: 2024, examType: 'bac' });
+    trackAutocompleteShown(3, 5, 'bac');
+    trackAutocompleteEmpty(2, 'bac');
+    trackResultOpened(2, 'bac', 'SN');
+    trackUploadStarted('bac');
+    trackUploadCompleted({ rowCount: 100, rejected: 3, durationMs: 4200, examType: 'bac' });
+    trackPublish({ examType: 'bac', examYear: 2024, attemptCount: 97 });
     trackAdminAccessAttempt('/admin/imports/[id]');
     capturePageview('/fr/results/abc', '');
 
@@ -58,60 +58,71 @@ describe('track* helpers (error-handling.md / architecture.md invariant 7: no PI
   it('fires each agreed event with a PII-free, shapes-and-counts-only payload when enabled', () => {
     process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test123';
 
-    trackResultSearched('exam_no', { found: true, year: 2024 });
+    trackResultSearched('exam_no', { found: true, year: 2024, examType: 'bac' });
     expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', {
       method: 'exam_no',
       found: true,
+      exam_type: 'bac',
       year: 2024,
     });
 
-    trackResultSearched('exam_no', { found: false, year: 2023 });
+    trackResultSearched('exam_no', { found: false, year: 2023, examType: 'brevet' });
     expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', {
       method: 'exam_no',
       found: false,
+      exam_type: 'brevet',
       year: 2023,
     });
 
     // Name searches never carry a year.
-    trackResultSearched('name', { found: true });
+    trackResultSearched('name', { found: true, examType: 'brevet' });
     expect(mockPosthog.capture).toHaveBeenCalledWith('result_searched', {
       method: 'name',
       found: true,
+      exam_type: 'brevet',
     });
 
-    trackAutocompleteShown(3, 5);
+    trackAutocompleteShown(3, 5, 'bac');
     expect(mockPosthog.capture).toHaveBeenCalledWith('autocomplete_shown', {
       count: 3,
       query_length: 5,
+      exam_type: 'bac',
     });
 
-    trackAutocompleteEmpty(2);
-    expect(mockPosthog.capture).toHaveBeenCalledWith('autocomplete_empty', { query_length: 2 });
+    trackAutocompleteEmpty(2, 'brevet');
+    expect(mockPosthog.capture).toHaveBeenCalledWith('autocomplete_empty', {
+      query_length: 2,
+      exam_type: 'brevet',
+    });
 
-    trackResultOpened(4);
+    trackResultOpened(4, 'brevet');
     expect(mockPosthog.capture).toHaveBeenCalledWith('result_opened', {
       searches_before_success: 4,
+      exam_type: 'brevet',
     });
 
-    // serie is a safe categorical, added only when the result page has one.
-    trackResultOpened(1, 'SN');
+    // serie is a safe categorical, added only for Bac (Brevet has no track).
+    trackResultOpened(1, 'bac', 'SN');
     expect(mockPosthog.capture).toHaveBeenCalledWith('result_opened', {
       searches_before_success: 1,
+      exam_type: 'bac',
       serie: 'SN',
     });
 
-    trackUploadStarted();
-    expect(mockPosthog.capture).toHaveBeenCalledWith('upload_started', undefined);
+    trackUploadStarted('bac');
+    expect(mockPosthog.capture).toHaveBeenCalledWith('upload_started', { exam_type: 'bac' });
 
-    trackUploadCompleted({ rowCount: 5000, rejected: 20, durationMs: 12345 });
+    trackUploadCompleted({ rowCount: 5000, rejected: 20, durationMs: 12345, examType: 'brevet' });
     expect(mockPosthog.capture).toHaveBeenCalledWith('upload_completed', {
       row_count: 5000,
       rejected: 20,
       duration_ms: 12345,
+      exam_type: 'brevet',
     });
 
-    trackPublish({ examYear: 2024, attemptCount: 4980 });
+    trackPublish({ examType: 'bac', examYear: 2024, attemptCount: 4980 });
     expect(mockPosthog.capture).toHaveBeenCalledWith('publish', {
+      exam_type: 'bac',
       exam_year: 2024,
       attempt_count: 4980,
     });

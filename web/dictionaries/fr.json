@@ -42,7 +42,10 @@
     "nameSearchMetaYear": "Année",
     "inputClear": "Effacer",
     "examExample": "Ex: 04938",
-    "footerDisclaimer": "Netija est une plateforme indépendante — non affiliée au ministère ni à aucune institution officielle."
+    "footerDisclaimer": "Netija est une plateforme indépendante — non affiliée au ministère ni à aucune institution officielle.",
+    "examTypeLabel": "Type d'examen",
+    "examType_bac": "Bac",
+    "examType_brevet": "Brevet (BEPC)"
   },
   "student": {
     "decisionAdmis": "Admis",
@@ -114,7 +117,8 @@
       "viewDetails": "Details",
       "failureReason": "Reason: {{reason}}",
       "loading": "Loading imports…",
-      "loadError": "Could not load imports. Please try again."
+      "loadError": "Could not load imports. Please try again.",
+      "colType": "Type"
     },
     "upload": {
       "pageTitle": "New import",
@@ -160,7 +164,10 @@
       "loadError": "Could not load the mapping preview. Please try again.",
       "unsupportedFileType": "This file could not be read. Make sure it is a valid, uncorrupted .xlsx or .xls file, then re-upload it.",
       "notFound": "This import could not be found.",
-      "confirmError": "Something went wrong confirming this import. Please try again."
+      "confirmError": "Something went wrong confirming this import. Please try again.",
+      "examTypeLabel": "Exam type",
+      "examType_bac": "Bac",
+      "examType_brevet": "Brevet (BEPC)"
     },
     "publish": {
       "pageTitle": "Publish",
