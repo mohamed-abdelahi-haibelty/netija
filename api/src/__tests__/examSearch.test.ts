@@ -43,6 +43,7 @@ const mockGetPublishedYears = vi.mocked(getPublishedYears);
 
 const RESULT_2022: ExamSearchResult = {
   slug: 'aaaa1111bbbb2222cccc3333dddd4444',
+  examType: 'bac',
   nameFr: 'Ahmed Ould Mohamed',
   nameAr: 'أحمد ولد محمد',
   examNo: '00123',
@@ -54,6 +55,7 @@ const RESULT_2022: ExamSearchResult = {
 
 const RESULT_2023: ExamSearchResult = {
   slug: 'eeee5555ffff6666aaaa7777bbbb8888',
+  examType: 'bac',
   nameFr: 'Fatima Mint Ali',
   nameAr: null,
   examNo: '00123',
@@ -61,6 +63,20 @@ const RESULT_2023: ExamSearchResult = {
   decision: 'Ajourné',
   moyenne: '09.75',
   serie: 'LM',
+};
+
+// A Brevet result sharing (year, exam_no) with a Bac result — its own slug and
+// null serie (Brevet has no track).
+const BREVET_2023: ExamSearchResult = {
+  slug: 'brevetbrevetbrevetbrevetbrevet00',
+  examType: 'brevet',
+  nameFr: 'Fatima Mint Ali',
+  nameAr: null,
+  examNo: '00123',
+  examYear: 2023,
+  decision: 'Admis',
+  moyenne: '11.20',
+  serie: null,
 };
 
 beforeEach(() => {
@@ -157,6 +173,62 @@ describe('GET /api/search/exam', () => {
     expect(body2023.data.examYear).toBe(2023);
     expect(body2022.data.nameFr).not.toBe(body2023.data.nameFr);
   });
+
+  it('defaults type to bac and forwards it to the service', async () => {
+    mockSearchByExamNo.mockResolvedValue(RESULT_2022);
+    const app = createApp();
+    await app.request('/api/search/exam?no=00123&year=2022');
+    expect(mockSearchByExamNo).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'bac',
+      '00123',
+      2022,
+    );
+  });
+
+  it('forwards type=brevet so a Bac and a Brevet sharing year+exam_no resolve independently', async () => {
+    const app = createApp();
+
+    mockSearchByExamNo.mockResolvedValueOnce(RESULT_2023);
+    const bacRes = await app.request('/api/search/exam?no=00123&year=2023&type=bac');
+    const bacBody = (await bacRes.json()) as { data: ExamSearchResult };
+
+    mockSearchByExamNo.mockResolvedValueOnce(BREVET_2023);
+    const brevetRes = await app.request('/api/search/exam?no=00123&year=2023&type=brevet');
+    const brevetBody = (await brevetRes.json()) as { data: ExamSearchResult };
+
+    // Same year + exam_no, different type -> different slug and different serie.
+    expect(bacBody.data.examType).toBe('bac');
+    expect(brevetBody.data.examType).toBe('brevet');
+    expect(bacBody.data.slug).not.toBe(brevetBody.data.slug);
+    expect(brevetBody.data.serie).toBeNull();
+    expect(mockSearchByExamNo).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.anything(),
+      'bac',
+      '00123',
+      2023,
+    );
+    expect(mockSearchByExamNo).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.anything(),
+      'brevet',
+      '00123',
+      2023,
+    );
+  });
+
+  it('returns 400 for an unknown exam type', async () => {
+    const app = createApp();
+    const res = await app.request('/api/search/exam?no=00123&year=2022&type=licence');
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockSearchByExamNo).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/search/years', () => {
@@ -177,6 +249,28 @@ describe('GET /api/search/years', () => {
     const body = (await res.json()) as { data: { years: number[] } };
     expect(body.data.years).toEqual([]);
   });
+
+  it('defaults type to bac and forwards a requested type to the service', async () => {
+    mockGetPublishedYears.mockResolvedValue([2023]);
+    const app = createApp();
+
+    await app.request('/api/search/years');
+    expect(mockGetPublishedYears).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), 'bac');
+
+    await app.request('/api/search/years?type=brevet');
+    expect(mockGetPublishedYears).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'brevet',
+    );
+  });
+
+  it('returns 400 for an unknown exam type', async () => {
+    const app = createApp();
+    const res = await app.request('/api/search/years?type=licence');
+    expect(res.status).toBe(400);
+    expect(mockGetPublishedYears).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -196,11 +290,27 @@ describe('searchByExamNo service — cache-aside', () => {
     };
     const mockDb = { select: vi.fn() };
 
-    const result = await realFn(mockDb as never, mockRedis as never, '00123', 2022);
+    const result = await realFn(mockDb as never, mockRedis as never, 'bac', '00123', 2022);
 
     expect(result).toEqual(RESULT_2022);
-    expect(mockRedis.get).toHaveBeenCalledWith('exam:2022:00123');
+    expect(mockRedis.get).toHaveBeenCalledWith('exam:bac:2022:00123');
     expect(mockDb.select).not.toHaveBeenCalled();
+  });
+
+  it('namespaces the cache key by exam type so Bac and Brevet never collide', async () => {
+    const { searchByExamNo: realFn } =
+      await vi.importActual<typeof import('../services/examSearch.js')>(
+        '../services/examSearch.js',
+      );
+
+    // Same (year, exam_no) for both types; the Brevet key must differ.
+    const bacRedis = { get: vi.fn().mockResolvedValue(JSON.stringify(RESULT_2023)), set: vi.fn() };
+    await realFn({ select: vi.fn() } as never, bacRedis as never, 'bac', '00123', 2023);
+    expect(bacRedis.get).toHaveBeenCalledWith('exam:bac:2023:00123');
+
+    const brevetRedis = { get: vi.fn().mockResolvedValue(JSON.stringify(BREVET_2023)), set: vi.fn() };
+    await realFn({ select: vi.fn() } as never, brevetRedis as never, 'brevet', '00123', 2023);
+    expect(brevetRedis.get).toHaveBeenCalledWith('exam:brevet:2023:00123');
   });
 
   it('queries the DB and writes to Redis on a cache miss, then returns the result', async () => {
@@ -235,7 +345,7 @@ describe('searchByExamNo service — cache-aside', () => {
       }),
     };
 
-    const result = await realFn(mockDb as never, mockRedis as never, '00123', 2022);
+    const result = await realFn(mockDb as never, mockRedis as never, 'bac', '00123', 2022);
 
     assertFound(result);
     expect(result.slug).toBe('aaaa1111bbbb2222cccc3333dddd4444');
@@ -244,7 +354,7 @@ describe('searchByExamNo service — cache-aside', () => {
     expect(result.moyenne).toBe('14.50');
     expect(result.serie).toBe('SN');
     expect(mockRedis.set).toHaveBeenCalledWith(
-      'exam:2022:00123',
+      'exam:bac:2022:00123',
       expect.any(String),
       'EX',
       300,
@@ -268,7 +378,7 @@ describe('searchByExamNo service — cache-aside', () => {
       }),
     };
 
-    const result = await realFn(mockDb as never, mockRedis as never, '99999', 2024);
+    const result = await realFn(mockDb as never, mockRedis as never, 'bac', '99999', 2024);
     expect(result).toBeNull();
     expect(mockRedis.set).not.toHaveBeenCalled();
   });

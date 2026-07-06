@@ -72,6 +72,7 @@ describe('GET /api/imports/:id/status', () => {
     const processing: ImportStatusResult = {
       originalFilename: 'bac_2024.xlsx',
       status: 'processing',
+      examType: 'bac',
       examYear: 2024,
       progress: 40,
       summary: null,
@@ -93,6 +94,7 @@ describe('GET /api/imports/:id/status', () => {
     const completed: ImportStatusResult = {
       originalFilename: 'bac_2024.xlsx',
       status: 'completed',
+      examType: 'bac',
       examYear: 2024,
       progress: 100,
       summary: { inserted: 4980, rejected: 20, duplicatesSkipped: 0 },
@@ -112,6 +114,7 @@ describe('GET /api/imports/:id/status', () => {
     const failed: ImportStatusResult = {
       originalFilename: 'bac_2021_bad.xlsx',
       status: 'failed',
+      examType: 'bac',
       examYear: 2024,
       progress: null,
       summary: null,
@@ -159,6 +162,7 @@ describe('getImportStatus service', () => {
     const row = {
       originalFilename: 'bac_2024.xlsx',
       status: 'completed' as const,
+      examType: 'bac',
       examYear: 2024,
       progress: 100,
       summaryInserted: 4980,
@@ -181,6 +185,7 @@ describe('getImportStatus service', () => {
     expect(result).toEqual({
       originalFilename: 'bac_2024.xlsx',
       status: 'completed',
+      examType: 'bac',
       examYear: 2024,
       progress: 100,
       summary: { inserted: 4980, rejected: 20, duplicatesSkipped: 0 },
@@ -198,6 +203,7 @@ describe('getImportStatus service', () => {
     const row = {
       originalFilename: 'bac_2025_raw.xlsx',
       status: 'pending' as const,
+      examType: 'bac',
       examYear: null,
       progress: null,
       summaryInserted: null,

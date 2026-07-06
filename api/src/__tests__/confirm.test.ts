@@ -59,6 +59,7 @@ const VALID_SESSION = {
 
 const VALID_PAYLOAD = {
   mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' },
+  examType: 'bac',
   examYear: 2024,
 };
 
@@ -146,12 +147,36 @@ describe('POST /api/imports/:id/confirm', () => {
     const res = await app.request('/api/imports/42/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mapping: VALID_PAYLOAD.mapping, examYear: 1800 }),
+      body: JSON.stringify({ mapping: VALID_PAYLOAD.mapping, examType: 'bac', examYear: 1800 }),
     });
 
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockConfirmImport).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 VALIDATION_ERROR when examType is missing', async () => {
+    const app = createApp();
+    const res = await app.request('/api/imports/42/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mapping: VALID_PAYLOAD.mapping, examYear: 2024 }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockConfirmImport).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 VALIDATION_ERROR for an unknown examType', async () => {
+    const app = createApp();
+    const res = await app.request('/api/imports/42/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mapping: VALID_PAYLOAD.mapping, examType: 'licence', examYear: 2024 }),
+    });
+
+    expect(res.status).toBe(400);
     expect(mockConfirmImport).not.toHaveBeenCalled();
   });
 
@@ -244,14 +269,14 @@ describe('confirmImport service', () => {
       db as never,
       queue as never,
       42,
-      { mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' }, examYear: 2024 },
+      { mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' }, examType: 'bac', examYear: 2024 },
     );
 
     expect(result).toEqual({ status: 'processing' });
     expect(queue.add).toHaveBeenCalledOnce();
     expect(queue.add).toHaveBeenCalledWith(
       'process-import',
-      { importId: 42, examYear: 2024, mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' } },
+      { importId: 42, examType: 'bac', examYear: 2024, mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' } },
       expect.objectContaining({ jobId: 'import-42', attempts: 3 }),
     );
     expect(insertedAliases).toEqual([
@@ -267,7 +292,7 @@ describe('confirmImport service', () => {
 
     const { db } = makeFakeDb('pending');
     const queue = { add: vi.fn().mockResolvedValue(undefined) };
-    const payload = { mapping: { NODOSS: 'exam_no' as const, NOMPL: 'name_fr' as const }, examYear: 2024 };
+    const payload = { mapping: { NODOSS: 'exam_no' as const, NOMPL: 'name_fr' as const }, examType: 'bac' as const, examYear: 2024 };
 
     const first = await realConfirmImport(db as never, queue as never, 42, payload);
     const second = await realConfirmImport(db as never, queue as never, 42, payload);
@@ -289,7 +314,7 @@ describe('confirmImport service', () => {
       db as never,
       queue as never,
       42,
-      { mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' }, examYear: 2024 },
+      { mapping: { NODOSS: 'exam_no', NOMPL: 'name_fr' }, examType: 'bac', examYear: 2024 },
     );
 
     expect(result).toEqual({ status: 'completed' });
@@ -310,7 +335,7 @@ describe('confirmImport service', () => {
       db as never,
       queue as never,
       999,
-      { mapping: { NODOSS: 'exam_no' }, examYear: 2024 },
+      { mapping: { NODOSS: 'exam_no' }, examType: 'bac', examYear: 2024 },
     );
 
     expect(result).toBeNull();
@@ -325,7 +350,7 @@ describe('confirmImport service', () => {
     const queue = { add: vi.fn() };
 
     await expect(
-      realConfirmImport(db as never, queue as never, 42, { mapping: { NOMPL: 'name_fr' }, examYear: 2024 }),
+      realConfirmImport(db as never, queue as never, 42, { mapping: { NOMPL: 'name_fr' }, examType: 'bac', examYear: 2024 }),
     ).rejects.toBeInstanceOf(RealError);
     expect(queue.add).not.toHaveBeenCalled();
   });
@@ -338,7 +363,7 @@ describe('confirmImport service', () => {
     const queue = { add: vi.fn() };
 
     await expect(
-      realConfirmImport(db as never, queue as never, 42, { mapping: { NODOSS: 'exam_no' }, examYear: 2024 }),
+      realConfirmImport(db as never, queue as never, 42, { mapping: { NODOSS: 'exam_no' }, examType: 'bac', examYear: 2024 }),
     ).rejects.toBeInstanceOf(RealError);
     expect(queue.add).not.toHaveBeenCalled();
   });

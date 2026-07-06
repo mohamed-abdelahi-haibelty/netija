@@ -413,8 +413,8 @@ describe('deleteImportAttempts service', () => {
         call += 1;
         if (call === 1) return makeChain([{ id: 42, status: 'completed', summaryInserted: 100 }]);
         return makeChain([
-          { id: 1, examYear: 2024, examNo: '00001', slug: 'slug1' },
-          { id: 2, examYear: 2024, examNo: '00002', slug: 'slug2' },
+          { id: 1, examType: 'bac', examYear: 2024, examNo: '00001', slug: 'slug1' },
+          { id: 2, examType: 'bac', examYear: 2024, examNo: '00002', slug: 'slug2' },
         ]);
       },
       transaction: (cb: (tx: unknown) => Promise<void>) => cb(tx),
@@ -446,7 +446,7 @@ describe('deleteImportAttempts service', () => {
     expect(deletedTables).toEqual([attemptsTable]);
     expect(updatedSets).toEqual([expect.objectContaining({ summaryInserted: 98 })]);
     expect(pipelineOps).toEqual(
-      expect.arrayContaining(['exam:2024:00001', 'result:slug1', 'exam:2024:00002', 'result:slug2']),
+      expect.arrayContaining(['exam:bac:2024:00001', 'result:slug1', 'exam:bac:2024:00002', 'result:slug2']),
     );
   });
 
@@ -469,7 +469,7 @@ describe('deleteImportAttempts service', () => {
       select: () => {
         call += 1;
         if (call === 1) return makeChain([{ id: 42, status: 'pending', summaryInserted: null }]);
-        return makeChain([{ id: 1, examYear: 2024, examNo: '00001', slug: 'slug1' }]);
+        return makeChain([{ id: 1, examType: 'bac', examYear: 2024, examNo: '00001', slug: 'slug1' }]);
       },
       transaction: (cb: (tx: unknown) => Promise<void>) => cb(tx),
       execute: vi.fn().mockResolvedValue({ rows: [] }),

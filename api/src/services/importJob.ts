@@ -83,7 +83,16 @@ export async function runImportJob(db: Db, data: ImportJobData): Promise<void> {
     stdout = await runPythonScript(
       PYTHON_BIN,
       WORKER_SCRIPT,
-      ['--file-id', String(data.importId), '--exam-year', String(data.examYear), '--mapping', JSON.stringify(data.mapping)],
+      [
+        '--file-id',
+        String(data.importId),
+        '--exam-type',
+        data.examType,
+        '--exam-year',
+        String(data.examYear),
+        '--mapping',
+        JSON.stringify(data.mapping),
+      ],
       (pid) => {
         // Fire-and-forget: a failure to persist the pid only means a
         // force-kill has nothing to target, cooperative cancellation still

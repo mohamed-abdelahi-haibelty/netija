@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../types.js';
-import { examSearchQuerySchema } from '../schemas/examSearch.js';
+import { examSearchQuerySchema, examTypeQuerySchema } from '../schemas/examSearch.js';
 import { nameSearchQuerySchema } from '../schemas/nameSearch.js';
 import { searchByExamNo, getPublishedYears } from '../services/examSearch.js';
 import { searchByName } from '../services/nameSearch.js';
@@ -39,8 +39,8 @@ search.get(
     }
   }),
   async (c) => {
-    const { no, year } = c.req.valid('query');
-    const result = await searchByExamNo(db, redis, no, year);
+    const { no, year, type } = c.req.valid('query');
+    const result = await searchByExamNo(db, redis, type, no, year);
     if (result === null) {
       throw new HTTPException(404, {
         message: 'No result found for this exam number and year.',
@@ -51,10 +51,31 @@ search.get(
   },
 );
 
-search.get('/years', async (c) => {
-  const years = await getPublishedYears(db, redis);
-  return c.json({ data: { years } }, 200);
-});
+search.get(
+  '/years',
+  zValidator('query', examTypeQuerySchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { type } = c.req.valid('query');
+    const years = await getPublishedYears(db, redis, type);
+    return c.json({ data: { years } }, 200);
+  },
+);
 
 search.get(
   '/name',
@@ -76,8 +97,8 @@ search.get(
     }
   }),
   async (c) => {
-    const { q } = c.req.valid('query');
-    const suggestions = await searchByName(meili, q);
+    const { q, type } = c.req.valid('query');
+    const suggestions = await searchByName(meili, q, type);
     return c.json({ data: { suggestions } }, 200);
   },
 );

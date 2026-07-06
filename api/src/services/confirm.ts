@@ -72,7 +72,13 @@ export async function confirmImport(
 
   const [claimed] = await db
     .update(imports)
-    .set({ status: 'processing', examYear: payload.examYear, progress: 0, updatedAt: new Date() })
+    .set({
+      status: 'processing',
+      examType: payload.examType,
+      examYear: payload.examYear,
+      progress: 0,
+      updatedAt: new Date(),
+    })
     .where(and(eq(imports.id, importId), eq(imports.status, 'pending')))
     .returning({ id: imports.id, status: imports.status });
 
@@ -84,7 +90,7 @@ export async function confirmImport(
 
   await queue.add(
     'process-import',
-    { importId, examYear: payload.examYear, mapping: payload.mapping },
+    { importId, examType: payload.examType, examYear: payload.examYear, mapping: payload.mapping },
     {
       jobId: `import-${String(importId)}`,
       attempts: IMPORT_JOB_ATTEMPTS,

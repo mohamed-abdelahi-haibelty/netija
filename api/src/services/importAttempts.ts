@@ -73,7 +73,9 @@ export async function listImportAttempts(
     total,
     page: params.page,
     pageSize: params.pageSize,
-    availableSeries: seriesRows.map((r) => r.serie),
+    // Brevet imports have no serie (null), so those are dropped — the filter
+    // dropdown only ever offers real track values.
+    availableSeries: seriesRows.map((r) => r.serie).filter((s): s is string => s !== null),
   };
 }
 
@@ -107,7 +109,13 @@ export async function deleteImportAttempts(
   // erroring, so a stale client-side selection can't delete someone else's
   // rows or blow up on a row deleted a moment ago by another admin.
   const targetRows = await db
-    .select({ id: attempts.id, examYear: attempts.examYear, examNo: attempts.examNo, slug: attempts.publicSlug })
+    .select({
+      id: attempts.id,
+      examType: attempts.examType,
+      examYear: attempts.examYear,
+      examNo: attempts.examNo,
+      slug: attempts.publicSlug,
+    })
     .from(attempts)
     .where(and(eq(attempts.importId, importId), inArray(attempts.id, attemptIds)));
 
@@ -132,7 +140,7 @@ export async function deleteImportAttempts(
 
   const pipeline = redis.pipeline();
   for (const row of targetRows) {
-    pipeline.del(examCacheKey(row.examYear, row.examNo));
+    pipeline.del(examCacheKey(row.examType, row.examYear, row.examNo));
     pipeline.del(resultCacheKey(row.slug));
   }
   await pipeline.exec();

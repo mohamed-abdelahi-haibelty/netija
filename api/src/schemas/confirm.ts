@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EXAM_TYPES } from 'shared';
 
 // The 6 canonical fields the pipeline ever stores (shared/src/imports.ts's
 // CanonicalField) — kept as a literal tuple here since Zod needs its own
@@ -9,6 +10,8 @@ export const confirmImportBodySchema = z.object({
   mapping: z
     .record(z.string().min(1), z.enum(CANONICAL_FIELDS))
     .refine((m) => Object.keys(m).length > 0, { message: 'mapping must not be empty' }),
+  // The admin picks the exam type alongside the year on the mapping screen.
+  examType: z.enum(EXAM_TYPES),
   examYear: z.coerce
     .number({ invalid_type_error: 'examYear must be a number' })
     .int('examYear must be an integer')

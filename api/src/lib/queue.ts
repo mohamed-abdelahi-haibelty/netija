@@ -1,5 +1,5 @@
 import { Queue, type ConnectionOptions } from 'bullmq';
-import type { CanonicalField } from 'shared';
+import type { CanonicalField, ExamType } from 'shared';
 
 const url = process.env['REDIS_URL'];
 if (!url) throw new Error('REDIS_URL environment variable is required');
@@ -33,6 +33,7 @@ export const IMPORT_JOB_BACKOFF_MS = 2000;
 
 export interface ImportJobData {
   importId: number;
+  examType: ExamType;
   examYear: number;
   mapping: Record<string, CanonicalField>;
 }

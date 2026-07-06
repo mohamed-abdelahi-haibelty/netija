@@ -73,6 +73,7 @@ const SLUG = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
 
 const RESULT: StudentResult = {
   slug: SLUG,
+  examType: 'bac',
   examYear: 2023,
   examNo: '00101',
   nameFr: 'Ahmed Ould Mohamed',

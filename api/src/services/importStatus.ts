@@ -12,6 +12,7 @@ export async function getImportStatus(db: Db, importId: number): Promise<ImportS
     .select({
       originalFilename: imports.originalFilename,
       status: imports.status,
+      examType: imports.examType,
       examYear: imports.examYear,
       progress: imports.progress,
       summaryInserted: imports.summaryInserted,
@@ -38,6 +39,7 @@ export async function getImportStatus(db: Db, importId: number): Promise<ImportS
   return {
     originalFilename: row.originalFilename,
     status: row.status,
+    examType: row.examType,
     examYear: row.examYear,
     progress: row.progress,
     summary,
