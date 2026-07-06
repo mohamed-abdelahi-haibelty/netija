@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FileText, LogOut, ExternalLink, Search } from 'lucide-react';
+import { Database, FileText, LogOut, ExternalLink, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Locale = 'ar' | 'fr';
@@ -56,6 +56,11 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
       href: `/admin/${lang}/search-index`,
       label: lang === 'ar' ? 'فهرس البحث' : 'Search Index',
       icon: Search,
+    },
+    {
+      href: `/admin/${lang}/cache`,
+      label: lang === 'ar' ? 'التخزين المؤقت' : 'Cache',
+      icon: Database,
     },
   ];
 

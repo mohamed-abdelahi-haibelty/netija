@@ -6,3 +6,4 @@ export type * from './name-search';
 export type * from './search';
 export type * from './student';
 export type * from './searchIndex';
+export type * from './cache';

@@ -8,11 +8,107 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — tasks 031, 032, 033, and 034 are complete. Task 025 (rate
+- None — tasks 031, 032, 033, 034, and 035 are complete. Task 025 (rate
   limiting and cache headers) is implemented on its own branch, not yet
   merged into main.
 
 ## Completed
+
+- **Task 035 — Redis Cache Visibility and Invalidation from the Dashboard**
+  - **Scope guard is the load-bearing decision**: `api/src/services/cacheAdmin.ts`
+    exposes the result cache strictly through the two key families this
+    project actually caches results under — `exam:{year}:{examNo}`
+    (`examSearch.ts`) and `result:{slug}` (`studentPage.ts`). A single
+    `assertScoped` check (both key names and patterns must start with
+    `exam:` or `result:`) runs before any Redis call in every exported
+    function, throwing `CacheKeyOutOfScopeError` — never silently ignored,
+    never a generic 500 (error-handling.md: this is an expected, deliberate
+    guard rail). The task spec's hard requirement ("never expose or allow
+    touching non-result Redis data — rate-limit counters, BullMQ
+    internals") is enforced this way rather than by, say, an allowlist of
+    exact keys, so it holds for pattern-based operations too (`exam:2024:*`
+    is fine; `bull:*` or `ratelimit:*` throw before any SCAN runs).
+  - **SCAN, never KEYS**: every listing/counting/flushing path walks the
+    keyspace with cursor-based `SCAN ... MATCH ... COUNT 200` (a small
+    `scanKeys` helper), not the blocking `KEYS` command — this runs against
+    the same Redis instance serving live public search/result traffic.
+    `getCacheStatus` counts `exam:*` and `result:*` separately via two
+    scans; `listCacheKeys` scans (both families merged if no pattern, or
+    just the matching family if one is given), sorts for stable pagination
+    (SCAN itself gives no ordering guarantee), slices the page, then
+    pipelines `TTL` calls for just that page's keys — never all matching
+    keys, so a large result cache doesn't turn a single list request into
+    N blocking round trips.
+  - **The three invalidation shapes from the task spec, one function**:
+    `flushResultCache(redis, pattern?)` — no pattern flushes every scoped
+    key across both families ("all result keys"); a pattern flushes just
+    the matching subset ("by pattern"), still scope-guarded. A single key
+    goes through the separate `invalidateCacheKey`, matching the API's own
+    `DELETE /keys/:key` vs. `POST /flush` route split.
+  - **Routes**: new `api/src/routes/cache.ts` mounted at `/api/cache`
+    (auth-gated via `requireSession`, matching every other admin route):
+    `GET /status`, `GET /keys` (paginated, optional `pattern`),
+    `GET /keys/:key` (inspect — value + ttl), `DELETE /keys/:key`
+    (invalidate one), `POST /flush` (body `{pattern?}`). Two new canonical
+    error codes added to error-handling.md: `CACHE_KEY_OUT_OF_SCOPE` (400,
+    thrown for any out-of-scope key/pattern) and `CACHE_KEY_NOT_FOUND`
+    (404, an inspect request for a key that already expired or never
+    existed).
+  - **`shared/src/cache.ts`** (new): `CacheStatusResult`, `CacheKeyEntry`/
+    `CacheKeysListResult`, `CacheKeyInspectResult`, `CacheInvalidateResult`,
+    `CacheFlushResult`, plus their `{data}`-wrapped response types.
+  - **Dashboard**: new page `web/app/admin/[lang]/(shell)/cache/page.tsx`
+    — a status panel (exam-key count, result-key count, total, via
+    `PropertyRow`) with its own refresh button; a key list with a debounced
+    pattern filter (an out-of-scope pattern like `bull:*` surfaces the
+    API's `CACHE_KEY_OUT_OF_SCOPE` message inline under the input, table
+    contents untouched, rather than a full-page error state) and inline
+    per-row "Inspect" (expands a detail row fetching and pretty-printing
+    the key's JSON value on demand — the list endpoint deliberately never
+    returns values, only key+ttl, to keep listing cheap) and "Invalidate"
+    actions. A top "Flush result cache" / "Flush matching keys" button
+    (label depends on whether the pattern filter is active) opens
+    `FlushCacheDialog`; per-row invalidate opens `InvalidateCacheKeyDialog`.
+    Both are plain confirm/dismiss dialogs, like `CancelImportDialog`/
+    `ReindexDialog` — invalidating or flushing only ever clears
+    rebuildable derived cache entries (architecture.md invariant 6), never
+    a permanent-data-loss action worth a type-to-confirm gate. New "Cache"
+    sidebar nav item (`AdminSidebar.tsx`). i18n: new `admin.cache` block in
+    both `fr.json` (English, per the existing admin-is-English decision)
+    and `ar.json` (genuine Arabic); key-parity verified (40 keys each).
+  - **Tests**: `api/src/__tests__/cache.test.ts` (32 new — route contract
+    for all five endpoints: auth, validation, out-of-scope pattern/key
+    rejection, 404 for an expired/missing key; service-level tests against
+    a fake ioredis client whose `scan` genuinely pages through a fixed
+    keyspace rather than returning everything in one call, proving
+    pagination doesn't secretly rely on an unbounded scan). Web:
+    `InvalidateCacheKeyDialog.test.tsx` (7) and `FlushCacheDialog.test.tsx`
+    (7), both axe-clean, Escape/Cancel close without calling the API;
+    `cache/__tests__/page.test.tsx` (11 — load, axe-clean, status load
+    error, empty state, inline out-of-scope pattern error, debounced
+    pattern filter, pagination, inspect-then-collapse, not-found on
+    inspecting an expired key, the full invalidate-then-reload flow, and
+    the full flush-then-reload flow).
+  - **Manually verified end-to-end against real Redis** (`docker compose
+    up -d`): confirmed `GET /api/cache/status`, `GET /api/cache/keys`, and
+    `POST /api/cache/flush` all return 401 with no session against the
+    real running server; then, exercising `cacheAdmin.ts`'s real
+    implementation directly against real Redis (seeded `exam:`, `result:`,
+    a `ratelimit:`, and a `bull:` key side by side) — confirmed the key
+    list and status counts never include the `ratelimit:`/`bull:` keys;
+    confirmed inspecting or invalidating either of them throws
+    `CacheKeyOutOfScopeError` *before* touching Redis; confirmed a real
+    `exam:` key's inspected value round-trips correctly and invalidating
+    it actually deletes it from Redis; confirmed `flushResultCache()` with
+    no pattern deletes every `exam:`/`result:` key while leaving the
+    `ratelimit:`/`bull:` keys completely untouched. `vitest run` (api,
+    277/277), `jest` (web, 158/158), `tsc --noEmit` (api/web/shared),
+    `next build`, and `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: rate-limit counter and
+    BullMQ internals visibility (the spec explicitly says these must stay
+    untouchable, not merely unexposed by default) — task 025's rate
+    limiting isn't merged into main yet either, so there was nothing yet
+    to build a parallel panel for.
 
 - **Task 034 — Meilisearch Visibility and Reindex from the Dashboard**
   - **`api/src/services/meiliIndex.ts`**: `buildNameIndex`'s document shape
