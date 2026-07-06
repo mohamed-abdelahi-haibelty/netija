@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { Ban, ChevronLeft, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Ban, ChevronLeft, ChevronRight, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { trackPublish } from '@/lib/analytics';
@@ -211,6 +211,17 @@ export default function ImportDetailPage() {
                 {t('admin.imports.summaryRejected', {
                   count: status.summary.rejected,
                 })}
+              </PropertyRow>
+            )}
+            {status.summary && (
+              <PropertyRow label={t('admin.rows.pageTitle')}>
+                <a
+                  href={`/admin/${lang}/imports/${importId}/rows`}
+                  className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  {t('admin.rows.browseLink')}
+                  <ChevronRight className="size-3.5" aria-hidden />
+                </a>
               </PropertyRow>
             )}
             {status.failureReason && (

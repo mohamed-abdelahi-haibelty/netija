@@ -19,11 +19,13 @@ import { getRejectReport, toRejectReportCsv } from '../services/rejects.js';
 import { publishImport, unpublishImport, SmokeNotPassedError } from '../services/publish.js';
 import { deleteImport, ImportProcessingError } from '../services/deleteImport.js';
 import { cancelImport, ImportNotCancellableError } from '../services/cancelImport.js';
+import { listImportAttempts, deleteImportAttempts } from '../services/importAttempts.js';
 import { importQueue } from '../lib/queue.js';
 import { meili } from '../lib/meili.js';
 import { redis } from '../lib/redis.js';
 import { importIdParamSchema } from '../schemas/preview.js';
 import { confirmImportBodySchema } from '../schemas/confirm.js';
+import { listImportAttemptsQuerySchema, deleteImportAttemptsBodySchema } from '../schemas/attempts.js';
 
 // Shared volume between api and worker (see architecture.md). Defaults to the
 // repo-root `uploads/` folder for local dev, where both processes run with
@@ -241,6 +243,119 @@ imports.get(
     c.header('Content-Disposition', `attachment; filename="import-${String(id)}-rejects.csv"`);
     c.header('Cache-Control', 'no-store');
     return c.body(toRejectReportCsv(rows));
+  },
+);
+
+imports.get(
+  '/:id/attempts',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  zValidator('query', listImportAttemptsQuerySchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const result = await listImportAttempts(db, id, query);
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
+  },
+);
+
+imports.delete(
+  '/:id/attempts',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  zValidator('json', deleteImportAttemptsBodySchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid request body',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const { attemptIds } = c.req.valid('json');
+
+    let result;
+    try {
+      result = await deleteImportAttempts(db, meili, redis, id, attemptIds);
+    } catch (err) {
+      if (err instanceof ImportProcessingError) {
+        throw new HTTPException(409, {
+          message: err.message,
+          cause: { code: 'IMPORT_PROCESSING' },
+        });
+      }
+      throw err;
+    }
+
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
   },
 );
 

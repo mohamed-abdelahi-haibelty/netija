@@ -86,7 +86,11 @@ resolution, no person entity, no cross-year merging, and no
     `worker_pid` (the currently-running worker.py subprocess's OS
     pid, set by the queue worker and cleared when it exits) — lets
     the API process, which does NOT spawn that subprocess itself,
-    signal it directly for cancellation.
+    signal it directly for cancellation. `summary_inserted` is kept
+    in sync with the real row count after row-level deletion (task
+    033: deleting attempts within an import decrements it in the
+    same transaction) — it reflects "rows currently in this import,"
+    not just "rows the loader originally wrote."
   - `rejects` — per-import rejected rows with reasons (raw row kept
     for audit).
   - `column_aliases` — learned header to canonical field mappings.
