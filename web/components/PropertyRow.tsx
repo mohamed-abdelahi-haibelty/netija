@@ -12,7 +12,7 @@ export const PropertyRow = memo(function PropertyRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="inline-flex items-start min-h-8 gap-0 -mx-2 px-2 py-0.5 rounded-sm group hover:bg-muted/50 transition-colors duration-100">
+    <div className="flex items-start min-h-8 gap-0 -mx-2 px-2 py-0.5 rounded-sm group hover:bg-muted/50 transition-colors duration-100">
       <span className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0 w-36 sm:w-44 pt-0.5">
         {Icon && <Icon className="size-3.5 shrink-0" aria-hidden />}
         {label}
