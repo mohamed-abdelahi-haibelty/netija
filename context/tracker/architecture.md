@@ -103,8 +103,21 @@ resolution, no person entity, no cross-year merging, and no
 - **Meilisearch**: derived search index with one document PER
   PUBLISHED ATTEMPT (not per person). The document id IS the
   attempt's public_slug; the payload carries name_fr, name_ar,
-  exam_year, exam_no, and serie. Rebuildable from Postgres at any
-  time; never the source of truth; only published years are indexed.
+  exam_year, exam_no, serie, and import_id (task 034: not searched
+  or displayed publicly, only used so the admin index-inspection
+  panel can filter documents down to one import exactly, rather
+  than guessing from exam_year alone). `examYear`/`importId` are
+  filterable, `examYear` is sortable, `nameFr`/`nameAr` are
+  searchable — all set by the same builder
+  (`api/src/services/meiliIndex.ts#buildNameIndex`) every rebuild.
+  Rebuildable from Postgres at any time; never the source of truth;
+  only published years are indexed. An auth-gated admin panel
+  (`/admin/[lang]/search-index`, task 034) exposes index status
+  (document count, health, settings) and read-only document
+  inspection (by import or free-text query), plus a manual
+  "Reindex" action that reuses `buildNameIndex` synchronously —
+  the same pattern publish/unpublish/delete already use for
+  full-index rebuilds.
 - **Filesystem volume**: original uploaded Excel files (kept —
   they are the ultimate recovery source).
 

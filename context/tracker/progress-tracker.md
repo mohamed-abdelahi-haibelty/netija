@@ -8,11 +8,97 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — tasks 031, 032, and 033 are complete. Task 025 (rate limiting
-  and cache headers) is implemented on its own branch, not yet merged
-  into main.
+- None — tasks 031, 032, 033, and 034 are complete. Task 025 (rate
+  limiting and cache headers) is implemented on its own branch, not yet
+  merged into main.
 
 ## Completed
+
+- **Task 034 — Meilisearch Visibility and Reindex from the Dashboard**
+  - **`api/src/services/meiliIndex.ts`**: `buildNameIndex`'s document shape
+    gained `importId` (cast `a.import_id::int` in the raw SQL — bigint
+    columns come back as strings from node-postgres on a raw `db.execute`,
+    unlike Drizzle's query builder which converts `mode: 'number'` bigints
+    itself) and its `updateSettings` call gained
+    `filterableAttributes: ['importId', 'examYear']`. `importId` is never
+    searched or shown publicly — it exists purely so the new admin
+    inspection panel can filter documents down to exactly one import,
+    rather than assuming a 1:1 exam-year-to-import mapping that isn't
+    actually guaranteed by the schema.
+  - **`api/src/services/searchIndexAdmin.ts`** (new): `getSearchIndexStatus`
+    (Meilisearch's `getStats`/`getSettings`/`health()`, all read-only) and
+    `listSearchIndexDocuments(db, meili, {importId?, q?, page, pageSize})` —
+    scoped to one import (validated against Postgres first; returns `null` →
+    404 for an unknown id), a free-text query (the same `index.search` the
+    public name-search endpoint runs), or neither (a plain paginated browse).
+    The schema (`api/src/schemas/searchIndex.ts`) rejects importId+q
+    together — an ambiguous request, not a combined filter.
+    **Real-service bug found and fixed during manual verification**:
+    Meilisearch's `GET /documents` endpoint (used whenever no filter is
+    given) doesn't accept a `sort` parameter at all — only the `POST
+    .../documents/fetch` variant (triggered by the client library once a
+    `filter` is present) does; requesting `sort` unfiltered threw a 400 from
+    Meilisearch that surfaced as a generic 500 through the app's central
+    error handler. Fixed by dropping `sort` from the call entirely (ordering
+    isn't a requirement here). `reindexSearchIndex` is a thin wrapper that
+    just calls `buildNameIndex` — reused exactly as the task spec asked,
+    never reimplemented.
+  - **Routes**: new `api/src/routes/searchIndex.ts` mounted at
+    `/api/search-index` (auth-gated via the existing `requireSession`
+    middleware, like every other admin route): `GET /status`,
+    `GET /documents`, `POST /reindex`. The reindex endpoint runs
+    `buildNameIndex` synchronously in the request/response cycle — the same
+    pattern publish/unpublish/delete already use for full-index rebuilds
+    (not a BullMQ job); the dashboard shows a disabled-button "Rebuilding…"
+    spinner state for the one round trip rather than polling a background
+    job, an explicit, documented simplification given this project's scale
+    (single admin, VPS-hosted, no separate staging).
+  - **`shared/src/searchIndex.ts`** (new): `SearchIndexStatusResult`,
+    `SearchIndexDocument`/`SearchIndexDocumentsResult`,
+    `SearchIndexReindexResult`, plus their `{data}`-wrapped response types.
+  - **Dashboard**: new page `web/app/admin/[lang]/(shell)/search-index/page.tsx`
+    — a status panel (document count, health, indexing state, and the three
+    attribute lists, via `PropertyRow`) with its own refresh button; a
+    document inspector with two mutually-exclusive filter inputs (Import ID,
+    free-text search — typing into one clears the other's input immediately,
+    since the API rejects both at once) and a paginated table; a "Reindex"
+    button opening `web/components/admin/ReindexDialog.tsx` (a plain
+    confirm/dismiss dialog, like `CancelImportDialog` — reindexing only ever
+    rebuilds derived, rebuildable data, so it carries no permanent-data-loss
+    risk worth a type-to-confirm gate). A successful reindex shows an inline
+    success notice with the new document count and reloads both the status
+    panel and the document list. New "Search Index" sidebar nav item
+    (`AdminSidebar.tsx`). i18n: new `admin.searchIndex` block in both
+    `fr.json` (English, per the existing admin-is-English decision) and
+    `ar.json` (genuine Arabic); key-parity verified.
+  - **Tests**: `api/src/__tests__/searchIndex.test.ts` (19 new — route
+    contract for all three endpoints: auth, validation including the
+    importId+q conflict, 404, param forwarding; service-level tests for
+    `getSearchIndexStatus`/`listSearchIndexDocuments`/`reindexSearchIndex`
+    against mocked Meilisearch/db clients). Web:
+    `ReindexDialog.test.tsx` (7, axe-clean, Escape/Cancel close without
+    calling the API, success and failure paths) and `search-index/page.test.tsx`
+    (11 — load, axe-clean, status load error, empty state, not-found for an
+    unknown import filter, mutual exclusivity between the two filter inputs,
+    pagination, and the full reindex-then-reload flow).
+  - **Manually verified end-to-end against real Postgres/Meilisearch**
+    (`docker compose up -d`, a throwaway published import + 2 attempts
+    inserted directly): confirmed the status panel reflects real document
+    counts and settings; confirmed document inspection by importId returns
+    exactly that import's documents, by free-text query returns only
+    matching names, and unfiltered browse returns everything; confirmed
+    reindex rebuilds correctly against real data (document count 0 → 2);
+    confirmed unpublishing the import and reindexing drops it back to 0
+    documents (only published years are ever indexed); confirmed 401
+    unauthenticated, 400 for the importId+q conflict, and 404
+    `IMPORT_NOT_FOUND` for an unknown import filter, all against the real
+    running server (this is where the `sort`-on-`GET /documents` bug above
+    was actually caught — the unit tests' mocked Meilisearch client
+    couldn't have caught it). `vitest run` (api, 245/245), `jest` (web,
+    133/133), `tsc --noEmit` (api/web/shared), `next build`, and
+    `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: the Redis cache
+    visibility/invalidation panel (035, separate not-yet-built task).
 
 - **Task 033 — Browse, Filter, and Delete Rows Within an Import**
   - `GET /api/imports/:id/attempts` (`api/src/services/importAttempts.ts#listImportAttempts`):
