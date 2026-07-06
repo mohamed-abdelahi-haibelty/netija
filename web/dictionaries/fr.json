@@ -175,6 +175,17 @@
       "smokeBlockedNote": "Publishing is blocked until the smoke check passes.",
       "publishError": "Something went wrong publishing this year. Please try again.",
       "unpublishError": "Something went wrong unpublishing this year. Please try again."
+    },
+    "delete": {
+      "action": "Delete",
+      "dialogTitle": "Delete import",
+      "dialogBody": "This permanently deletes {{filename}} and {{count}} attempts it produced, from the database, search index, and cache. The original uploaded file is kept. This cannot be undone.",
+      "dialogBodyWithYear": "This permanently deletes {{filename}} (year {{year}}) and {{count}} attempts it produced, from the database, search index, and cache. The original uploaded file is kept. This cannot be undone.",
+      "confirmLabel": "Type {{filename}} to confirm",
+      "cancel": "Cancel",
+      "confirmButton": "Delete import",
+      "error": "Something went wrong deleting this import. Please try again.",
+      "processingNote": "This import is still processing. Cancel it first before deleting."
     }
   }
 }

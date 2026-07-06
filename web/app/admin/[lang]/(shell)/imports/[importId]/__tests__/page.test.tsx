@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -8,8 +8,10 @@ import type { ImportStatusResult } from 'shared';
 
 expect.extend(toHaveNoViolations);
 
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useParams: () => ({ lang: 'fr', importId: '42' }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 const mockTrackPublish = jest.fn<unknown, [{ examYear: number; attemptCount: number }]>();
@@ -36,6 +38,7 @@ jest.mock('@/lib/api', () => {
 });
 
 const COMPLETED_UNPUBLISHED_PASSED: ImportStatusResult = {
+  originalFilename: 'bac_2024.xlsx',
   status: 'completed',
   examYear: 2024,
   progress: 100,
@@ -56,6 +59,7 @@ function renderPage() {
 beforeEach(() => {
   mockApiRequest.mockReset();
   mockTrackPublish.mockClear();
+  mockPush.mockClear();
   // jsdom doesn't implement fetch; the page also fires a same-origin,
   // best-effort call to the Next.js revalidate-published-years route
   // handler after a successful publish/unpublish (see page.tsx), which
@@ -180,6 +184,7 @@ describe('Admin import detail / publish page', () => {
 
   it('shows no publish controls before the import has completed', async () => {
     mockApiRequest.mockResolvedValue({
+      originalFilename: 'bac_2024.xlsx',
       status: 'processing',
       examYear: 2024,
       progress: 40,
@@ -197,5 +202,80 @@ describe('Admin import detail / publish page', () => {
     expect(
       screen.queryByRole('button', { name: 'Unpublish' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows a "still processing" note instead of a delete button while the import is processing', async () => {
+    mockApiRequest.mockResolvedValue({
+      originalFilename: 'bac_2024.xlsx',
+      status: 'processing',
+      examYear: 2024,
+      progress: 40,
+      summary: null,
+      smokePassed: null,
+      published: false,
+      failureReason: null,
+    });
+    renderPage();
+
+    await screen.findByText('Processing');
+    expect(
+      screen.queryByRole('button', { name: /Delete/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the delete confirmation dialog, requires typing the exact filename, and deletes on confirm', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockImplementation((path: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE') return Promise.resolve({ deletedAttempts: 4980 });
+      return Promise.resolve(COMPLETED_UNPUBLISHED_PASSED);
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(
+      within(dialog).getAllByText(/bac_2024\.xlsx/).length,
+    ).toBeGreaterThan(0);
+
+    const deleteButton = within(dialog).getByRole('button', {
+      name: 'Delete import',
+    });
+    expect(deleteButton).toBeDisabled();
+
+    const input = within(dialog).getByLabelText(/Type bac_2024\.xlsx to confirm/);
+    await user.type(input, 'bac_2024.xlsx');
+    expect(deleteButton).toBeEnabled();
+
+    await user.click(deleteButton);
+
+    await waitFor(() => {
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        '/api/imports/42',
+        expect.objectContaining({ method: 'DELETE' }),
+      );
+    });
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/admin/fr/imports');
+    });
+  });
+
+  it('shows an inline error and keeps the dialog open when delete fails', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockImplementation((path: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE')
+        return Promise.reject(new ApiClientError('INTERNAL', 'boom'));
+      return Promise.resolve(COMPLETED_UNPUBLISHED_PASSED);
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = screen.getByRole('alertdialog');
+    const input = within(dialog).getByLabelText(/Type bac_2024\.xlsx to confirm/);
+    await user.type(input, 'bac_2024.xlsx');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete import' }));
+
+    expect(await within(dialog).findByText('boom')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ import type { ImportStatusResult } from 'shared';
 export async function getImportStatus(db: Db, importId: number): Promise<ImportStatusResult | null> {
   const [row] = await db
     .select({
+      originalFilename: imports.originalFilename,
       status: imports.status,
       examYear: imports.examYear,
       progress: imports.progress,
@@ -35,6 +36,7 @@ export async function getImportStatus(db: Db, importId: number): Promise<ImportS
         };
 
   return {
+    originalFilename: row.originalFilename,
     status: row.status,
     examYear: row.examYear,
     progress: row.progress,

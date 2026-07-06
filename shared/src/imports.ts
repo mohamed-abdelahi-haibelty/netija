@@ -63,6 +63,7 @@ export interface ImportSummary {
 }
 
 export interface ImportStatusResult {
+  originalFilename: string;
   status: ImportStatus;
   examYear: number | null;
   // 0-100 while processing; null before the job has started.
@@ -104,4 +105,15 @@ export interface ImportListItem {
 
 export interface ImportListResponse {
   data: ImportListItem[];
+}
+
+// Result of deleting an import (task 031): the import row, its rejects, and
+// every attempt it produced are gone; deletedAttempts is how many attempt
+// rows were removed, for the admin UI's post-delete confirmation.
+export interface ImportDeleteResult {
+  deletedAttempts: number;
+}
+
+export interface ImportDeleteResponse {
+  data: ImportDeleteResult;
 }
