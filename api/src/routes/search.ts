@@ -9,8 +9,15 @@ import { searchByName } from '../services/nameSearch.js';
 import { db } from '../db/client.js';
 import { redis } from '../lib/redis.js';
 import { meili } from '../lib/meili.js';
+import { createRateLimiter } from '../lib/rateLimit.js';
+import { publicCache, SEARCH_CACHE_MAX_AGE_SECONDS } from '../middleware/cacheControl.js';
 
 const search = new Hono<AppEnv>();
+
+// Every route on this router is public and unauthenticated (exam/name search,
+// published years) — rate limit and edge-cache all of it as one route class.
+search.use('*', createRateLimiter(redis, 'search'));
+search.use('*', publicCache(SEARCH_CACHE_MAX_AGE_SECONDS));
 
 search.get(
   '/exam',

@@ -7,6 +7,12 @@ import { getStudentPage, getAdminResultPreview } from '../services/studentPage.j
 import { db } from '../db/client.js';
 import { redis } from '../lib/redis.js';
 import { requireSession } from '../middleware/requireSession.js';
+import { createRateLimiter } from '../lib/rateLimit.js';
+import {
+  publicCache,
+  noStoreCache,
+  RESULT_PAGE_CACHE_MAX_AGE_SECONDS,
+} from '../middleware/cacheControl.js';
 
 // The public result page is addressed by its random `slug`. Internally the
 // result is still one attempt keyed by (exam_year, exam_no).
@@ -22,6 +28,8 @@ const results = new Hono<AppEnv>();
 
 results.get(
   '/:slug',
+  createRateLimiter(redis, 'results'),
+  publicCache(RESULT_PAGE_CACHE_MAX_AGE_SECONDS),
   zValidator('param', paramsSchema, (result, c) => {
     if (!result.success) {
       return c.json(
@@ -59,6 +67,7 @@ results.get(
 results.get(
   '/:slug/admin',
   requireSession,
+  noStoreCache,
   zValidator('param', paramsSchema, (result, c) => {
     if (!result.success) {
       return c.json(
@@ -85,7 +94,6 @@ results.get(
         cause: { code: 'STUDENT_NOT_FOUND' },
       });
     }
-    c.header('Cache-Control', 'no-store');
     return c.json({ data: result }, 200);
   },
 );

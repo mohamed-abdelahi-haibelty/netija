@@ -25,6 +25,8 @@
     "errorDigitsOnly": "Le numéro d'examen ne doit contenir que des chiffres",
     "errorNetwork": "Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.",
     "errorGeneric": "Le serveur a rencontré une erreur. Veuillez réessayer dans quelques instants.",
+    "rateLimited": "Trop de recherches — veuillez patienter un instant",
+    "rateLimitedRetry": "Vous pourrez réessayer dans {{seconds}}s",
     "noYears": "Aucune année publiée pour le moment",
     "yearsError": "Impossible de vérifier les années publiées. Vérifiez votre connexion et réessayez.",
     "examSwitchToName": "Vous n'avez pas votre numéro d'examen ? Recherchez par nom",

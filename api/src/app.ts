@@ -13,6 +13,7 @@ import resultsRouter from './routes/results.js';
 import importsRouter from './routes/imports.js';
 import searchIndexRouter from './routes/searchIndex.js';
 import cacheRouter from './routes/cache.js';
+import { noStoreCache } from './middleware/cacheControl.js';
 
 const STATUS_TO_CODE: Partial<Record<number, string>> = {
   400: 'VALIDATION_ERROR',
@@ -39,6 +40,9 @@ export function createApp() {
       credentials: true,
     }),
   );
+
+  // Auth responses (session cookies, credentials) must never be cached.
+  app.use('/api/auth/*', noStoreCache);
 
   // Block public sign-up — admin accounts are created via `npm run auth:create-admin`.
   // All other /api/auth/** routes (sign-in, get-session, sign-out) pass through to
