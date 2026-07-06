@@ -79,8 +79,14 @@ resolution, no person entity, no cross-year merging, and no
       Note: the exam-number search still resolves by (exam_year,
       exam_no); the slug removes URL enumeration, not the by-number
       lookup itself (rate limiting guards that).
-  - `imports` — file metadata, status lifecycle, summary counts,
-    smoke result, and the published flag per exam year.
+  - `imports` — file metadata, status lifecycle (`pending`,
+    `processing`, `cancelling`, `completed`, `cancelled`, `failed`
+    — task 032 added `cancelling`/`cancelled`), summary counts,
+    smoke result, the published flag per exam year, and
+    `worker_pid` (the currently-running worker.py subprocess's OS
+    pid, set by the queue worker and cleared when it exits) — lets
+    the API process, which does NOT spawn that subprocess itself,
+    signal it directly for cancellation.
   - `rejects` — per-import rejected rows with reasons (raw row kept
     for audit).
   - `column_aliases` — learned header to canonical field mappings.
@@ -228,3 +234,12 @@ resolution, no person entity, no cross-year merging, and no
     flag flip followed by cache purge.
 11. Publishing is blocked until the automated smoke verification
     for that import has passed.
+12. Cancelling a processing import (task 032) never leaves partial
+    data: the loader's data-insert and its terminal status write
+    are one Postgres transaction, so cancelling before that
+    transaction commits — whether the loader's own cooperative
+    check aborts it, or a forceful OS kill drops its connection —
+    always rolls back to zero rows for that run. If the
+    transaction already committed by the time cancellation is
+    requested, it's too late to cancel; the import reports its
+    real terminal state instead of a false `cancelled`.

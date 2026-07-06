@@ -346,4 +346,47 @@ describe('Admin imports dashboard', () => {
     expect(await within(dialog).findByText('still running')).toBeInTheDocument();
     expect(screen.getByText('bac_2023.xlsx')).toBeInTheDocument();
   });
+
+  it('offers a cancel action only for a processing import, and hides delete for it', async () => {
+    mockApiRequest.mockResolvedValue([PENDING, PROCESSING, COMPLETED, FAILED]);
+    renderPage();
+
+    await screen.findByText('bac_2025_raw.xlsx');
+    expect(
+      screen.getByRole('button', { name: /Cancel bac_2024\.xlsx/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Cancel bac_2023\.xlsx/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Delete bac_2024\.xlsx/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the cancel dialog for a processing row and updates its status in place on confirm', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockImplementation((path: string, options?: RequestInit) => {
+      if (options?.method === 'POST') return Promise.resolve({ status: 'cancelling' });
+      return Promise.resolve([PROCESSING]);
+    });
+    renderPage();
+
+    await screen.findByText('bac_2024.xlsx');
+    await user.click(screen.getByRole('button', { name: /Cancel bac_2024\.xlsx/ }));
+
+    const dialog = screen.getByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel import' }));
+
+    await waitFor(() => {
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        '/api/imports/3/cancel',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    // The row stays in the list (unlike delete) but reflects the new status.
+    await waitFor(() => {
+      expect(screen.getByText('Cancelling')).toBeInTheDocument();
+    });
+    expect(screen.getByText('bac_2024.xlsx')).toBeInTheDocument();
+  });
 });

@@ -221,6 +221,14 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         outcome = run_import(dsn, import_id, exam_year, mapping)
+    except loader.ImportCancelled as exc:
+        # An admin cancelled this import mid-load (task 032) — loader.py's
+        # transaction has already rolled back (zero rows for this run), so
+        # this is an expected, precise outcome, not a bug: never reaches
+        # Sentry, and the Node caller (importJob.ts) finalizes the import's
+        # status to 'cancelled' rather than retrying it.
+        print(json.dumps({"ok": False, "code": "CANCELLED", "reason": str(exc)}))
+        return 1
     except (
         Exception
     ) as exc:  # noqa: BLE001 - an unexpected failure still emits the standard contract

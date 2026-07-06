@@ -8,13 +8,14 @@ import { examCacheKey, invalidateYearsCache } from './examSearch.js';
 import { resultCacheKey } from './studentPage.js';
 import type { ImportDeleteResult } from 'shared';
 
-// Thrown by deleteImport when the import is currently processing (a running
-// import must be cancelled first — task 032, not yet built — deleting
-// mid-run would race the queue worker's own writes to the same rows). The
-// route turns this into 409 IMPORT_PROCESSING.
+// Thrown by deleteImport when the import is currently processing OR being
+// cancelled (task 032 owns cancelling a running import; deleting mid-run —
+// or mid-cancel, while a kill/cooperative-stop may still be in flight —
+// would race the queue worker's own writes to the same rows). The route
+// turns this into 409 IMPORT_PROCESSING.
 export class ImportProcessingError extends Error {
   constructor() {
-    super('Cannot delete an import while it is still processing. Cancel it first.');
+    super('Cannot delete an import while it is still processing. Cancel it first, and wait for it to finish cancelling.');
     this.name = 'ImportProcessingError';
   }
 }
@@ -39,7 +40,7 @@ export async function deleteImport(
     .limit(1);
   if (!existing) return null;
 
-  if (existing.status === 'processing') {
+  if (existing.status === 'processing' || existing.status === 'cancelling') {
     throw new ImportProcessingError();
   }
 

@@ -18,6 +18,7 @@ import { listImports } from '../services/importList.js';
 import { getRejectReport, toRejectReportCsv } from '../services/rejects.js';
 import { publishImport, unpublishImport, SmokeNotPassedError } from '../services/publish.js';
 import { deleteImport, ImportProcessingError } from '../services/deleteImport.js';
+import { cancelImport, ImportNotCancellableError } from '../services/cancelImport.js';
 import { importQueue } from '../lib/queue.js';
 import { meili } from '../lib/meili.js';
 import { redis } from '../lib/redis.js';
@@ -310,6 +311,51 @@ imports.post(
   async (c) => {
     const { id } = c.req.valid('param');
     const result = await unpublishImport(db, meili, redis, id);
+    if (result === null) {
+      throw new HTTPException(404, {
+        message: 'Import not found.',
+        cause: { code: 'IMPORT_NOT_FOUND' },
+      });
+    }
+    return c.json({ data: result }, 200);
+  },
+);
+
+imports.post(
+  '/:id/cancel',
+  zValidator('param', importIdParamSchema, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid import id',
+            issues: result.error.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+  }),
+  async (c) => {
+    const { id } = c.req.valid('param');
+
+    let result;
+    try {
+      result = await cancelImport(db, importQueue, id);
+    } catch (err) {
+      if (err instanceof ImportNotCancellableError) {
+        throw new HTTPException(409, {
+          message: err.message,
+          cause: { code: 'IMPORT_NOT_CANCELLABLE' },
+        });
+      }
+      throw err;
+    }
+
     if (result === null) {
       throw new HTTPException(404, {
         message: 'Import not found.',

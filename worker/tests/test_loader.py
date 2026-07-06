@@ -210,6 +210,59 @@ def test_a_mid_load_failure_leaves_the_database_untouched(dsn, make_import) -> N
         assert cur.fetchone()[0] == 0
 
 
+def test_load_import_atomically_marks_the_import_completed_with_summary_counts(
+    dsn, make_import
+) -> None:
+    """The status/summary write moved INTO this transaction (task 032's
+    loader-atomicity fix) so that data and terminal status can never
+    disagree — a crash between "rows committed" and "status flipped" is no
+    longer possible because there is no longer a gap between them.
+    """
+    import_id = make_import("future_minimal.xlsx")
+    rows = [_row("00001"), _row("00002")]
+    rejects = [RejectedRow(row_number=3, reason="missing serie", column="serie")]
+    raw_rows = {3: {"N° Bac": "00003"}}
+
+    result = loader.load_import(dsn, import_id, EXAM_YEAR, rows, rejects, raw_rows)
+
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT status, summary_inserted, summary_rejected, "
+            "summary_duplicates_skipped, failure_reason FROM imports WHERE id = %s",
+            [import_id],
+        )
+        row = cur.fetchone()
+    assert row == ("completed", result.inserted, len(rejects), result.duplicates_skipped, None)
+
+
+def test_cancellation_mid_batch_rolls_back_everything_already_inserted(dsn, make_import) -> None:
+    """A 'cancelling' status observed partway through a multi-batch load
+    must stop the load and roll back EVERYTHING written so far in this
+    not-yet-committed transaction, including earlier batches — not just
+    skip the remaining ones.
+    """
+    import_id = make_import("future_minimal.xlsx")
+    rows = [_row(f"{n:05d}") for n in range(1, loader.BATCH_SIZE + 50)]  # 2 batches
+
+    calls = {"n": 0}
+
+    def _fake_cancel_requested(_dsn: str, _import_id: int) -> bool:
+        calls["n"] += 1
+        # Pass the initial check and the first attempts batch, then report
+        # cancellation starting with the second batch.
+        return calls["n"] > 2
+
+    with patch.object(loader, "_cancel_requested", side_effect=_fake_cancel_requested):
+        with pytest.raises(loader.ImportCancelled):
+            loader.load_import(dsn, import_id, EXAM_YEAR, rows, [], {})
+
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM attempts WHERE import_id = %s", [import_id])
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT status FROM imports WHERE id = %s", [import_id])
+        assert cur.fetchone()[0] == "pending"
+
+
 def test_resolve_file_path_returns_none_for_an_unknown_import(dsn) -> None:
     assert loader.resolve_file_path(dsn, 999_999) is None
 

@@ -37,7 +37,7 @@ Canonical codes (extend in this file before using new ones):
 `IMPORT_NOT_FOUND` (404), `RATE_LIMITED` (429),
 `FILE_TOO_LARGE` (413), `UNSUPPORTED_FILE_TYPE` (415),
 `MISSING_REQUIRED_COLUMNS` (422), `SMOKE_NOT_PASSED` (409),
-`IMPORT_PROCESSING` (409),
+`IMPORT_PROCESSING` (409), `IMPORT_NOT_CANCELLABLE` (409),
 `INTERNAL` (500), `SERVICE_UNAVAILABLE` (503).
 
 ## Hono API Rules
@@ -97,9 +97,25 @@ Canonical codes (extend in this file before using new ones):
 - File-level problems ARE failures: unreadable file, missing
   required columns after mapping, unconfigured date format →
   the job fails with a clear reason surfaced to the dashboard.
-- Each import runs in a single Postgres transaction: a mid-import
-  crash rolls back fully (no half-loaded years). Combined with
-  upsert/ON CONFLICT, retries are safe (idempotent).
+- Each import runs in a single Postgres transaction, and that
+  transaction ALSO includes the terminal `status: 'completed'` +
+  summary-counts write (task 032's loader-atomicity fix) — not
+  just the row inserts. A mid-import crash rolls back fully (no
+  half-loaded years, and no import stuck reading `'processing'`
+  despite already having committed data, since there's no longer
+  a gap between "data committed" and "marked done"). Combined
+  with upsert/ON CONFLICT, retries are safe (idempotent).
+- Cancellation (task 032): the loader polls for a `'cancelling'`
+  status once per batch and raises inside the same transaction,
+  which rolls back everything the run had written so far, then
+  reports `{ok: false, code: "CANCELLED", reason}` — an expected
+  outcome, never sent to Sentry. A run that isn't reaching a
+  batch boundary (e.g. still reading a very large file) is
+  stopped by a forceful OS signal instead (SIGTERM, then SIGKILL
+  after a grace period) sent from the API process, which also
+  drops the Postgres connection and rolls back the same way.
+  Either path is treated as `UnrecoverableError` by BullMQ — a
+  deliberate cancellation is never retried.
 - BullMQ: max 2 retries with exponential backoff for transient
   failures; a job that exhausts retries is marked failed with
   its reason stored on the import record.

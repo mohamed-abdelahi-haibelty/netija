@@ -80,9 +80,36 @@ class LoadResult:
     duplicates_skipped: int
 
 
+class ImportCancelled(Exception):
+    """Raised mid-load when an admin has requested cancellation (task 032).
+
+    Raised INSIDE load_import's transaction, so the surrounding
+    `with psycopg.connect(...)` block rolls back everything this run has
+    written so far — the exact same "cancel before commit leaves zero rows"
+    guarantee a mid-load crash already gets from that block (see the module
+    docstring), just triggered deliberately instead of by an accident.
+    """
+
+
 def _chunked(items: list, size: int):
     for start in range(0, len(items), size):
         yield items[start : start + size]
+
+
+def _cancel_requested(dsn: str, import_id: int) -> bool:
+    """Polled once per batch on its OWN connection (same reasoning as
+    report_progress below) so a 'cancelling' write from the API is visible
+    immediately, instead of only after the main load transaction commits —
+    which would defeat cancellation's whole purpose.
+    """
+    try:
+        with psycopg.connect(dsn, autocommit=True) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT status FROM imports WHERE id = %s", [import_id])
+                row = cur.fetchone()
+        return row is not None and row[0] == "cancelling"
+    except Exception:  # noqa: BLE001 - a failed check must never itself abort the load
+        return False
 
 
 def report_progress(dsn: str, import_id: int, progress: int) -> None:
@@ -110,9 +137,11 @@ def _insert_attempts(
     import_id: int,
     rows: list[CleanRow],
     report_done: Callable[[int], None],
+    raise_if_cancelled: Callable[[], None],
 ) -> int:
     inserted = 0
     for batch in _chunked(rows, BATCH_SIZE):
+        raise_if_cancelled()
         values_sql = ", ".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(batch))
         params: list[object] = []
         for row in batch:
@@ -153,8 +182,10 @@ def _insert_rejects(
     rejects: list[RejectedRow],
     raw_rows_by_number: dict[int, dict[str, object]],
     report_done: Callable[[int], None],
+    raise_if_cancelled: Callable[[], None],
 ) -> None:
     for batch in _chunked(rejects, BATCH_SIZE):
+        raise_if_cancelled()
         values_sql = ", ".join(["(%s,%s,%s,%s)"] * len(batch))
         params: list[object] = []
         for reject in batch:
@@ -188,8 +219,23 @@ def load_import(
     rejects: list[RejectedRow],
     raw_rows_by_number: dict[int, dict[str, object]],
 ) -> LoadResult:
-    """Load one import's cleaned rows and rejects in a single transaction.
-    See the module docstring for the idempotency/rollback reasoning.
+    """Load one import's cleaned rows and rejects, AND flip its terminal
+    status to 'completed', all in one transaction. See the module docstring
+    for the idempotency/rollback reasoning.
+
+    Folding the status/summary write in here (rather than leaving it to a
+    separate write from the Node caller, as an earlier version of this
+    function did) closes a real atomicity gap: the data commit and the
+    "this import is done" status used to live on two different connections
+    in two different processes, so a crash of the coordinating Node process
+    between them could leave rows committed but the import stuck reading
+    'processing' forever. With the status write inside this same
+    transaction, there is no such in-between state: either everything
+    commits together, or none of it does.
+
+    Also polls for a 'cancelling' status once per batch (task 032) and
+    raises ImportCancelled if seen — see that class and `_cancel_requested`
+    for why this safely produces zero rows for this import.
 
     Reports coarse progress (imports.progress, 20-95%) as batches complete,
     on a separate autocommit connection from the main load transaction —
@@ -209,13 +255,38 @@ def load_import(
         )
         report_progress(dsn, import_id, progress)
 
+    def raise_if_cancelled() -> None:
+        if _cancel_requested(dsn, import_id):
+            raise ImportCancelled("Import was cancelled by an admin.")
+
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
+            raise_if_cancelled()
             cur.execute("DELETE FROM rejects WHERE import_id = %s", [import_id])
-            _insert_rejects(cur, import_id, rejects, raw_rows_by_number, report_done)
-            inserted = _insert_attempts(cur, exam_year, import_id, rows, report_done)
+            _insert_rejects(
+                cur, import_id, rejects, raw_rows_by_number, report_done, raise_if_cancelled
+            )
+            inserted = _insert_attempts(
+                cur, exam_year, import_id, rows, report_done, raise_if_cancelled
+            )
+            raise_if_cancelled()
 
-    return LoadResult(inserted=inserted, duplicates_skipped=len(rows) - inserted)
+            duplicates_skipped = len(rows) - inserted
+            cur.execute(
+                """
+                UPDATE imports
+                SET status = 'completed',
+                    summary_inserted = %s,
+                    summary_rejected = %s,
+                    summary_duplicates_skipped = %s,
+                    failure_reason = NULL,
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                [inserted, len(rejects), duplicates_skipped, import_id],
+            )
+
+    return LoadResult(inserted=inserted, duplicates_skipped=duplicates_skipped)
 
 
 def resolve_file_path(dsn: str, import_id: int) -> str | None:

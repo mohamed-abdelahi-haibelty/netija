@@ -12,9 +12,14 @@ export function runPythonScript(
   pythonBin: string,
   scriptPath: string,
   args: string[],
+  // Called synchronously with the child's OS pid right after it's spawned
+  // (task 032): lets a caller persist the pid somewhere a DIFFERENT process
+  // can read it from, to forcefully signal a stuck subprocess later — see
+  // importJob.ts's use of this for cancellation.
+  onSpawn?: (pid: number | undefined) => void,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(
+    const child = execFile(
       pythonBin,
       [scriptPath, ...args],
       { maxBuffer: 10 * 1024 * 1024 },
@@ -26,5 +31,6 @@ export function runPythonScript(
         resolve(stdout);
       },
     );
+    onSpawn?.(child.pid);
   });
 }

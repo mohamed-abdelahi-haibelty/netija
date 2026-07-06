@@ -53,8 +53,16 @@ export interface ImportConfirmResponse {
 }
 
 // Mirrors the db's import_status enum (schema.ts) — the coarse lifecycle
-// state a confirmed import moves through.
-export type ImportStatus = 'pending' | 'processing' | 'completed' | 'failed';
+// state a confirmed import moves through. 'cancelling' is a transient state
+// between a cancel request and the import actually stopping (task 032);
+// 'cancelled' is terminal, like 'completed'/'failed'.
+export type ImportStatus =
+  | 'pending'
+  | 'processing'
+  | 'cancelling'
+  | 'completed'
+  | 'cancelled'
+  | 'failed';
 
 export interface ImportSummary {
   inserted: number;
@@ -116,4 +124,19 @@ export interface ImportDeleteResult {
 
 export interface ImportDeleteResponse {
   data: ImportDeleteResult;
+}
+
+// Result of requesting cancellation (task 032). 'cancelled' means the
+// import never actually started running (still waiting in the queue) or
+// had already finished processing, so it was finalized immediately.
+// 'cancelling' means an active run is being stopped — the loader's
+// cooperative check and/or a forceful process kill are in flight; the
+// dashboard observes the eventual 'cancelled' transition via its existing
+// status poll.
+export interface ImportCancelResult {
+  status: 'cancelling' | 'cancelled';
+}
+
+export interface ImportCancelResponse {
+  data: ImportCancelResult;
 }

@@ -8,10 +8,378 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — task 031 is complete. Task 025 (rate limiting and cache
-  headers) is implemented on its own branch, not yet merged into main.
+- None — tasks 031, 032, 033, 034, and 035 are complete. Task 025 (rate
+  limiting and cache headers) is implemented on its own branch, not yet
+  merged into main.
 
 ## Completed
+
+- **Task 035 — Redis Cache Visibility and Invalidation from the Dashboard**
+  - **Scope guard is the load-bearing decision**: `api/src/services/cacheAdmin.ts`
+    exposes the result cache strictly through the two key families this
+    project actually caches results under — `exam:{year}:{examNo}`
+    (`examSearch.ts`) and `result:{slug}` (`studentPage.ts`). A single
+    `assertScoped` check (both key names and patterns must start with
+    `exam:` or `result:`) runs before any Redis call in every exported
+    function, throwing `CacheKeyOutOfScopeError` — never silently ignored,
+    never a generic 500 (error-handling.md: this is an expected, deliberate
+    guard rail). The task spec's hard requirement ("never expose or allow
+    touching non-result Redis data — rate-limit counters, BullMQ
+    internals") is enforced this way rather than by, say, an allowlist of
+    exact keys, so it holds for pattern-based operations too (`exam:2024:*`
+    is fine; `bull:*` or `ratelimit:*` throw before any SCAN runs).
+  - **SCAN, never KEYS**: every listing/counting/flushing path walks the
+    keyspace with cursor-based `SCAN ... MATCH ... COUNT 200` (a small
+    `scanKeys` helper), not the blocking `KEYS` command — this runs against
+    the same Redis instance serving live public search/result traffic.
+    `getCacheStatus` counts `exam:*` and `result:*` separately via two
+    scans; `listCacheKeys` scans (both families merged if no pattern, or
+    just the matching family if one is given), sorts for stable pagination
+    (SCAN itself gives no ordering guarantee), slices the page, then
+    pipelines `TTL` calls for just that page's keys — never all matching
+    keys, so a large result cache doesn't turn a single list request into
+    N blocking round trips.
+  - **The three invalidation shapes from the task spec, one function**:
+    `flushResultCache(redis, pattern?)` — no pattern flushes every scoped
+    key across both families ("all result keys"); a pattern flushes just
+    the matching subset ("by pattern"), still scope-guarded. A single key
+    goes through the separate `invalidateCacheKey`, matching the API's own
+    `DELETE /keys/:key` vs. `POST /flush` route split.
+  - **Routes**: new `api/src/routes/cache.ts` mounted at `/api/cache`
+    (auth-gated via `requireSession`, matching every other admin route):
+    `GET /status`, `GET /keys` (paginated, optional `pattern`),
+    `GET /keys/:key` (inspect — value + ttl), `DELETE /keys/:key`
+    (invalidate one), `POST /flush` (body `{pattern?}`). Two new canonical
+    error codes added to error-handling.md: `CACHE_KEY_OUT_OF_SCOPE` (400,
+    thrown for any out-of-scope key/pattern) and `CACHE_KEY_NOT_FOUND`
+    (404, an inspect request for a key that already expired or never
+    existed).
+  - **`shared/src/cache.ts`** (new): `CacheStatusResult`, `CacheKeyEntry`/
+    `CacheKeysListResult`, `CacheKeyInspectResult`, `CacheInvalidateResult`,
+    `CacheFlushResult`, plus their `{data}`-wrapped response types.
+  - **Dashboard**: new page `web/app/admin/[lang]/(shell)/cache/page.tsx`
+    — a status panel (exam-key count, result-key count, total, via
+    `PropertyRow`) with its own refresh button; a key list with a debounced
+    pattern filter (an out-of-scope pattern like `bull:*` surfaces the
+    API's `CACHE_KEY_OUT_OF_SCOPE` message inline under the input, table
+    contents untouched, rather than a full-page error state) and inline
+    per-row "Inspect" (expands a detail row fetching and pretty-printing
+    the key's JSON value on demand — the list endpoint deliberately never
+    returns values, only key+ttl, to keep listing cheap) and "Invalidate"
+    actions. A top "Flush result cache" / "Flush matching keys" button
+    (label depends on whether the pattern filter is active) opens
+    `FlushCacheDialog`; per-row invalidate opens `InvalidateCacheKeyDialog`.
+    Both are plain confirm/dismiss dialogs, like `CancelImportDialog`/
+    `ReindexDialog` — invalidating or flushing only ever clears
+    rebuildable derived cache entries (architecture.md invariant 6), never
+    a permanent-data-loss action worth a type-to-confirm gate. New "Cache"
+    sidebar nav item (`AdminSidebar.tsx`). i18n: new `admin.cache` block in
+    both `fr.json` (English, per the existing admin-is-English decision)
+    and `ar.json` (genuine Arabic); key-parity verified (40 keys each).
+  - **Tests**: `api/src/__tests__/cache.test.ts` (32 new — route contract
+    for all five endpoints: auth, validation, out-of-scope pattern/key
+    rejection, 404 for an expired/missing key; service-level tests against
+    a fake ioredis client whose `scan` genuinely pages through a fixed
+    keyspace rather than returning everything in one call, proving
+    pagination doesn't secretly rely on an unbounded scan). Web:
+    `InvalidateCacheKeyDialog.test.tsx` (7) and `FlushCacheDialog.test.tsx`
+    (7), both axe-clean, Escape/Cancel close without calling the API;
+    `cache/__tests__/page.test.tsx` (11 — load, axe-clean, status load
+    error, empty state, inline out-of-scope pattern error, debounced
+    pattern filter, pagination, inspect-then-collapse, not-found on
+    inspecting an expired key, the full invalidate-then-reload flow, and
+    the full flush-then-reload flow).
+  - **Manually verified end-to-end against real Redis** (`docker compose
+    up -d`): confirmed `GET /api/cache/status`, `GET /api/cache/keys`, and
+    `POST /api/cache/flush` all return 401 with no session against the
+    real running server; then, exercising `cacheAdmin.ts`'s real
+    implementation directly against real Redis (seeded `exam:`, `result:`,
+    a `ratelimit:`, and a `bull:` key side by side) — confirmed the key
+    list and status counts never include the `ratelimit:`/`bull:` keys;
+    confirmed inspecting or invalidating either of them throws
+    `CacheKeyOutOfScopeError` *before* touching Redis; confirmed a real
+    `exam:` key's inspected value round-trips correctly and invalidating
+    it actually deletes it from Redis; confirmed `flushResultCache()` with
+    no pattern deletes every `exam:`/`result:` key while leaving the
+    `ratelimit:`/`bull:` keys completely untouched. `vitest run` (api,
+    277/277), `jest` (web, 158/158), `tsc --noEmit` (api/web/shared),
+    `next build`, and `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: rate-limit counter and
+    BullMQ internals visibility (the spec explicitly says these must stay
+    untouchable, not merely unexposed by default) — task 025's rate
+    limiting isn't merged into main yet either, so there was nothing yet
+    to build a parallel panel for.
+
+- **Task 034 — Meilisearch Visibility and Reindex from the Dashboard**
+  - **`api/src/services/meiliIndex.ts`**: `buildNameIndex`'s document shape
+    gained `importId` (cast `a.import_id::int` in the raw SQL — bigint
+    columns come back as strings from node-postgres on a raw `db.execute`,
+    unlike Drizzle's query builder which converts `mode: 'number'` bigints
+    itself) and its `updateSettings` call gained
+    `filterableAttributes: ['importId', 'examYear']`. `importId` is never
+    searched or shown publicly — it exists purely so the new admin
+    inspection panel can filter documents down to exactly one import,
+    rather than assuming a 1:1 exam-year-to-import mapping that isn't
+    actually guaranteed by the schema.
+  - **`api/src/services/searchIndexAdmin.ts`** (new): `getSearchIndexStatus`
+    (Meilisearch's `getStats`/`getSettings`/`health()`, all read-only) and
+    `listSearchIndexDocuments(db, meili, {importId?, q?, page, pageSize})` —
+    scoped to one import (validated against Postgres first; returns `null` →
+    404 for an unknown id), a free-text query (the same `index.search` the
+    public name-search endpoint runs), or neither (a plain paginated browse).
+    The schema (`api/src/schemas/searchIndex.ts`) rejects importId+q
+    together — an ambiguous request, not a combined filter.
+    **Real-service bug found and fixed during manual verification**:
+    Meilisearch's `GET /documents` endpoint (used whenever no filter is
+    given) doesn't accept a `sort` parameter at all — only the `POST
+    .../documents/fetch` variant (triggered by the client library once a
+    `filter` is present) does; requesting `sort` unfiltered threw a 400 from
+    Meilisearch that surfaced as a generic 500 through the app's central
+    error handler. Fixed by dropping `sort` from the call entirely (ordering
+    isn't a requirement here). `reindexSearchIndex` is a thin wrapper that
+    just calls `buildNameIndex` — reused exactly as the task spec asked,
+    never reimplemented.
+  - **Routes**: new `api/src/routes/searchIndex.ts` mounted at
+    `/api/search-index` (auth-gated via the existing `requireSession`
+    middleware, like every other admin route): `GET /status`,
+    `GET /documents`, `POST /reindex`. The reindex endpoint runs
+    `buildNameIndex` synchronously in the request/response cycle — the same
+    pattern publish/unpublish/delete already use for full-index rebuilds
+    (not a BullMQ job); the dashboard shows a disabled-button "Rebuilding…"
+    spinner state for the one round trip rather than polling a background
+    job, an explicit, documented simplification given this project's scale
+    (single admin, VPS-hosted, no separate staging).
+  - **`shared/src/searchIndex.ts`** (new): `SearchIndexStatusResult`,
+    `SearchIndexDocument`/`SearchIndexDocumentsResult`,
+    `SearchIndexReindexResult`, plus their `{data}`-wrapped response types.
+  - **Dashboard**: new page `web/app/admin/[lang]/(shell)/search-index/page.tsx`
+    — a status panel (document count, health, indexing state, and the three
+    attribute lists, via `PropertyRow`) with its own refresh button; a
+    document inspector with two mutually-exclusive filter inputs (Import ID,
+    free-text search — typing into one clears the other's input immediately,
+    since the API rejects both at once) and a paginated table; a "Reindex"
+    button opening `web/components/admin/ReindexDialog.tsx` (a plain
+    confirm/dismiss dialog, like `CancelImportDialog` — reindexing only ever
+    rebuilds derived, rebuildable data, so it carries no permanent-data-loss
+    risk worth a type-to-confirm gate). A successful reindex shows an inline
+    success notice with the new document count and reloads both the status
+    panel and the document list. New "Search Index" sidebar nav item
+    (`AdminSidebar.tsx`). i18n: new `admin.searchIndex` block in both
+    `fr.json` (English, per the existing admin-is-English decision) and
+    `ar.json` (genuine Arabic); key-parity verified.
+  - **Tests**: `api/src/__tests__/searchIndex.test.ts` (19 new — route
+    contract for all three endpoints: auth, validation including the
+    importId+q conflict, 404, param forwarding; service-level tests for
+    `getSearchIndexStatus`/`listSearchIndexDocuments`/`reindexSearchIndex`
+    against mocked Meilisearch/db clients). Web:
+    `ReindexDialog.test.tsx` (7, axe-clean, Escape/Cancel close without
+    calling the API, success and failure paths) and `search-index/page.test.tsx`
+    (11 — load, axe-clean, status load error, empty state, not-found for an
+    unknown import filter, mutual exclusivity between the two filter inputs,
+    pagination, and the full reindex-then-reload flow).
+  - **Manually verified end-to-end against real Postgres/Meilisearch**
+    (`docker compose up -d`, a throwaway published import + 2 attempts
+    inserted directly): confirmed the status panel reflects real document
+    counts and settings; confirmed document inspection by importId returns
+    exactly that import's documents, by free-text query returns only
+    matching names, and unfiltered browse returns everything; confirmed
+    reindex rebuilds correctly against real data (document count 0 → 2);
+    confirmed unpublishing the import and reindexing drops it back to 0
+    documents (only published years are ever indexed); confirmed 401
+    unauthenticated, 400 for the importId+q conflict, and 404
+    `IMPORT_NOT_FOUND` for an unknown import filter, all against the real
+    running server (this is where the `sort`-on-`GET /documents` bug above
+    was actually caught — the unit tests' mocked Meilisearch client
+    couldn't have caught it). `vitest run` (api, 245/245), `jest` (web,
+    133/133), `tsc --noEmit` (api/web/shared), `next build`, and
+    `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: the Redis cache
+    visibility/invalidation panel (035, separate not-yet-built task).
+
+- **Task 033 — Browse, Filter, and Delete Rows Within an Import**
+  - `GET /api/imports/:id/attempts` (`api/src/services/importAttempts.ts#listImportAttempts`):
+    offset-paginated (`page`/`pageSize`, default 50, max 200 —
+    `api/src/schemas/attempts.ts`), server-side `search` (ILIKE substring
+    match across `name_fr`, `name_ar`, and `exam_no` — a 50k-row scan is
+    within an admin dashboard's latency budget and this table is never
+    queried publicly), and exact-match `serie`/`decision` filters. Also
+    returns `availableSeries` — every distinct serie in the import,
+    unaffected by the current filters, so the filter dropdown's own options
+    never shrink as an admin narrows the table. Returns null for an unknown
+    import id (route -> 404); an existing import with no matching rows is a
+    normal 200 with an empty page.
+  - `DELETE /api/imports/:id/attempts` (`#deleteImportAttempts`): body
+    `{ attemptIds: number[] }` — a single-row delete is just a one-element
+    array through the same endpoint. Reuses `deleteImport.ts`'s
+    `ImportProcessingError` (409 `IMPORT_PROCESSING`) for the same reason
+    task 031/032 guard whole-import deletion: a processing or cancelling
+    import may still be writing/rolling back rows on a different connection.
+    Ids scoped to `and(importId, inArray(ids))` — an id from another import,
+    or already deleted, is silently ignored rather than erroring. Fan-out
+    per architecture.md invariant 6 (no ghosts in derived stores): the
+    deleted rows' Redis exam-cache and result-cache keys are pipelined-deleted
+    (reusing `examCacheKey`/`resultCacheKey`), then a full Meilisearch
+    rebuild (`buildNameIndex`) — a no-op if the import isn't published, since
+    only published attempts are ever indexed. **New, judgment-call behavior
+    not spelled out in the task spec**: `imports.summary_inserted` is
+    decremented by the deleted count inside the same transaction as the row
+    deletes, so the status/publish page's "N inserted" doesn't go stale
+    relative to the real row count — leaving it untouched would have been a
+    correctness bug in an already-existing display, not scope creep.
+  - `shared/src/imports.ts`: `ImportAttemptRow`, `ImportAttemptsListResult`
+    (+ `availableSeries`), `ImportAttemptsDeleteResult`, and a new
+    `DECISIONS`/`Decision` constant tuple — duplicated from
+    `api/src/db/schema.ts`'s `decisionEnum` (shared/ has no dependency on the
+    api's Drizzle schema) since the admin filter dropdown needs the full
+    fixed list regardless of what one import contains. `shared/src/index.ts`
+    switched `./imports`'s re-export from `export type *` to a plain
+    `export *` — the first shared/ runtime value (not just types), needed so
+    `DECISIONS` is usable as a value in web/, not just a type.
+  - **Dashboard**: new page `web/app/admin/[lang]/(shell)/imports/[importId]/rows/page.tsx`
+    — paginated table (checkboxes, search input debounced 300ms, serie/decision
+    `Select` filters that reset to page 1), a bulk-action bar that appears once
+    ≥1 row is selected, and a per-row delete action — both routed through the
+    same `web/components/admin/DeleteAttemptsDialog.tsx`. That dialog is a
+    plain confirm/dismiss pattern (like `CancelImportDialog`, not
+    `DeleteImportDialog`'s type-to-confirm gate): row-level deletion doesn't
+    carry the same blast radius as deleting a whole import, since the
+    original file is kept and rows are recoverable by re-running the import.
+    Selection is page-scoped only (no "select all N rows across every page")
+    — kept deliberately simple given the task spec's own pagination
+    requirement. A link to the rows page ("Browse rows") was added to the
+    import detail/publish page, shown once the import has produced a summary.
+  - i18n: new `admin.rows` block in both `fr.json` (English, per the
+    existing admin-is-English decision) and `ar.json` (genuine Arabic);
+    key-parity verified.
+  - **Tests**: `api/src/__tests__/importAttempts.test.ts` (23 new — route
+    contract for both endpoints: auth, validation, 404, 409, pagination/filter
+    param forwarding; service-level tests against a fake db using a generic
+    thenable chain mock — every chain method returns `this`, and `await` at
+    any point resolves the next queued response, which stands in for the
+    differently-shaped select chains `listImportAttempts` issues in
+    sequence). Web: `DeleteAttemptsDialog.test.tsx` (9, axe-clean, singular
+    vs. bulk copy, Escape/Cancel close without calling the API),
+    `rows/__tests__/page.test.tsx` (11 — load, empty state, not-found,
+    debounced search, both filters, pagination, select-all, bulk delete,
+    single-row delete), plus 2 new assertions on the import detail page's
+    "Browse rows" link (shown only once a summary exists).
+  - **Manually verified end-to-end against real Postgres/Redis/Meilisearch**
+    (`docker compose up -d`, a throwaway published import + 5 attempts
+    inserted directly): confirmed pagination/search/serie/decision filters
+    over curl with a real admin session; warmed both Redis cache families
+    and the Meilisearch index via the public search/result endpoints; bulk-
+    deleted 2 of 5 rows and confirmed all three stores lost exactly those
+    rows (zero ghosts) and `summary_inserted` dropped from 5 to 3; confirmed
+    the 409 `IMPORT_PROCESSING` guard while `status='processing'`, then a
+    single-row delete and the empty-body 400 once restored to `completed`.
+    `vitest run` (api, 249/249), `jest` (web, 129/129), `tsc --noEmit`
+    (api/web/shared), `next build`, and `npm run lint` (repo-wide) all clean.
+  - **Deliberately out of scope (per task spec)**: import-level delete
+    (031, already built) and Meilisearch/Redis admin visibility panels
+    (034/035, separate not-yet-built tasks) — this task's delete fan-out
+    reuses their underlying primitives but adds no dashboard for them.
+
+- **Task 032 — Cancel a Running/Stuck Import (+ a Task 020 loader-atomicity fix it surfaced)**
+  - **Investigated first, per the spec's own request**: found the loader
+    (`worker/loader.py`) already wrapped its data inserts in one
+    transaction, but the terminal `status: 'completed'` + summary-count
+    write happened SEPARATELY, afterward, from Node (`importJob.ts`), on a
+    different connection in a different process. A crash of that
+    coordinating Node process between "Python's transaction committed" and
+    "Node wrote completed" could leave an import with real, committed rows
+    stuck reading `'processing'` forever — self-healing eventually via
+    BullMQ's stalled-job retry (the loader is idempotent), but not truly
+    atomic, and exactly the ambiguity a cancel feature needs to reason
+    about cleanly.
+  - **Fix (task 020's code, no migration — pure logic relocation)**:
+    `loader.py`'s `load_import` now writes `status='completed'`,
+    `summary_inserted/rejected/duplicates_skipped`, and clears
+    `failure_reason` as the LAST statement inside its own transaction,
+    right before commit. `importJob.ts` no longer performs that write
+    itself — it only sets cosmetic `progress: 100` after Python exits 0.
+    Net effect: data and "this import is done" can never disagree; either
+    both commit together or neither does (architecture.md invariant 12).
+  - **Cancellation contract**: two new `import_status` enum values,
+    `'cancelling'` and `'cancelled'` (migration `0001_nervous_payback.sql`,
+    also adds nullable `imports.worker_pid`). `POST /api/imports/:id/cancel`
+    (`api/src/services/cancelImport.ts`) only accepts `status='processing'`
+    (atomic conditional UPDATE, 409 `IMPORT_NOT_CANCELLABLE` otherwise).
+    - If the BullMQ job (`import-{id}`) is still `waiting`/`delayed`
+      (Python never spawned) or already gone: finalizes to `'cancelled'`
+      immediately — nothing was ever written for that run.
+    - If the job is `active`: flips to `'cancelling'`, which `loader.py`
+      polls for once per batch (same cadence as its existing progress
+      reporting, on its own connection) and, if seen, raises inside the
+      main load transaction — rolling back everything the run had written
+      so far, then reporting `{ok: false, code: "CANCELLED", reason}` (a
+      new, expected worker outcome, never sent to Sentry). Also signals
+      the recorded `worker_pid` with SIGTERM immediately, escalating to
+      SIGKILL after a 3 s grace period if still alive — the fallback for a
+      run stuck somewhere a cooperative check can't reach (e.g. still
+      inside `pd.read_excel` on a very large file). Killing the process
+      drops its Postgres connection, which implicitly rolls back the same
+      uncommitted transaction — the identical zero-rows guarantee, just
+      via the OS instead of application code.
+    - `runImportJob` (`importJob.ts`) treats either path (Python's own
+      `CANCELLED` report, or its `runPythonScript` call rejecting because
+      the process was killed while status was already `'cancelling'`) by
+      finalizing the row to `'cancelled'` and throwing a new
+      `ImportCancelledError` — extends BullMQ's `UnrecoverableError` so the
+      queue never retries a deliberate cancellation, regardless of
+      attempts remaining. `queueWorker.ts`'s `'failed'` handler special-
+      cases this error to a no-op (the row is already finalized; must not
+      be overwritten back to `'failed'`).
+    - A race guard: `runImportJob`'s very first write (claiming
+      `'processing'`) is now a conditional UPDATE excluding
+      `'cancelling'`/`'cancelled'`, so a cancel that lands in the tiny
+      window before a job's first write can't get stomped back to
+      `'processing'`.
+    - `deleteImport.ts`'s existing processing-guard (task 031) now also
+      blocks `'cancelling'` — a kill/rollback may still be in flight.
+  - **Dashboard**: a "Cancel" action on `processing` rows/imports (imports
+    list and detail pages), a plain confirm/dismiss dialog
+    (`CancelImportDialog.tsx` — deliberately lighter than delete's
+    type-to-confirm gate, since cancelling isn't the same permanent-data-
+    loss action), a `cancelling` status badge (reuses the `processing`
+    pulsing-dot style — still "something is happening") and a `cancelled`
+    badge (reuses the neutral `pending` style — a calm, non-error terminal
+    state). i18n: new `admin.cancel` block in both `fr.json`/`ar.json`;
+    removed the now-superseded `admin.delete.processingNote` (a real Cancel
+    action replaces the old "cancel it first" note).
+  - **Tests**: `worker/tests/test_loader.py` (+2: the atomic
+    status/summary write, and cancellation mid-batch rolling back
+    everything already inserted in that not-yet-committed transaction —
+    via a patched `_cancel_requested`); `worker/tests/test_worker_cli.py`
+    (+1: a real, unmocked `'cancelling'` row end-to-end through
+    `worker.main()`). `api/src/__tests__/importJob.test.ts` rewritten for
+    the new claim guard, pid persistence, and both cancellation paths (+5
+    net). `api/src/__tests__/cancelImport.test.ts` (new, 15): route
+    contract, the waiting/active job branches, SIGTERM + SIGKILL
+    escalation via fake timers, and escalation correctly skipped once
+    already finalized or once the pid no longer matches (guards against
+    signalling the wrong process). `api/src/__tests__/deleteImport.test.ts`
+    (+1: `'cancelling'` also guarded). Web: `CancelImportDialog.test.tsx`
+    (new, 7, axe-clean) plus wiring assertions in the list and detail page
+    suites (action visibility, dialog open → confirm → in-place status
+    update, `'cancelling'` copy on the detail page).
+  - **Manually verified end-to-end against real Postgres/Redis/BullMQ and
+    a real spawned Python process** (`docker compose up -d`, a real
+    in-process `Worker` + a synthetic 150k-row file): confirmed a genuinely
+    active import got SIGTERM→SIGKILL force-killed, the BullMQ `'failed'`
+    event reported `ImportCancelledError` exactly once (no retry), the row
+    settled on `status: 'cancelled'` with `worker_pid` cleared, and — the
+    core guarantee — **zero orphan `attempts` rows** for that import.
+    `vitest run` (api, 203/203), `jest` (web, 96/96), `pytest` (worker,
+    198/198), `tsc --noEmit` (api/web/shared), `next build`, `ruff check`,
+    `black --check`, and `npm run lint` all clean.
+  - **Deliberately out of scope / known simplifications**: the SIGKILL
+    escalation timer lives in the API process's own event loop (a plain
+    `setTimeout`, not a durable BullMQ delayed job) — it would be lost on
+    an API server restart mid-escalation; acceptable for this project's
+    single-admin, non-HA scope, but worth a durable queue-based escalation
+    if that ever changes. Row-level deletion within an import (033) and
+    Meilisearch/Redis dashboard visibility (034/035) remain separate,
+    not-yet-built tasks.
 
 - **Task 031 — Delete an Import and All Its Data**
   - **Original file decision (per the spec's own request to recommend one):

@@ -81,6 +81,31 @@ describe('Admin import detail / publish page', () => {
     );
   });
 
+  it('links to the rows page once the import has produced a summary', async () => {
+    mockApiRequest.mockResolvedValue(COMPLETED_UNPUBLISHED_PASSED);
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: /Browse rows/ });
+    expect(link).toHaveAttribute('href', '/admin/fr/imports/42/rows');
+  });
+
+  it('does not link to the rows page before the import has a summary', async () => {
+    mockApiRequest.mockResolvedValue({
+      originalFilename: 'bac_2024.xlsx',
+      status: 'processing',
+      examYear: 2024,
+      progress: 40,
+      summary: null,
+      smokePassed: null,
+      published: false,
+      failureReason: null,
+    });
+    renderPage();
+
+    await screen.findByText('Processing');
+    expect(screen.queryByRole('link', { name: /Browse rows/ })).not.toBeInTheDocument();
+  });
+
   it('is axe-clean once loaded', async () => {
     mockApiRequest.mockResolvedValue(COMPLETED_UNPUBLISHED_PASSED);
     const { container } = renderPage();
@@ -204,7 +229,7 @@ describe('Admin import detail / publish page', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows a "still processing" note instead of a delete button while the import is processing', async () => {
+  it('shows a cancel button instead of a delete button while the import is processing', async () => {
     mockApiRequest.mockResolvedValue({
       originalFilename: 'bac_2024.xlsx',
       status: 'processing',
@@ -218,9 +243,65 @@ describe('Admin import detail / publish page', () => {
     renderPage();
 
     await screen.findByText('Processing');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /Delete/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows a cancelling note instead of any action while the import is cancelling', async () => {
+    mockApiRequest.mockResolvedValue({
+      originalFilename: 'bac_2024.xlsx',
+      status: 'cancelling',
+      examYear: 2024,
+      progress: null,
+      summary: null,
+      smokePassed: null,
+      published: false,
+      failureReason: null,
+    });
+    renderPage();
+
+    expect(await screen.findByText('Cancelling')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Cancelling — stopping the running job and rolling back any partial data.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Delete/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the cancel confirmation dialog and updates status in place on confirm', async () => {
+    const user = userEvent.setup();
+    mockApiRequest.mockImplementation((path: string, options?: RequestInit) => {
+      if (options?.method === 'POST' && path.endsWith('/cancel'))
+        return Promise.resolve({ status: 'cancelling' });
+      return Promise.resolve({
+        originalFilename: 'bac_2024.xlsx',
+        status: 'processing',
+        examYear: 2024,
+        progress: 40,
+        summary: null,
+        smokePassed: null,
+        published: false,
+        failureReason: null,
+      });
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+    const dialog = screen.getByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel import' }));
+
+    await waitFor(() => {
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        '/api/imports/42/cancel',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    expect(await screen.findByText('Cancelling')).toBeInTheDocument();
   });
 
   it('opens the delete confirmation dialog, requires typing the exact filename, and deletes on confirm', async () => {

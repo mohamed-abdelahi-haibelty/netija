@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/node';
 import { Worker } from 'bullmq';
 import { db } from './db/client.js';
 import { IMPORT_QUEUE_NAME, queueConnection, type ImportJobData } from './lib/queue.js';
-import { ImportJobError, markImportFailed, runImportJob } from './services/importJob.js';
+import { ImportCancelledError, ImportJobError, markImportFailed, runImportJob } from './services/importJob.js';
 
 // Node-side queue worker process (task 019): drives worker/worker.py per
 // confirmed import. Concurrency 1 — imports never run two at a time (see
@@ -21,6 +21,16 @@ const worker = new Worker<ImportJobData>(IMPORT_QUEUE_NAME, (job) => runImportJo
 // reaches the configured limit (lib/queue.ts's IMPORT_JOB_ATTEMPTS).
 worker.on('failed', (job, err) => {
   if (!job) return;
+
+  if (err instanceof ImportCancelledError) {
+    // runImportJob already finalized the import row to 'cancelled' itself
+    // (task 032) before throwing this — an UnrecoverableError, so BullMQ
+    // never retries it regardless of attempts remaining. Nothing left to
+    // do here, and markImportFailed below must NOT run — it would
+    // overwrite the row back to 'failed'.
+    return;
+  }
+
   const attemptLimit = job.opts.attempts ?? 1;
   if (job.attemptsMade < attemptLimit) return;
 
