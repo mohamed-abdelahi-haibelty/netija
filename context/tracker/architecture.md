@@ -99,7 +99,17 @@ resolution, no person entity, no cross-year merging, and no
     tables.
 - **Redis**: cache of result-page payloads (keyed by the attempt's
   public_slug as `result:{slug}`; TTL >= 300 s, invalidated on
-  import/publish), rate-limit counters, BullMQ job state.
+  import/publish), exam-number lookups (`exam:{year}:{examNo}`,
+  `api/src/services/examSearch.ts`), rate-limit counters, BullMQ job
+  state. An auth-gated admin panel (`/admin/[lang]/cache`, task 035,
+  `api/src/services/cacheAdmin.ts`) exposes read-only visibility
+  (key counts, a paginated/pattern-filterable key list, per-key value
+  inspection) and invalidation (a single key, keys matching a pattern,
+  or the whole result cache) — strictly scoped by prefix to the
+  `exam:`/`result:` families via a SCAN-based guard; rate-limit
+  counters and BullMQ's own keys are never listed or touchable
+  through it, even if an admin's pattern filter would otherwise match
+  them.
 - **Meilisearch**: derived search index with one document PER
   PUBLISHED ATTEMPT (not per person). The document id IS the
   attempt's public_slug; the payload carries name_fr, name_ar,
