@@ -161,6 +161,31 @@ describe('deleteImport service', () => {
     expect(transactionCalled).toBe(false);
   });
 
+  it('throws ImportProcessingError while an import is cancelling (task 032 kill/rollback may still be in flight)', async () => {
+    const { deleteImport: realFn, ImportProcessingError: RealImportProcessingError } =
+      await vi.importActual<typeof import('../services/deleteImport.js')>(
+        '../services/deleteImport.js',
+      );
+
+    let transactionCalled = false;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({ limit: () => Promise.resolve([{ id: 42, status: 'cancelling' }]) }),
+        }),
+      }),
+      transaction: () => {
+        transactionCalled = true;
+        throw new Error('should not delete while cancelling');
+      },
+    };
+
+    await expect(realFn(db as never, {} as never, {} as never, 42)).rejects.toBeInstanceOf(
+      RealImportProcessingError,
+    );
+    expect(transactionCalled).toBe(false);
+  });
+
   it('deletes attempts, rejects, and the import row in one transaction, then invalidates caches and reindexes Meilisearch', async () => {
     const { deleteImport: realFn } =
       await vi.importActual<typeof import('../services/deleteImport.js')>(

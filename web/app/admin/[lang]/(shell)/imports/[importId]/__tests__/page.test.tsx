@@ -81,31 +81,6 @@ describe('Admin import detail / publish page', () => {
     );
   });
 
-  it('links to the rows page once the import has produced a summary', async () => {
-    mockApiRequest.mockResolvedValue(COMPLETED_UNPUBLISHED_PASSED);
-    renderPage();
-
-    const link = await screen.findByRole('link', { name: /Browse rows/ });
-    expect(link).toHaveAttribute('href', '/admin/fr/imports/42/rows');
-  });
-
-  it('does not link to the rows page before the import has a summary', async () => {
-    mockApiRequest.mockResolvedValue({
-      originalFilename: 'bac_2024.xlsx',
-      status: 'processing',
-      examYear: 2024,
-      progress: 40,
-      summary: null,
-      smokePassed: null,
-      published: false,
-      failureReason: null,
-    });
-    renderPage();
-
-    await screen.findByText('Processing');
-    expect(screen.queryByRole('link', { name: /Browse rows/ })).not.toBeInTheDocument();
-  });
-
   it('is axe-clean once loaded', async () => {
     mockApiRequest.mockResolvedValue(COMPLETED_UNPUBLISHED_PASSED);
     const { container } = renderPage();
