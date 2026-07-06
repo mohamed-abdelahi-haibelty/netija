@@ -133,6 +133,7 @@ def report_progress(dsn: str, import_id: int, progress: int) -> None:
 
 def _insert_attempts(
     cur: psycopg.Cursor,
+    exam_type: str,
     exam_year: int,
     import_id: int,
     rows: list[CleanRow],
@@ -142,11 +143,12 @@ def _insert_attempts(
     inserted = 0
     for batch in _chunked(rows, BATCH_SIZE):
         raise_if_cancelled()
-        values_sql = ", ".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(batch))
+        values_sql = ", ".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(batch))
         params: list[object] = []
         for row in batch:
             params.extend(
                 [
+                    exam_type,
                     exam_year,
                     row.exam_no,
                     row.name_fr,
@@ -159,14 +161,16 @@ def _insert_attempts(
                 ]
             )
         # public_slug is deliberately never set here — its DB-side DEFAULT
-        # (see schema.ts) self-populates it for every inserter.
+        # (see schema.ts) self-populates it for every inserter. ON CONFLICT
+        # targets (exam_type, exam_year, exam_no): a Bac and a Brevet
+        # candidate may share (year, exam_no), so exam_type is part of the key.
         cur.execute(
             f"""
             INSERT INTO attempts
-                (exam_year, exam_no, name_fr, name_ar, serie, moyenne,
+                (exam_type, exam_year, exam_no, name_fr, name_ar, serie, moyenne,
                  decision, decision_raw, import_id)
             VALUES {values_sql}
-            ON CONFLICT (exam_year, exam_no) DO NOTHING
+            ON CONFLICT (exam_type, exam_year, exam_no) DO NOTHING
             RETURNING id
             """,
             params,
@@ -214,6 +218,7 @@ _LOAD_PROGRESS_END = 95
 def load_import(
     dsn: str,
     import_id: int,
+    exam_type: str,
     exam_year: int,
     rows: list[CleanRow],
     rejects: list[RejectedRow],
@@ -267,7 +272,7 @@ def load_import(
                 cur, import_id, rejects, raw_rows_by_number, report_done, raise_if_cancelled
             )
             inserted = _insert_attempts(
-                cur, exam_year, import_id, rows, report_done, raise_if_cancelled
+                cur, exam_type, exam_year, import_id, rows, report_done, raise_if_cancelled
             )
             raise_if_cancelled()
 

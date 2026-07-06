@@ -147,7 +147,8 @@ class CleanRow:
     exam_no: str
     name_fr: str | None
     name_ar: str | None
-    serie: str
+    # None for Brevet (no track); always present for Bac.
+    serie: str | None
     decision: str
     decision_raw: str
     moyenne: float | None
@@ -188,6 +189,7 @@ def _clean_row(
     raw_row: dict[str, object],
     field_to_header: dict[str, str],
     exam_year: int,
+    exam_type: str,
 ) -> CleanRow | _RowError:
     exam_no, exam_no_error = _validate_exam_no(_field_value(raw_row, field_to_header, "exam_no"))
     if exam_no_error:
@@ -198,12 +200,18 @@ def _clean_row(
     if name_fr is None and name_ar is None:
         return _RowError("missing name (both name_fr and name_ar are absent)", "name")
 
-    serie_raw = _clean_text(_field_value(raw_row, field_to_header, "serie"))
-    if serie_raw is None:
-        return _RowError("missing serie", "serie")
-    serie = (
-        serie_raw.upper()
-    )  # normalizes casing only (e.g. "sn" -> "SN"); typos like "SNE" pass through verbatim
+    # Serie is a Bac-only concept: required for Bac, absent for Brevet. For a
+    # Brevet import serie is never required and any mapped serie column is
+    # ignored (stored as null) — the "required for bac, absent/ignored for
+    # brevet" rule lives here, not in the schema (serie is nullable there).
+    if exam_type == "brevet":
+        serie: str | None = None
+    else:
+        serie_raw = _clean_text(_field_value(raw_row, field_to_header, "serie"))
+        if serie_raw is None:
+            return _RowError("missing serie", "serie")
+        # normalizes casing only (e.g. "sn" -> "SN"); typos like "SNE" pass through verbatim
+        serie = serie_raw.upper()
 
     decision_raw = _clean_text(_field_value(raw_row, field_to_header, "decision"))
     if decision_raw is None:
@@ -228,11 +236,15 @@ def _clean_row(
     )
 
 
-def clean_dataframe(df: pd.DataFrame, mapping: dict[str, str], exam_year: int) -> CleaningResult:
+def clean_dataframe(
+    df: pd.DataFrame, mapping: dict[str, str], exam_year: int, exam_type: str
+) -> CleaningResult:
     """Classify every row of a raw mapped DataFrame as importable or
     rejected-with-reason. `mapping` is `header -> canonical field`, exactly
     the shape `mapping.analyze_headers(...).mapping` produces; `exam_year`
-    is set once per file at confirm time, not read from any column.
+    and `exam_type` are set once per file at confirm time, not read from any
+    column. `exam_type` ('bac' | 'brevet') decides whether serie is required
+    (Bac) or ignored (Brevet).
 
     `df.to_dict(orient="records")` turns each row into a plain
     `{header: value}` dict so the per-row logic below never depends on
@@ -244,7 +256,7 @@ def clean_dataframe(df: pd.DataFrame, mapping: dict[str, str], exam_year: int) -
     rejects: list[RejectedRow] = []
 
     for row_number, raw_row in enumerate(df.to_dict(orient="records"), start=1):
-        outcome = _clean_row(raw_row, field_to_header, exam_year)
+        outcome = _clean_row(raw_row, field_to_header, exam_year, exam_type)
         if isinstance(outcome, _RowError):
             rejects.append(
                 RejectedRow(row_number=row_number, reason=outcome.reason, column=outcome.column)
