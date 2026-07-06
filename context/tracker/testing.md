@@ -73,8 +73,15 @@ Required tests for EVERY route:
 Domain-specific cases that must exist:
 
 - Same exam number, different years → different results
-  (uniqueness is per (year, exam_no)).
-- Exam-number search without a year → validation error.
+  (uniqueness is per (exam_type, year, exam_no)).
+- Same exam number + year under different exam types (Bac vs Brevet)
+  → different, non-colliding results, each with its own slug; the
+  loader inserts BOTH (no ON CONFLICT skip).
+- Type-scoped search: exam-number and name search return only rows of
+  the requested exam type; the Redis exam-cache key and the Meili
+  name-search filter are namespaced by exam_type.
+- Exam-number search without a year → validation error; an unknown
+  `type` → validation error (defaults to `bac` when omitted).
 - Cached vs uncached lookup: second call served from mocked
   Redis without hitting the DB layer (assert call counts).
 - Unpublished year: public search and result endpoints exclude it;
@@ -159,10 +166,14 @@ Status & publish:
     via aria-live, selection navigates to the result page. Each
     row shows its year + serie; a name appearing in three years
     shows three separate rows, newest first.
-  - Result page: renders decision, moyenne (out of 20), serie,
-    year; not-found state; Arabic name renders with dir="rtl".
-    There is no multi-attempt history and no "other records"
-    section.
+  - Result page: renders decision, moyenne (out of 20), year, and —
+    for Bac — serie; a Brevet result omits the serie row entirely
+    (not a blank field); not-found state; Arabic name renders with
+    dir="rtl". There is no multi-attempt history and no "other
+    records" section.
+  - Exam-type selector: the home page's Bac/Brevet selector sets
+    `?type=` in the URL (source of truth); the name + exam search
+    requests are scoped to the selected type.
   - Admin upload: file selection, mapping preview table renders
     detected/unrecognized columns, remap dropdown updates the
     payload sent on confirm.
@@ -186,17 +197,23 @@ The riskiest code in the project. Pure functions, exhaustively:
 - Ignored columns: if a fixture contains NNI / birth date / birth
   place, the cleaning step drops them and they never reach the
   loaded row.
-- Importable-vs-rejected split: a row missing exam_no, all names,
-  serie, or decision is rejected with a clear reason and counted;
-  the rest of the file still imports. No code path assumes a year
-  implies a field (2022's columns differ from 2021's).
+- Importable-vs-rejected split: for a BAC import, a row missing
+  exam_no, all names, serie, or decision is rejected with a clear
+  reason and counted; the rest of the file still imports. For a
+  BREVET import, serie is NOT required (a row with no serie still
+  imports, stored as null) and any mapped serie column is ignored —
+  but exam_no, a name, and decision are still required. No code path
+  assumes a year implies a field (2022's columns differ from 2021's).
 - Column mapping: every historical header set (see fixtures)
   auto-maps its known columns; unknown headers are reported as
   unrecognized; guaranteed-floor absence (no exam_no or no name)
   is reported.
 - Loader (against disposable Postgres): inserting the same file
   twice yields identical counts (idempotency); a mid-load failure
-  rolls back fully (no partial year).
+  rolls back fully (no partial year); a Bac and a Brevet row sharing
+  (year, exam_no) both insert without colliding (ON CONFLICT targets
+  (exam_type, exam_year, exam_no)); a Brevet import stores serie null
+  for every row.
 
 ## Fixtures (mandatory)
 

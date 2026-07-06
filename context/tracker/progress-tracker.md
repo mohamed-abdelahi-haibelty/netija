@@ -8,9 +8,65 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- None — tasks 025, 031, 032, 033, 034, and 035 are complete.
+- None — tasks 025, 031, 032, 033, 034, 035, and 036 are complete.
 
 ## Completed
+
+- **Task 036 — Second exam type: Brevet (BEPC) alongside Bac**
+  - **One unified `exam_type`-keyed model, not duplicated tables/code.**
+    New `exam_type` pg enum (`'bac'|'brevet'`). `attempts` gained
+    `exam_type` (NOT NULL); its uniqueness widened from
+    `UNIQUE(exam_year, exam_no)` to `UNIQUE(exam_type, exam_year, exam_no)`
+    so a Bac and a Brevet may share year+exam_no; `serie` became NULLABLE
+    (required for Bac, null for Brevet). `imports` gained `exam_type`
+    (nullable until confirm, like `exam_year`). `public_slug` unchanged
+    (globally unique → a slug already resolves to exactly one typed row).
+  - **Migration: regenerated a single clean `0000` (dev-only, disposable
+    data), NOT an incremental add-column/backfill** — per the task's own
+    instruction to avoid layering onto a history we'll never deploy from.
+    Dropped the old `0000`/`0001`, `drizzle-kit generate` produced one
+    migration for the full schema; journal-monotonicity guard kept (one
+    entry, trivially increasing). Dev DB dropped/recreated, migrated,
+    reseeded (seed now includes a Brevet 2023 set overlapping Bac 2023
+    exam numbers, proving no collision — 360 rows, Brevet serie all null).
+  - **Serie rule lives in cleaning validation, not the schema**
+    (`worker/cleaning.py`): for Brevet, serie is never required and any
+    mapped serie column is ignored (stored null); for Bac, serie stays
+    required. `exam_type` threads confirm → `ImportJobData` →
+    `worker.py --exam-type` → `loader.py` INSERT + `ON CONFLICT
+    (exam_type, exam_year, exam_no)`. Field availability still detected
+    per file, never hardcoded by year.
+  - **Type-scoped search + namespaced derived stores.** Exam-number and
+    name search take a `type` param (default `bac`). Redis:
+    `exam:{type}:{year}:{examNo}` and `years:published:{type}`;
+    `result:{slug}` unchanged. Meili: one index, docs gained `examType`
+    (filterable), name search scoped by `filter: examType = <type>` so
+    Bac/Brevet names never intermingle. Fan-out invalidation
+    (publish/delete/row-delete) passes each row's type into the cache key.
+  - **Result page** shows serie only for Bac; Brevet omits the serie row
+    entirely (not blank). **Home page** has a quiet Bac/Brevet selector
+    that sets `?type=` (URL is the source of truth → shareable,
+    bookmarkable, survives refresh); the page reads `searchParams.type`
+    (now dynamically rendered, still edge-cacheable per URL). **Admin**
+    mapping page picks the type alongside the year; dashboard list +
+    detail label each import's type. **Analytics** events gained an
+    `exam_type` property (safe categorical). i18n: FR "Brevet (BEPC)",
+    AR "مسابقة ختم دروس الإعدادية"; fr/ar key parity verified.
+  - **Tests**: worker `pytest` 204 (Brevet ignores/nulls serie; Bac+Brevet
+    no-collision loader test; `--exam-type` validation; Brevet e2e import
+    stores null serie). API `vitest` 304 (type-scoped exam/name/years,
+    namespaced cache keys, Bac vs Brevet no-collision, examType required
+    on confirm, schema uniqueness). Web `jest` 170 (Brevet result omits
+    serie, ExamTypeSwitcher navigation, type-scoped name fetch, analytics
+    exam_type). `tsc`/`eslint`/`next build`/`ruff`/`black` all clean.
+    **Verified live** against the seeded DB + real Meili/Redis: same
+    year+exam_no returns different Bac/Brevet results (different slugs,
+    Bac serie SN vs Brevet null), name search returns only the chosen
+    type, years scoped per type, unpublished Bac 2024 excluded, unknown
+    type → 400.
+  - **Docs** updated: architecture.md (two-exam-type model, storage,
+    invariants), project-overview.md (flows/scope/analytics/success
+    criteria), testing.md (type-scoping + serie-by-type cases).
 
 - **Task 035 — Redis Cache Visibility and Invalidation from the Dashboard**
   - **Scope guard is the load-bearing decision**: `api/src/services/cacheAdmin.ts`
