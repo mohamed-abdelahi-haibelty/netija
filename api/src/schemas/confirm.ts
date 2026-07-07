@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EXAM_TYPES } from 'shared';
+import { MIN_EXAM_YEAR, MAX_EXAM_YEAR } from './common.js';
 
 // The 6 canonical fields the pipeline ever stores (shared/src/imports.ts's
 // CanonicalField) — kept as a literal tuple here since Zod needs its own
@@ -15,8 +16,8 @@ export const confirmImportBodySchema = z.object({
   examYear: z.coerce
     .number({ invalid_type_error: 'examYear must be a number' })
     .int('examYear must be an integer')
-    .min(1900, 'examYear must be 1900 or later')
-    .max(2100, 'examYear must be 2100 or earlier'),
+    .min(MIN_EXAM_YEAR, `examYear must be ${String(MIN_EXAM_YEAR)} or later`)
+    .max(MAX_EXAM_YEAR, `examYear must be ${String(MAX_EXAM_YEAR)} or earlier`),
 });
 
 export type ConfirmImportBody = z.infer<typeof confirmImportBodySchema>;
