@@ -77,7 +77,9 @@ function useCountUp(
       if (progress < 1) raf = requestAnimationFrame(step);
     }
     raf = requestAnimationFrame(step);
-    return () => { cancelAnimationFrame(raf); };
+    return () => {
+      cancelAnimationFrame(raf);
+    };
   }, [target, durationMs, enabled]);
 
   return cur;
@@ -129,7 +131,9 @@ export function StudentResultCard({
     void navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     if (copyTimer.current) clearTimeout(copyTimer.current);
-    copyTimer.current = setTimeout(() => { setCopied(false); }, 1500);
+    copyTimer.current = setTimeout(() => {
+      setCopied(false);
+    }, 1500);
   }
 
   // One name only: the current language's, falling back to the other
@@ -157,7 +161,7 @@ export function StudentResultCard({
     <div style={{ contain: "layout style" }}>
       {/* ── Name — current language, falling back to the other ── */}
       {name.text && (
-        <header className="mb-7 text-center">
+        <header className="mb-12 text-center">
           <h1
             lang={name.lng}
             dir={name.dir}
@@ -170,9 +174,9 @@ export function StudentResultCard({
       )}
 
       {/* ── Properties — flat Notion rows ── */}
-      <div className="flex flex-col items-center">
+      <div className="w-fit max-w-full mx-auto">
         <PropertyRow label={t("student.examTypeLabel")}>
-          <span className="inline-block rounded bg-muted px-2 text-sm leading-6">
+          <span className="inline-block whitespace-nowrap rounded bg-muted px-2 text-sm leading-6">
             {t(`home.examType_${student.examType}`)}
           </span>
         </PropertyRow>
