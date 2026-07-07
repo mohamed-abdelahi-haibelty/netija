@@ -86,7 +86,7 @@ export default async function HomePage({
       <h1 className="font-heading text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance">
         {i18n.t('home.title')}
       </h1>
-      <p className="mt-1.5 mb-6 text-base text-muted-foreground text-pretty">
+      <p className="mt-2 mb-8 text-base text-muted-foreground text-pretty">
         {i18n.t('home.subtitle')}
       </p>
 
@@ -96,7 +96,7 @@ export default async function HomePage({
           clean slate for the newly-chosen exam. */}
       <SearchTabs key={examType} lang={lang} examType={examType} years={years} yearsError={yearsError} />
 
-      <hr className="border-border mt-14 mb-5" />
+      <hr className="border-border mt-14 mb-6" />
 
       <p className="text-xs text-muted-foreground text-pretty">
         {i18n.t('home.footerDisclaimer')}
