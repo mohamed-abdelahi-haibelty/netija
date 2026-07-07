@@ -19,6 +19,7 @@ import { recordSearchAttempt, trackResultSearched } from '@/lib/analytics';
 import { Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/NameAutocomplete';
 import { ClearButton } from '@/components/ClearButton';
+
 import type { ExamSearchResult, ExamType } from 'shared';
 
 type TabId = 'exam' | 'name';

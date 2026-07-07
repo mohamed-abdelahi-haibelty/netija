@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, Loader2, RefreshCw, RotateCw } from 'lucide-react';
+import { RefreshCw, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { PropertyRow } from '@/components/PropertyRow';
 import { ReindexDialog } from '@/components/admin/ReindexDialog';
+import { PageHeader } from '@/components/ui/page-header';
+import { Pagination } from '@/components/ui/pagination';
+import { LoadingState, ErrorState, NotFoundState, EmptyState as BaseEmptyState } from '@/components/ui/load-states';
 import type {
   SearchIndexStatusResult,
   SearchIndexDocumentsResult,
@@ -128,29 +131,20 @@ export default function SearchIndexPage() {
 
   return (
     <section aria-labelledby="search-index-title">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 id="search-index-title" className="text-lg font-semibold text-foreground tracking-tight">
-            {t('admin.searchIndex.pageTitle')}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('admin.searchIndex.subtitle')}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setReindexOpen(true);
-          }}
-          className={cn(
-            'inline-flex items-center gap-1.5 h-9 px-4 rounded-md',
-            'bg-primary text-primary-foreground text-sm font-medium',
-            'hover:bg-primary/85 active:bg-primary/70 transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-        >
-          <RotateCw className="size-3.5" aria-hidden />
-          {t('admin.searchIndex.reindexAction')}
-        </button>
-      </div>
+      <PageHeader
+        title={t('admin.searchIndex.pageTitle')}
+        subtitle={t('admin.searchIndex.subtitle')}
+        actions={
+          <button
+            type="button"
+            onClick={() => { setReindexOpen(true); }}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/85 active:bg-primary/70 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <RotateCw className="size-3.5" aria-hidden />
+            {t('admin.searchIndex.reindexAction')}
+          </button>
+        }
+      />
 
       {reindexNotice !== null && (
         <p role="status" className="mb-4 text-sm text-status-pass-fg">
@@ -180,24 +174,14 @@ export default function SearchIndexPage() {
           )}
         </div>
 
-        {statusLoad === 'loading' && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            {t('admin.searchIndex.statusLoading')}
-          </p>
-        )}
+        {statusLoad === 'loading' && <LoadingState label={t('admin.searchIndex.statusLoading')} />}
 
         {statusLoad === 'error' && (
-          <div role="alert" className="flex flex-col items-start gap-2 text-sm text-status-fail-fg">
-            <p>{t('admin.searchIndex.statusLoadError')}</p>
-            <button
-              type="button"
-              onClick={() => void loadStatus()}
-              className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            >
-              {t('common.retry')}
-            </button>
-          </div>
+          <ErrorState
+            label={t('admin.searchIndex.statusLoadError')}
+            onRetry={() => void loadStatus()}
+            retryLabel={t('common.retry')}
+          />
         )}
 
         {statusLoad === 'loaded' && status && (
@@ -273,36 +257,20 @@ export default function SearchIndexPage() {
           </div>
         </div>
 
-        {docsLoad === 'loading' && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            {t('admin.searchIndex.documentsLoading')}
-          </p>
-        )}
+        {docsLoad === 'loading' && <LoadingState label={t('admin.searchIndex.documentsLoading')} />}
 
-        {docsLoad === 'notFound' && (
-          <p role="alert" className="text-sm text-status-fail-fg">
-            {t('admin.searchIndex.importNotFound')}
-          </p>
-        )}
+        {docsLoad === 'notFound' && <NotFoundState label={t('admin.searchIndex.importNotFound')} />}
 
         {docsLoad === 'error' && (
-          <div role="alert" className="flex flex-col items-start gap-2 text-sm text-status-fail-fg">
-            <p>{t('admin.searchIndex.documentsLoadError')}</p>
-            <button
-              type="button"
-              onClick={() => void loadDocuments(page)}
-              className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            >
-              {t('common.retry')}
-            </button>
-          </div>
+          <ErrorState
+            label={t('admin.searchIndex.documentsLoadError')}
+            onRetry={() => void loadDocuments(page)}
+            retryLabel={t('common.retry')}
+          />
         )}
 
         {docsLoad === 'loaded' && docs && docs.documents.length === 0 && (
-          <div className="border-t border-border py-16 text-center">
-            <p className="text-sm text-muted-foreground">{t('admin.searchIndex.documentsEmpty')}</p>
-          </div>
+          <BaseEmptyState label={t('admin.searchIndex.documentsEmpty')} />
         )}
 
         {docsLoad === 'loaded' && docs && docs.documents.length > 0 && (
@@ -367,46 +335,16 @@ export default function SearchIndexPage() {
               </table>
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <span>{t('admin.searchIndex.totalDocuments', { count: docs.total })}</span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPage((p) => Math.max(1, p - 1));
-                  }}
-                  disabled={page <= 1}
-                  className={cn(
-                    'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-medium',
-                    'border border-border text-muted-foreground',
-                    'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'disabled:pointer-events-none disabled:opacity-50',
-                  )}
-                >
-                  <ChevronLeft className="size-3.5" aria-hidden />
-                  {t('admin.rows.prevPage')}
-                </button>
-                <span aria-live="polite">{t('admin.rows.pageInfo', { page, totalPages })}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPage((p) => Math.min(totalPages, p + 1));
-                  }}
-                  disabled={page >= totalPages}
-                  className={cn(
-                    'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-medium',
-                    'border border-border text-muted-foreground',
-                    'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'disabled:pointer-events-none disabled:opacity-50',
-                  )}
-                >
-                  {t('admin.rows.nextPage')}
-                  <ChevronRight className="size-3.5" aria-hidden />
-                </button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={docs.total}
+              onPageChange={setPage}
+              prevLabel={t('admin.rows.prevPage')}
+              nextLabel={t('admin.rows.nextPage')}
+              pageInfoLabel={t('admin.rows.pageInfo', { page, totalPages })}
+              totalLabel={t('admin.searchIndex.totalDocuments', { count: docs.total })}
+            />
           </>
         )}
       </div>
