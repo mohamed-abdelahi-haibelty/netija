@@ -29,6 +29,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from cleaning import CleanRow, RejectedRow
+from mapping import missing_required_fields
 
 
 def _json_safe(value: object) -> object:
@@ -51,10 +52,6 @@ def _json_safe(value: object) -> object:
 # count (9 columns * batch size) comfortably under Postgres limits.
 BATCH_SIZE = 1000
 
-# Mirrors mapping.py's NAME_FIELDS / confirm.ts's checkFloor: a file is only
-# ever guaranteed an exam number and at least one name column.
-_NAME_FIELDS = ("name_fr", "name_ar")
-
 
 def check_mapping_floor(mapping: dict[str, str]) -> list[str]:
     """Re-check the guaranteed floor directly on the CONFIRMED header->field
@@ -64,14 +61,11 @@ def check_mapping_floor(mapping: dict[str, str]) -> list[str]:
     the whole file is unloadable (every row would reject on exam_no or
     name) rather than a normal per-row rejection — so it fails the job with
     one precise reason instead of silently rejecting every single row.
+    Shares its arithmetic with mapping.py's `analyze_headers` via
+    `missing_required_fields` — this call remains a deliberate second check,
+    not just a code reuse, per this function's own docstring above.
     """
-    mapped_fields = set(mapping.values())
-    missing: list[str] = []
-    if "exam_no" not in mapped_fields:
-        missing.append("exam_no")
-    if not mapped_fields.intersection(_NAME_FIELDS):
-        missing.append("name")
-    return missing
+    return missing_required_fields(set(mapping.values()))
 
 
 @dataclass(frozen=True)
