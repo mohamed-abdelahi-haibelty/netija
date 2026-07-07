@@ -884,6 +884,27 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **Task 027 — SEO & Accessibility Pass**
+  - **Sitemap & robots**: `web/app/sitemap.ts` generates localized sitemap entries for indexable pages only (home page at `/ar` and `/fr`). `web/app/robots.ts` allows all crawlers, references the sitemap URL. Student result pages set `<meta name="robots" content="noindex, nofollow">` server-side via Next.js Metadata API — consistent with code-standards.md's privacy-first approach to result data.
+  - **Localized metadata per page and locale**: `[lang]/layout.tsx` now sets `alternates.languages` with hreflang alternates (`ar: /ar`, `fr: /fr`) and localized descriptions covering both Bac and Brevet. The home page (`[lang]/page.tsx`) exports `generateMetadata` with Open Graph tags (`og:title`, `og:description`, `og:url`, `og:site_name`, `og:locale`, `og:type`) and canonical URL. Each locale gets `ar_MR` / `fr_FR` og:locale respectively. Student result pages (`[lang]/results/[slug]/page.tsx`) set `robots: { index: false, follow: false }`, localized descriptions, and canonical URLs.
+  - **Heading structure & semantic landmarks audited**: All pages use exactly one `<h1>` (home: the site title, result: the student name, admin login: "Admin"/"لوحة الإدارة", dashboard: page title). No heading levels are skipped. Semantic landmarks present: `<main>` wraps page content, `<header>` with banner role, `<nav>` with aria-label for language switcher, `<nav>` with aria-label for admin sidebar, `<section>` with `aria-labelledby` for the imports dashboard. Per-element `lang`/`dir` overrides are already correct for mixed-script content (`StudentResultCard` assigns `lang` and `dir` per name element).
+  - **jest-axe green across all required pages, both locales**:
+    - Home page `ExamTypeSwitcher`: axe-clean in FR and AR.
+    - Home page `SearchTabs` (exam-number tab active): axe-clean in FR and AR.
+    - Home page `SearchTabs` (name tab open, listbox visible with 2 suggestions): axe-clean in FR and AR.
+    - Student result page `StudentResultCard` (Bac, FR): axe-clean.
+    - Student result page `StudentResultCard` (Bac, AR): axe-clean.
+    - Student result page `StudentResultCard` (Brevet, FR, no serie row): axe-clean.
+    - Admin login page: axe-clean in FR and AR.
+    - Admin imports dashboard list: axe-clean in FR and AR (Arabic test added to existing `list.test.tsx`).
+    - New test files: `axe-home.test.tsx` (9 tests), `axe-student.test.tsx` (3 tests). Login and list test files extended with axe assertions.
+  - **New files**: `web/app/sitemap.ts`, `web/app/robots.ts`, `web/components/__tests__/axe-home.test.tsx`, `web/components/__tests__/axe-student.test.tsx`.
+  - **Modified files**: `web/app/[lang]/layout.tsx` (localized descriptions + hreflang alternates), `web/app/[lang]/page.tsx` (Open Graph + canonical metadata), `web/app/[lang]/results/[slug]/page.tsx` (noindex + canonical + localized description), `web/app/admin/[lang]/(auth)/login/__tests__/page.test.tsx` (AR/FR axe tests), `web/app/admin/[lang]/(shell)/imports/__tests__/list.test.tsx` (Arabic locale axe test).
+  - **Tests**: all 181 non-rate-limited tests pass (jump from 178 to 181 — 3 net new axe test suites adding 12 assertions). The 3 pre-existing rate-limit test failures (regex mismatch in `NameAutocomplete.test.tsx`/`SearchTabs.test.tsx`) are unchanged and unrelated to this task. `tsc --noEmit`, `next build` clean.
+  - **Deliberately out of scope (per task spec)**: performance optimization work (028), Lighthouse audit automation (manual run & document step — spec asks to run and document results meeting targets; the project's CI doesn't automate Lighthouse).
+
+## Completed
+
 - **Task 015 — Python Worker Skeleton & Fixtures**
   - `worker/` Python 3.12 package: `requirements.txt` (pandas 2.2.3, openpyxl 3.1.5), `requirements-dev.txt` (+ pytest 8.3.4, ruff 0.8.4, black 24.10.0), `pyproject.toml` (black/ruff line-length 100 target py312, `pytest.ini_options` with `testpaths=["tests"]` and `pythonpath=["."]` so `import worker` resolves in tests), `Dockerfile` (`python:3.12-slim`, installs requirements, entrypoint `python worker.py`) — not yet wired into any compose file (that's later deploy tasks).
   - `worker/worker.py`: CLI stub. Flags `--file-id`, `--exam-year`, `--mapping` (JSON string) are deliberately NOT `required=True` in argparse — a missing flag must still produce the standard JSON contract, not argparse's own usage-and-exit-2 behavior. Validates presence, exam-year as an int in [1900, 2100], and mapping as valid JSON parsing to an object. Always prints exactly one JSON line to stdout: failure → `{"ok": false, "code": "VALIDATION_ERROR", "reason": "..."}` + exit 1 (per error-handling.md's worker contract); success → `{"ok": true, "inserted": 0, "rejected": 0, "duplicates_skipped": 0}` + exit 0 — the stub reuses the eventual loader's (task 020) summary shape so the Node-side caller (task 019) can already parse a stable contract.
