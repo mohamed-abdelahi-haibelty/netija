@@ -5,8 +5,7 @@ import type { MeiliClient } from '../lib/meili.js';
 import { attempts, imports } from '../db/schema.js';
 import { buildNameIndex } from './meiliIndex.js';
 import { ImportProcessingError } from './deleteImport.js';
-import { examCacheKey } from './examSearch.js';
-import { resultCacheKey } from './studentPage.js';
+import { invalidateAttemptCaches } from './cacheInvalidation.js';
 import type { ImportAttemptsDeleteResult, ImportAttemptsListResult } from 'shared';
 import type { ListImportAttemptsQuery } from '../schemas/attempts.js';
 
@@ -138,12 +137,7 @@ export async function deleteImportAttempts(
     }
   });
 
-  const pipeline = redis.pipeline();
-  for (const row of targetRows) {
-    pipeline.del(examCacheKey(row.examType, row.examYear, row.examNo));
-    pipeline.del(resultCacheKey(row.slug));
-  }
-  await pipeline.exec();
+  await invalidateAttemptCaches(redis, targetRows);
 
   // Meilisearch has no per-document-set partial delete wired up here; a full
   // rebuild from Postgres is the same always-correct pattern deleteImport.ts

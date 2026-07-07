@@ -4,8 +4,8 @@ import type { RedisClient } from '../lib/redis.js';
 import type { MeiliClient } from '../lib/meili.js';
 import { attempts, imports, rejects } from '../db/schema.js';
 import { buildNameIndex } from './meiliIndex.js';
-import { examCacheKey, invalidateYearsCache } from './examSearch.js';
-import { resultCacheKey } from './studentPage.js';
+import { invalidateYearsCache } from './examSearch.js';
+import { invalidateAttemptCaches } from './cacheInvalidation.js';
 import type { ImportDeleteResult } from 'shared';
 
 // Thrown by deleteImport when the import is currently processing OR being
@@ -64,14 +64,7 @@ export async function deleteImport(
     await tx.delete(imports).where(eq(imports.id, importId));
   });
 
-  if (attemptRows.length > 0) {
-    const pipeline = redis.pipeline();
-    for (const row of attemptRows) {
-      pipeline.del(examCacheKey(row.examType, row.examYear, row.examNo));
-      pipeline.del(resultCacheKey(row.slug));
-    }
-    await pipeline.exec();
-  }
+  await invalidateAttemptCaches(redis, attemptRows);
   await invalidateYearsCache(redis);
 
   // Meilisearch has no per-import partial delete; a full rebuild from
