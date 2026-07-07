@@ -435,7 +435,7 @@ export default function ImportsPage() {
           <EmptyState lang={lang} t={t} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th

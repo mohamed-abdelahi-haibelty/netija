@@ -278,7 +278,7 @@ export default function ImportRowsPage() {
       {loadStatus === 'loaded' && result && result.rows.length > 0 && (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th scope="col" className="w-10 px-4 py-2.5">

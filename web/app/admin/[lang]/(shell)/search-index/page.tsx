@@ -308,7 +308,7 @@ export default function SearchIndexPage() {
         {docsLoad === 'loaded' && docs && docs.documents.length > 0 && (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+               <table className="admin-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
                     <th

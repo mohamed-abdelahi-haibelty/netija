@@ -271,7 +271,7 @@ export default function CachePage() {
         {keysLoad === 'loaded' && keys && keys.keys.length > 0 && (
           <>
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="admin-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
                     <th scope="col" className="px-4 py-2.5 text-start font-medium text-muted-foreground">
