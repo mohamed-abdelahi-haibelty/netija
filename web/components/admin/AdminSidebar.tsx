@@ -18,6 +18,60 @@ interface NavItem {
   icon: React.ElementType;
 }
 
+function SidebarNav({
+  lang,
+  navItems,
+  isActive,
+  scrollable,
+}: {
+  lang: Locale;
+  navItems: NavItem[];
+  isActive: (href: string) => boolean;
+  scrollable?: boolean;
+}) {
+  return (
+    <nav
+      className={cn('flex-1 px-2 py-3 space-y-0.5', scrollable && 'overflow-y-auto')}
+      aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
+    >
+      {navItems.map((item) => (
+        <SidebarNavItem key={item.href} item={item} active={isActive(item.href)} />
+      ))}
+    </nav>
+  );
+}
+
+function SidebarFooter({
+  lang,
+  onNavigate,
+  onLogout,
+}: {
+  lang: Locale;
+  onNavigate?: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="px-2 pb-4 pt-2 border-t border-sidebar-border space-y-0.5">
+      <Link
+        href={`/${lang}`}
+        onClick={onNavigate}
+        className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150"
+      >
+        <ExternalLink className="size-4 shrink-0" aria-hidden />
+        <span>{lang === 'ar' ? 'العودة للموقع' : 'Back to site'}</span>
+      </Link>
+      <button
+        type="button"
+        onClick={onLogout}
+        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+      >
+        <LogOut className="size-4 shrink-0" aria-hidden />
+        <span>{lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}</span>
+      </button>
+    </div>
+  );
+}
+
 function SidebarNavItem({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
@@ -92,7 +146,9 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
       if (e.key === 'Escape') close();
     }
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open, close]);
 
   // Lock body scroll when drawer is open
@@ -184,39 +240,8 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
           </button>
         </div>
 
-        {/* ── Nav ── */}
-        <nav
-          className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto"
-          aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
-        >
-          {navItems.map((item) => (
-            <SidebarNavItem
-              key={item.href}
-              item={item}
-              active={isActive(item.href)}
-            />
-          ))}
-        </nav>
-
-        {/* ── Footer ── */}
-        <div className="px-2 pb-4 pt-2 border-t border-sidebar-border space-y-0.5">
-          <Link
-            href={`/${lang}`}
-            onClick={close}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150"
-          >
-            <ExternalLink className="size-4 shrink-0" aria-hidden />
-            <span>{lang === 'ar' ? 'العودة للموقع' : 'Back to site'}</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => { void handleLogout(); }}
-            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-          >
-            <LogOut className="size-4 shrink-0" aria-hidden />
-            <span>{lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}</span>
-          </button>
-        </div>
+        <SidebarNav lang={lang} navItems={navItems} isActive={isActive} scrollable />
+        <SidebarFooter lang={lang} onNavigate={close} onLogout={() => void handleLogout()} />
       </aside>
 
       {/* ── Desktop sidebar (unchanged) ── */}
@@ -236,38 +261,8 @@ export function AdminSidebar({ lang }: AdminSidebarProps) {
           </Link>
         </div>
 
-        {/* ── Nav ── */}
-        <nav
-          className="flex-1 px-2 py-3 space-y-0.5"
-          aria-label={lang === 'ar' ? 'التنقل' : 'Navigation'}
-        >
-          {navItems.map((item) => (
-            <SidebarNavItem
-              key={item.href}
-              item={item}
-              active={isActive(item.href)}
-            />
-          ))}
-        </nav>
-
-        {/* ── Footer ── */}
-        <div className="px-2 pb-4 pt-2 border-t border-sidebar-border space-y-0.5">
-          <Link
-            href={`/${lang}`}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150"
-          >
-            <ExternalLink className="size-4 shrink-0" aria-hidden />
-            <span>{lang === 'ar' ? 'العودة للموقع' : 'Back to site'}</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => { void handleLogout(); }}
-            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-          >
-            <LogOut className="size-4 shrink-0" aria-hidden />
-            <span>{lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}</span>
-          </button>
-        </div>
+        <SidebarNav lang={lang} navItems={navItems} isActive={isActive} />
+        <SidebarFooter lang={lang} onLogout={() => void handleLogout()} />
       </aside>
     </>
   );
