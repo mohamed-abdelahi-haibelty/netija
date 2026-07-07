@@ -255,7 +255,7 @@ export default function MappingPage() {
           )}
 
           <div className="overflow-x-auto mb-6">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th

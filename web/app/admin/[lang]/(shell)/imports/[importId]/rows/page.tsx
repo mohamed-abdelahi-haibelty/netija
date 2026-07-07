@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, Loader2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import {
@@ -16,6 +16,10 @@ import {
 import { DeleteAttemptsDialog, type DeleteAttemptsTarget } from '@/components/admin/DeleteAttemptsDialog';
 import { DECISIONS } from 'shared';
 import type { ImportAttemptsListResult } from 'shared';
+import { PageHeader } from '@/components/ui/page-header';
+import { BackLink } from '@/components/ui/back-link';
+import { Pagination } from '@/components/ui/pagination';
+import { LoadingState, ErrorState, NotFoundState, EmptyState as BaseEmptyState } from '@/components/ui/load-states';
 
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -135,20 +139,15 @@ export default function ImportRowsPage() {
 
   return (
     <section aria-labelledby="rows-title">
-      <a
+      <BackLink
         href={`/admin/${lang}/imports/${importId}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 mb-5"
-      >
-        <ChevronLeft className="size-4" aria-hidden />
-        {t('admin.rows.backToImport')}
-      </a>
+        label={t('admin.rows.backToImport')}
+      />
 
-      <div className="mb-6">
-        <h1 id="rows-title" className="text-lg font-semibold text-foreground tracking-tight">
-          {t('admin.rows.pageTitle')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('admin.rows.subtitle')}</p>
-      </div>
+      <PageHeader
+        title={t('admin.rows.pageTitle')}
+        subtitle={t('admin.rows.subtitle')}
+      />
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">
@@ -243,42 +242,26 @@ export default function ImportRowsPage() {
         )}
       </div>
 
-      {loadStatus === 'loading' && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-          {t('admin.rows.loading')}
-        </p>
-      )}
+      {loadStatus === 'loading' && <LoadingState label={t('admin.rows.loading')} />}
 
-      {loadStatus === 'notFound' && (
-        <p role="alert" className="text-sm text-status-fail-fg">
-          {t('admin.rows.notFound')}
-        </p>
-      )}
+      {loadStatus === 'notFound' && <NotFoundState label={t('admin.rows.notFound')} />}
 
       {loadStatus === 'error' && (
-        <div role="alert" className="flex flex-col items-start gap-2 text-sm text-status-fail-fg">
-          <p>{t('admin.rows.loadError')}</p>
-          <button
-            type="button"
-            onClick={() => void load(page)}
-            className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          >
-            {t('common.retry')}
-          </button>
-        </div>
+        <ErrorState
+          label={t('admin.rows.loadError')}
+          onRetry={() => void load(page)}
+          retryLabel={t('common.retry')}
+        />
       )}
 
       {loadStatus === 'loaded' && result && result.rows.length === 0 && (
-        <div className="border-t border-border py-16 text-center">
-          <p className="text-sm text-muted-foreground">{t('admin.rows.empty')}</p>
-        </div>
+        <BaseEmptyState label={t('admin.rows.empty')} />
       )}
 
       {loadStatus === 'loaded' && result && result.rows.length > 0 && (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th scope="col" className="w-10 px-4 py-2.5">
@@ -370,46 +353,16 @@ export default function ImportRowsPage() {
             </table>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-            <span>{t('admin.rows.totalRows', { count: result.total })}</span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setPage((p) => Math.max(1, p - 1));
-                }}
-                disabled={page <= 1}
-                className={cn(
-                  'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-medium',
-                  'border border-border text-muted-foreground',
-                  'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  'disabled:pointer-events-none disabled:opacity-50',
-                )}
-              >
-                <ChevronLeft className="size-3.5" aria-hidden />
-                {t('admin.rows.prevPage')}
-              </button>
-              <span aria-live="polite">{t('admin.rows.pageInfo', { page, totalPages })}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setPage((p) => Math.min(totalPages, p + 1));
-                }}
-                disabled={page >= totalPages}
-                className={cn(
-                  'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-medium',
-                  'border border-border text-muted-foreground',
-                  'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  'disabled:pointer-events-none disabled:opacity-50',
-                )}
-              >
-                {t('admin.rows.nextPage')}
-                <ChevronRight className="size-3.5" aria-hidden />
-              </button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={result.total}
+            onPageChange={setPage}
+            prevLabel={t('admin.rows.prevPage')}
+            nextLabel={t('admin.rows.nextPage')}
+            pageInfoLabel={t('admin.rows.pageInfo', { page, totalPages })}
+            totalLabel={t('admin.rows.totalRows', { count: result.total })}
+          />
         </>
       )}
 

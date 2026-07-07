@@ -74,36 +74,4 @@ export const thmanyahSerifDisplay = localFont({
   preload: false,
 });
 
-export const thmanyahSerifText = localFont({
-  src: [
-    {
-      path: '../public/fonts/thmanyahseriftext/thmanyahseriftext-Light.woff2',
-      weight: '300',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/thmanyahseriftext/thmanyahseriftext-Regular.woff2',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/thmanyahseriftext/thmanyahseriftext-Medium.woff2',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/thmanyahseriftext/thmanyahseriftext-Bold.woff2',
-      weight: '700',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/thmanyahseriftext/thmanyahseriftext-Black.woff2',
-      weight: '900',
-      style: 'normal',
-    },
-  ],
-  variable: '--font-thmanyah-serif-text',
-  fallback: ['Georgia', 'serif'],
-  display: 'swap',
-  preload: false,
-});
+

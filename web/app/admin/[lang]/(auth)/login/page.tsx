@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import { trackAdminAccessAttempt } from '@/lib/analytics';
 
 // Reports a redirect-from-(shell)-layout probe of the admin area (the
@@ -35,12 +37,19 @@ export default function AdminLoginPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const email = emailRef.current?.value.trim() ?? '';
     const password = passwordRef.current?.value ?? '';
 
     if (!email || !password) return;
+
+    if (!EMAIL_RE.test(email)) {
+      setError(t('admin.login.errorEmailInvalid'));
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -119,7 +128,7 @@ export default function AdminLoginPage() {
               >
                 {t('admin.login.emailLabel')}
               </label>
-              <input
+              <Input
                 ref={emailRef}
                 id="email"
                 type="email"
@@ -128,12 +137,7 @@ export default function AdminLoginPage() {
                 spellCheck={false}
                 required
                 placeholder={t('admin.login.emailPlaceholder')}
-                className={cn(
-                  'w-full h-10 px-3 rounded-md border border-border bg-background',
-                  'text-sm text-foreground placeholder:text-muted-foreground',
-                  'outline-none transition-shadow duration-150',
-                  'focus:ring-2 focus:ring-ring focus:border-ring',
-                )}
+                className="h-10"
               />
             </div>
 
@@ -145,23 +149,18 @@ export default function AdminLoginPage() {
                 {t('admin.login.passwordLabel')}
               </label>
               <div className="relative">
-                <input
+                <Input
                   ref={passwordRef}
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
                   placeholder={t('admin.login.passwordPlaceholder')}
-                  className={cn(
-                    'w-full h-10 px-3 pr-10 rounded-md border border-border bg-background',
-                    'text-sm text-foreground placeholder:text-muted-foreground',
-                    'outline-none transition-shadow duration-150',
-                    'focus:ring-2 focus:ring-ring focus:border-ring',
-                  )}
+                  className="h-10 pe-10"
                 />
-                <button
+                  <button
                   type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('admin.login.hidePassword') : t('admin.login.showPassword')}
                   onClick={() => {
                     setShowPassword((v) => !v);
                   }}
@@ -200,12 +199,12 @@ export default function AdminLoginPage() {
 
         {/* ── Back link ── */}
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          <a
+          <Link
             href={`/${lang}`}
             className="hover:text-foreground transition-colors duration-150"
           >
             {lang === 'ar' ? '← العودة للموقع' : '← Back to site'}
-          </a>
+          </Link>
         </p>
       </div>
     </div>

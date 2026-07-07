@@ -91,7 +91,7 @@ function formatMoyenne(value: number): string {
 }
 
 const BTN_CLASSES =
-  "inline-flex items-center rounded-md border border-border px-3.5 py-1.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-150 cursor-pointer";
+  "inline-flex items-center rounded-md border border-border px-3.5 py-1.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-150 cursor-pointer touch:min-h-[44px] touch:px-4 touch:py-2.5 touch:text-sm";
 
 // ─── Main component ───────────────────────────────────────────────
 
@@ -161,11 +161,11 @@ export function StudentResultCard({
     <div style={{ contain: "layout style" }}>
       {/* ── Name — current language, falling back to the other ── */}
       {name.text && (
-        <header className="mb-12 text-center">
+        <header className="mb-10">
           <h1
             lang={name.lng}
             dir={name.dir}
-            className="text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance wrap-break-word hyphens-auto"
+            className="text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance break-words hyphens-auto max-w-full"
             style={{ fontFamily: name.font }}
           >
             {name.text}
@@ -174,7 +174,7 @@ export function StudentResultCard({
       )}
 
       {/* ── Properties — flat Notion rows ── */}
-      <div className="w-fit max-w-full mx-auto">
+      <div>
         <PropertyRow label={t("student.examTypeLabel")}>
           <span className="inline-block whitespace-nowrap rounded bg-muted px-2 text-sm leading-6">
             {t(`home.examType_${student.examType}`)}
@@ -206,17 +206,17 @@ export function StudentResultCard({
         </PropertyRow>
       </div>
 
-      <hr className="my-6 border-border" />
+      <hr className="my-8 border-border" />
 
       {/* ── Moyenne — plain text in the page body ── */}
       {moyenneNumber && (
-        <div className="text-center">
-          <p className="mb-1 text-sm text-muted-foreground">
+        <div>
+          <p className="mb-1.5 text-sm text-muted-foreground">
             {t("student.moyenneLabel")}
           </p>
           <p
             dir="ltr"
-            className="inline-block text-[clamp(1.875rem,7vw,2.375rem)] font-bold leading-[1.2] tracking-[-0.02em] tabular-nums text-foreground"
+            className="text-[clamp(1.875rem,7vw,2.375rem)] font-bold leading-[1.2] tracking-[-0.02em] tabular-nums text-foreground"
           >
             {moyenneNumber}
             <span className="text-[0.5em] font-normal text-muted-foreground">
@@ -228,7 +228,7 @@ export function StudentResultCard({
       )}
 
       {/* ── Quiet actions ── */}
-      <div className="mt-11 flex gap-2 justify-center">
+      <div className="mt-11 flex gap-2">
         <button
           type="button"
           onClick={copyLink}

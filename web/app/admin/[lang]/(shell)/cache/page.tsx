@@ -2,12 +2,15 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { PropertyRow } from '@/components/PropertyRow';
 import { InvalidateCacheKeyDialog } from '@/components/admin/InvalidateCacheKeyDialog';
 import { FlushCacheDialog } from '@/components/admin/FlushCacheDialog';
+import { PageHeader } from '@/components/ui/page-header';
+import { Pagination } from '@/components/ui/pagination';
+import { LoadingState, ErrorState, NotFoundState, EmptyState as BaseEmptyState } from '@/components/ui/load-states';
 import type { CacheStatusResult, CacheKeysListResult, CacheKeyInspectResult } from 'shared';
 
 const PAGE_SIZE = 20;
@@ -134,29 +137,20 @@ export default function CachePage() {
 
   return (
     <section aria-labelledby="cache-title">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 id="cache-title" className="text-lg font-semibold text-foreground tracking-tight">
-            {t('admin.cache.pageTitle')}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('admin.cache.subtitle')}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setFlushOpen(true);
-          }}
-          className={cn(
-            'inline-flex items-center gap-1.5 h-9 px-4 rounded-md',
-            'bg-destructive/10 text-destructive text-sm font-medium',
-            'hover:bg-destructive/20 transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-        >
-          <Trash2 className="size-3.5" aria-hidden />
-          {pattern ? t('admin.cache.flushMatchingAction') : t('admin.cache.flushAllAction')}
-        </button>
-      </div>
+      <PageHeader
+        title={t('admin.cache.pageTitle')}
+        subtitle={t('admin.cache.subtitle')}
+        actions={
+          <button
+            type="button"
+            onClick={() => { setFlushOpen(true); }}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Trash2 className="size-3.5" aria-hidden />
+            {pattern ? t('admin.cache.flushMatchingAction') : t('admin.cache.flushAllAction')}
+          </button>
+        }
+      />
 
       {flushNotice !== null && (
         <p role="status" className="mb-4 text-sm text-status-pass-fg">
@@ -186,24 +180,14 @@ export default function CachePage() {
           )}
         </div>
 
-        {statusLoad === 'loading' && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            {t('admin.cache.statusLoading')}
-          </p>
-        )}
+        {statusLoad === 'loading' && <LoadingState label={t('admin.cache.statusLoading')} />}
 
         {statusLoad === 'error' && (
-          <div role="alert" className="flex flex-col items-start gap-2 text-sm text-status-fail-fg">
-            <p>{t('admin.cache.statusLoadError')}</p>
-            <button
-              type="button"
-              onClick={() => void loadStatus()}
-              className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            >
-              {t('common.retry')}
-            </button>
-          </div>
+          <ErrorState
+            label={t('admin.cache.statusLoadError')}
+            onRetry={() => void loadStatus()}
+            retryLabel={t('common.retry')}
+          />
         )}
 
         {statusLoad === 'loaded' && status && (
@@ -236,42 +220,26 @@ export default function CachePage() {
           <p className="text-xs text-muted-foreground">{t('admin.cache.filterPatternHint')}</p>
         </div>
 
-        {keysLoad === 'loading' && (
-          <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            {t('admin.cache.keysLoading')}
-          </p>
-        )}
+        {keysLoad === 'loading' && <LoadingState label={t('admin.cache.keysLoading')} />}
 
-        {keysLoad === 'outOfScope' && (
-          <p role="alert" className="mt-4 text-sm text-status-fail-fg">
-            {keysError}
-          </p>
-        )}
+        {keysLoad === 'outOfScope' && <NotFoundState label={keysError ?? ''} />}
 
         {keysLoad === 'error' && (
-          <div role="alert" className="mt-4 flex flex-col items-start gap-2 text-sm text-status-fail-fg">
-            <p>{t('admin.cache.keysLoadError')}</p>
-            <button
-              type="button"
-              onClick={() => void loadKeys(page)}
-              className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            >
-              {t('common.retry')}
-            </button>
-          </div>
+          <ErrorState
+            label={t('admin.cache.keysLoadError')}
+            onRetry={() => void loadKeys(page)}
+            retryLabel={t('common.retry')}
+          />
         )}
 
         {keysLoad === 'loaded' && keys && keys.keys.length === 0 && (
-          <div className="border-t border-border py-16 text-center">
-            <p className="text-sm text-muted-foreground">{t('admin.cache.keysEmpty')}</p>
-          </div>
+          <BaseEmptyState label={t('admin.cache.keysEmpty')} />
         )}
 
         {keysLoad === 'loaded' && keys && keys.keys.length > 0 && (
           <>
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="admin-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
                     <th scope="col" className="px-4 py-2.5 text-start font-medium text-muted-foreground">
@@ -353,46 +321,16 @@ export default function CachePage() {
               </table>
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <span>{t('admin.cache.totalKeysFiltered', { count: keys.total })}</span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPage((p) => Math.max(1, p - 1));
-                  }}
-                  disabled={page <= 1}
-                  className={cn(
-                    'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-medium',
-                    'border border-border text-muted-foreground',
-                    'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'disabled:pointer-events-none disabled:opacity-50',
-                  )}
-                >
-                  <ChevronLeft className="size-3.5" aria-hidden />
-                  {t('admin.rows.prevPage')}
-                </button>
-                <span aria-live="polite">{t('admin.rows.pageInfo', { page, totalPages })}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPage((p) => Math.min(totalPages, p + 1));
-                  }}
-                  disabled={page >= totalPages}
-                  className={cn(
-                    'inline-flex items-center gap-1 h-8 px-3 rounded-md text-xs font-medium',
-                    'border border-border text-muted-foreground',
-                    'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'disabled:pointer-events-none disabled:opacity-50',
-                  )}
-                >
-                  {t('admin.rows.nextPage')}
-                  <ChevronRight className="size-3.5" aria-hidden />
-                </button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={keys.total}
+              onPageChange={setPage}
+              prevLabel={t('admin.rows.prevPage')}
+              nextLabel={t('admin.rows.nextPage')}
+              pageInfoLabel={t('admin.rows.pageInfo', { page, totalPages })}
+              totalLabel={t('admin.cache.totalKeysFiltered', { count: keys.total })}
+            />
           </>
         )}
       </div>

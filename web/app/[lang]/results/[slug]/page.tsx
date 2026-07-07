@@ -32,7 +32,22 @@ export async function generateMetadata({
     lang === "ar"
       ? student.nameAr ?? student.nameFr
       : student.nameFr ?? student.nameAr;
-  return { title: name ? `${name} — Netija` : "Netija" };
+  const isAr = lang === "ar";
+  const description = name
+    ? isAr
+      ? `${name} — ${student.decision} — ${student.moyenne ?? "—"}/20 — ${student.examYear}`
+      : `${name} — ${student.decision} — ${student.moyenne ?? "—"}/20 — ${student.examYear}`
+    : isAr
+      ? "نتيجة الامتحان الوطني — البكالوريا أو مسابقة ختم دروس الإعدادية"
+      : "Résultat de l'examen national — Bac ou Brevet (BEPC)";
+  return {
+    title: name ? `${name} — Netija` : "Netija",
+    description,
+    robots: { index: false, follow: false },
+    alternates: {
+      canonical: `/${lang}/results/${slug}`,
+    },
+  };
 }
 
 export default async function ResultPage({
@@ -47,15 +62,21 @@ export default async function ResultPage({
   if (!student) notFound();
 
   return (
-    <div className="min-h-[calc(100vh-var(--nav-height))] flex flex-col">
+    <div className="min-h-[calc(100vh-var(--nav-height))]">
       <ResultOpenedTracker
         examType={student.examType}
         serie={student.serie ?? undefined}
       />
-      <div className="flex-1 flex flex-col justify-center px-6 pt-0 pb-[9vh] sm:py-[9vh]">
-        <div className="mx-auto w-full max-w-140">
-          <StudentResultCard student={student} lang={lang} />
-        </div>
+      <div
+        className="mx-auto max-w-140"
+        style={{
+          paddingLeft: 'max(1.5rem, env(safe-area-inset-left, 0px))',
+          paddingRight: 'max(1.5rem, env(safe-area-inset-right, 0px))',
+          paddingTop: 'max(9vh, env(safe-area-inset-top, 0px))',
+          paddingBottom: 'max(5rem, env(safe-area-inset-bottom, 0px))',
+        }}
+      >
+        <StudentResultCard student={student} lang={lang} />
       </div>
     </div>
   );

@@ -250,6 +250,18 @@
 
 /* ── Student result page ── */
 
+/* ── Rendering containment ── */
+
+.admin-table {
+  contain: layout style;
+}
+.admin-table tbody {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
+}
+
+/* ── Badge animations ── */
+
 @keyframes netija-badge-spring {
   from { transform: scale(0.85); opacity: 0; }
   to   { transform: scale(1);    opacity: 1; }
@@ -272,3 +284,28 @@
     animation: netija-badge-fade 200ms linear both;
   }
 }
+
+/* ── Print styles ── */
+
+@media print {
+  header:first-of-type {
+    display: none;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  a {
+    text-decoration: none !important;
+  }
+  [class*="netija-tag"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ── Touch variant — larger targets for coarse pointers ── */
+
+@custom-variant touch (@media (pointer: coarse));
+
+

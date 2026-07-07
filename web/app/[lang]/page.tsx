@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { hasLocale } from '@/lib/i18n/settings';
 import { getTranslations } from '@/lib/i18n/server';
@@ -23,6 +24,26 @@ const PUBLISHED_YEARS_TAG = 'published-years';
 function resolveExamType(raw: string | string[] | undefined): ExamType {
   const value = Array.isArray(raw) ? raw[0] : raw;
   return isExamType(value) ? value : 'bac';
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const isAr = lang === 'ar';
+  return {
+    alternates: {
+      canonical: `/${lang}`,
+    },
+    openGraph: {
+      title: 'Netija',
+      description: isAr
+        ? 'نتائج البكالوريا الموريتانية ومسابقة ختم دروس الإعدادية'
+        : 'Résultats du Baccalauréat mauritanien et du Brevet (BEPC)',
+      url: `/${lang}`,
+      siteName: 'Netija',
+      locale: isAr ? 'ar_MR' : 'fr_FR',
+      type: 'website',
+    },
+  };
 }
 
 async function getPublishedYears(examType: ExamType): Promise<PublishedYears> {
@@ -61,32 +82,25 @@ export default async function HomePage({
   ]);
 
   return (
-    <div className="min-h-[calc(100vh-var(--nav-height))]">
-      <div className="mx-auto max-w-140 px-6 pt-[9vh] pb-20">
+    <div className="mx-auto max-w-140 min-h-[calc(100vh-var(--nav-height))] px-6 pt-[max(9vh,2.5rem)] max-sm:pt-[max(5vh,1.5rem)] pb-[max(5rem,env(safe-area-inset-bottom))]">
+      <h1 className="font-heading text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance">
+        {i18n.t('home.title')}
+      </h1>
+      <p className="mt-2 mb-8 text-base text-muted-foreground text-pretty max-w-prose">
+        {i18n.t('home.subtitle')}
+      </p>
 
-        <header className="mb-8">
-          <h1 className="font-heading text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance">
-            {i18n.t('home.title')}
-            <span className="sr-only">{` — ${i18n.t('home.subtitle')}`}</span>
-          </h1>
-          <p aria-hidden="true" className="mt-1.5 text-base text-muted-foreground text-pretty">
-            {i18n.t('home.subtitle')}
-          </p>
-        </header>
+      <ExamTypeSwitcher lang={lang} examType={examType} />
 
-        <ExamTypeSwitcher lang={lang} examType={examType} />
+      {/* key on examType so switching resets the tabs' local input state to a
+          clean slate for the newly-chosen exam. */}
+      <SearchTabs key={examType} lang={lang} examType={examType} years={years} yearsError={yearsError} />
 
-        {/* key on examType so switching resets the tabs' local input state to a
-            clean slate for the newly-chosen exam. */}
-        <SearchTabs key={examType} lang={lang} examType={examType} years={years} yearsError={yearsError} />
+      <hr className="border-border mt-14 mb-6" />
 
-        <hr className="border-border mt-14 mb-5" />
-
-        <p className="text-xs text-muted-foreground text-pretty">
-          {i18n.t('home.footerDisclaimer')}
-        </p>
-
-      </div>
+      <p className="text-xs text-muted-foreground text-pretty">
+        {i18n.t('home.footerDisclaimer')}
+      </p>
     </div>
   );
 }

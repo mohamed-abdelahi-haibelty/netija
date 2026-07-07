@@ -9,7 +9,6 @@ import {
   Download,
   ChevronRight,
   AlertCircle,
-  Loader2,
   Trash2,
   Ban,
 } from 'lucide-react';
@@ -19,6 +18,9 @@ import { cn } from '@/lib/utils';
 import { trackUploadCompleted } from '@/lib/analytics';
 import { DeleteImportDialog, type DeleteImportTarget } from '@/components/admin/DeleteImportDialog';
 import { CancelImportDialog, type CancelImportTarget } from '@/components/admin/CancelImportDialog';
+import { PageHeader } from '@/components/ui/page-header';
+import { InlineLink } from '@/components/ui/inline-link';
+import { LoadingState, ErrorState } from '@/components/ui/load-states';
 import type { ImportListItem } from 'shared';
 
 // Polling interval while any import is still processing — the task spec
@@ -280,12 +282,11 @@ function EmptyState({ lang, t }: { lang: string; t: (key: string) => string }) {
       <p className="text-sm text-muted-foreground mb-4">
         {t('admin.imports.emptyBody')}
       </p>
-      <Link
-        href={`/admin/${lang}/imports/upload`}
-        className="text-sm text-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-      >
-        {t('admin.imports.newUpload')}
-      </Link>
+      <p className="text-sm">
+        <InlineLink href={`/admin/${lang}/imports/upload`}>
+          {t('admin.imports.newUpload')}
+        </InlineLink>
+      </p>
     </div>
   );
 }
@@ -382,52 +383,27 @@ export default function ImportsPage() {
 
   return (
     <section aria-labelledby="imports-title">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
-        <h1
-          id="imports-title"
-          className="text-lg font-semibold text-foreground tracking-tight"
-        >
-          {t('admin.imports.pageTitle')}
-        </h1>
-        <Link
-          href={`/admin/${lang}/imports/upload`}
-          className={cn(
-            'inline-flex items-center gap-1.5 h-9 px-4 rounded-md',
-            'bg-primary text-primary-foreground text-sm font-medium',
-            'hover:bg-primary/85 active:bg-primary/70 transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-        >
-          <Plus className="size-3.5" aria-hidden />
-          {t('admin.imports.newUpload')}
-        </Link>
-      </div>
+      <PageHeader
+        title={t('admin.imports.pageTitle')}
+        actions={
+          <Link
+            href={`/admin/${lang}/imports/upload`}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/85 active:bg-primary/70 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="size-3.5" aria-hidden />
+            {t('admin.imports.newUpload')}
+          </Link>
+        }
+      />
 
-      {loadStatus === 'loading' && (
-        <p
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-          role="status"
-        >
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-          {t('admin.imports.loading')}
-        </p>
-      )}
+      {loadStatus === 'loading' && <LoadingState label={t('admin.imports.loading')} />}
 
       {loadStatus === 'error' && (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 text-sm text-status-fail-fg"
-        >
-          <p>{t('admin.imports.loadError')}</p>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          >
-            {t('common.retry')}
-          </button>
-        </div>
+        <ErrorState
+          label={t('admin.imports.loadError')}
+          onRetry={() => void load()}
+          retryLabel={t('common.retry')}
+        />
       )}
 
       {loadStatus === 'loaded' &&
@@ -435,7 +411,7 @@ export default function ImportsPage() {
           <EmptyState lang={lang} t={t} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th

@@ -19,6 +19,7 @@ import { recordSearchAttempt, trackResultSearched } from '@/lib/analytics';
 import { Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/NameAutocomplete';
 import { ClearButton } from '@/components/ClearButton';
+
 import type { ExamSearchResult, ExamType } from 'shared';
 
 type TabId = 'exam' | 'name';
@@ -61,6 +62,9 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
   }, [rateLimitedFor]);
 
   function handleTabChange(value: string) {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
     setActiveTab(value as TabId);
     setFieldError(null);
     setNotFound(null);
@@ -131,20 +135,20 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
       >
         <TabsTrigger
           value="exam"
-          className="h-11 rounded-md px-3 after:hidden data-active:bg-muted data-active:text-foreground"
+          className="h-11 rounded-md px-3 after:hidden data-active:bg-muted data-active:text-foreground active:scale-[0.97] transition-transform duration-short"
         >
           {t('home.tabExam')}
         </TabsTrigger>
         <TabsTrigger
           value="name"
-          className="h-11 rounded-md px-3 after:hidden data-active:bg-muted data-active:text-foreground"
+          className="h-11 rounded-md px-3 after:hidden data-active:bg-muted data-active:text-foreground active:scale-[0.97] transition-transform duration-short"
         >
           {t('home.tabName')}
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value="exam" className="pt-6">
-        <form onSubmit={(e) => { void handleExamSubmit(e); }} noValidate className="flex flex-col gap-5">
+        <form onSubmit={(e) => { void handleExamSubmit(e); }} noValidate className="flex flex-col gap-5 scroll-mt-24">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline gap-2">
               <Label htmlFor="exam-no" className="text-sm font-normal text-muted-foreground">
@@ -173,7 +177,7 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
                 placeholder={t('home.examPlaceholder')}
                 aria-invalid={fieldError ? 'true' : undefined}
                 aria-describedby={fieldError ? 'exam-error' : undefined}
-                className="h-12 rounded-md bg-transparent text-base font-mono tabular-nums text-left rtl:text-right pe-12"
+                className="h-12 rounded-md bg-transparent text-base font-mono tabular-nums text-left rtl:text-right pe-12 rtl:pe-2 rtl:ps-12"
               />
               <ClearButton
                 label={t('home.inputClear')}
@@ -232,7 +236,7 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
             disabled={
               loading ? false : years.length === 0 || (rateLimitedFor !== null && rateLimitedFor > 0)
             }
-            className="w-full h-12 text-base rounded-md"
+            className="w-full h-12 text-base rounded-md active:scale-[0.98] transition-transform duration-short"
           >
             <span className="inline-flex items-center gap-2">
               {loading && <Loader2 className="animate-spin size-4" aria-hidden="true" />}
@@ -251,7 +255,7 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
             type="button"
             onPointerDown={(e) => { e.preventDefault(); }}
             onClick={() => { setActiveTab('name'); }}
-            className="self-start text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            className="self-start text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 touch:active:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
           >
             {t('home.examSwitchToName')}
           </button>

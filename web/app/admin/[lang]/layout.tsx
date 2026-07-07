@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { locales, hasLocale, getDirection } from '@/lib/i18n/settings';
 import { I18nProvider } from '@/components/I18nProvider';
-import { geistSans, thmanyahSans, thmanyahSerifDisplay, thmanyahSerifText } from '@/lib/fonts';
+import { geistSans, thmanyahSans } from '@/lib/fonts';
 import '@/app/globals.css';
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
@@ -37,8 +37,6 @@ export default async function AdminLocaleLayout({
       className={[
         geistSans.variable,
         thmanyahSans.variable,
-        thmanyahSerifDisplay.variable,
-        thmanyahSerifText.variable,
       ].join(' ')}
     >
       <body className="min-h-screen antialiased bg-background text-foreground">

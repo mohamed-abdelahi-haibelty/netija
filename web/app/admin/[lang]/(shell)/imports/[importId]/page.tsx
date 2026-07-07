@@ -3,13 +3,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { Ban, ChevronLeft, ChevronRight, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Ban, ChevronRight, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
 import { trackPublish } from '@/lib/analytics';
 import { PropertyRow } from '@/components/PropertyRow';
 import { DeleteImportDialog, type DeleteImportTarget } from '@/components/admin/DeleteImportDialog';
 import { CancelImportDialog, type CancelImportTarget } from '@/components/admin/CancelImportDialog';
+import { PageHeader } from '@/components/ui/page-header';
+import { BackLink } from '@/components/ui/back-link';
+import { LoadingState, ErrorState, NotFoundState } from '@/components/ui/load-states';
 import type { ImportCancelResult, ImportPublishResult, ImportStatusResult } from 'shared';
 
 type LoadStatus = 'loading' | 'loaded' | 'notFound' | 'error';
@@ -119,74 +122,39 @@ export default function ImportDetailPage() {
 
   return (
     <section aria-labelledby="publish-title">
-      <a
+      <BackLink
         href={`/admin/${lang}/imports`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 mb-5"
-      >
-        <ChevronLeft className="size-4" aria-hidden />
-        {t('admin.imports.pageTitle')}
-      </a>
+        label={t('admin.imports.pageTitle')}
+      />
 
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1
-            id="publish-title"
-            className="text-lg font-semibold text-foreground tracking-tight"
-          >
-            {t('admin.publish.pageTitle')}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('admin.publish.subtitle')}
-          </p>
-        </div>
-        {loadStatus === 'loaded' && (
-          <button
-            type="button"
-            onClick={() => void load()}
-            aria-label={t('admin.publish.refresh')}
-            className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium',
-              'border border-border text-muted-foreground',
-              'hover:bg-muted hover:text-foreground transition-colors duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            )}
-          >
-            <RefreshCw className="size-3.5" aria-hidden />
-            {t('admin.publish.refresh')}
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title={t('admin.publish.pageTitle')}
+        subtitle={t('admin.publish.subtitle')}
+        actions={
+          loadStatus === 'loaded' ? (
+            <button
+              type="button"
+              onClick={() => void load()}
+              aria-label={t('admin.publish.refresh')}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <RefreshCw className="size-3.5" aria-hidden />
+              {t('admin.publish.refresh')}
+            </button>
+          ) : undefined
+        }
+      />
 
-      {loadStatus === 'loading' && (
-        <p
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-          role="status"
-        >
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-          {t('admin.publish.loading')}
-        </p>
-      )}
+      {loadStatus === 'loading' && <LoadingState label={t('admin.publish.loading')} />}
 
-      {loadStatus === 'notFound' && (
-        <p role="alert" className="text-sm text-status-fail-fg">
-          {t('admin.publish.notFound')}
-        </p>
-      )}
+      {loadStatus === 'notFound' && <NotFoundState label={t('admin.publish.notFound')} />}
 
       {loadStatus === 'error' && (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 text-sm text-status-fail-fg"
-        >
-          <p>{t('admin.publish.loadError')}</p>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          >
-            {t('common.retry')}
-          </button>
-        </div>
+        <ErrorState
+          label={t('admin.publish.loadError')}
+          onRetry={() => void load()}
+          retryLabel={t('common.retry')}
+        />
       )}
 
       {loadStatus === 'loaded' && status && (

@@ -142,9 +142,22 @@ describe('Admin imports dashboard', () => {
     );
   });
 
-  it('is axe-clean once loaded', async () => {
+  it('is axe-clean once loaded (French)', async () => {
     mockApiRequest.mockResolvedValue([PENDING, PROCESSING, COMPLETED, FAILED]);
     const { container } = renderPage();
+    await screen.findByText('bac_2025_raw.xlsx');
+
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it('is axe-clean once loaded (Arabic)', async () => {
+    mockApiRequest.mockResolvedValue([PENDING, PROCESSING, COMPLETED, FAILED]);
+    const { container } = render(
+      <I18nProvider locale="ar">
+        <ImportsPage />
+      </I18nProvider>,
+    );
     await screen.findByText('bac_2025_raw.xlsx');
 
     const results = await axe(container);
