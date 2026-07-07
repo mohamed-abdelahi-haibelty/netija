@@ -8,8 +8,9 @@ import { ATTEMPTS_INDEX } from '../lib/meili.js';
 // `importId` isn't searched or displayed publicly; it exists so the admin
 // index-inspection panel (task 034) can filter documents down to one import
 // without guessing from examYear alone (an exam year can, in principle, be
-// re-imported under a different import row).
-interface AttemptDocument {
+// re-imported under a different import row). Exported so searchIndexAdmin.ts
+// and nameSearch.ts share this one shape instead of each declaring their own.
+export interface AttemptDocument {
   id: string;
   importId: number;
   examType: string;

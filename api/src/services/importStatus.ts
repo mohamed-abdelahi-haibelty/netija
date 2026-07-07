@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { imports } from '../db/schema.js';
+import { toImportSummary } from './importSummary.js';
 import type { ImportStatusResult } from 'shared';
 
 // Reads the import's full lifecycle state for the admin dashboard: state,
@@ -27,14 +28,7 @@ export async function getImportStatus(db: Db, importId: number): Promise<ImportS
     .limit(1);
   if (!row) return null;
 
-  const summary =
-    row.summaryInserted === null
-      ? null
-      : {
-          inserted: row.summaryInserted,
-          rejected: row.summaryRejected ?? 0,
-          duplicatesSkipped: row.summaryDuplicatesSkipped ?? 0,
-        };
+  const summary = toImportSummary(row);
 
   return {
     originalFilename: row.originalFilename,

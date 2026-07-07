@@ -96,15 +96,6 @@ export async function getPublishedYears(
   return years;
 }
 
-export async function invalidateExamCache(
-  redis: RedisClient,
-  examType: ExamType,
-  year: number,
-  examNo: string,
-): Promise<void> {
-  await redis.del(examCacheKey(examType, year, examNo));
-}
-
 // A publish/delete touching one type still can't know the other type's list is
 // unaffected without extra bookkeeping, so both type year-lists are cleared —
 // two keys, always correct, negligible cost.

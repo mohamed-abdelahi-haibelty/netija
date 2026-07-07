@@ -3,7 +3,7 @@ import type { Db } from '../db/client.js';
 import type { MeiliClient } from '../lib/meili.js';
 import { ATTEMPTS_INDEX } from '../lib/meili.js';
 import { imports } from '../db/schema.js';
-import { buildNameIndex } from './meiliIndex.js';
+import { buildNameIndex, type AttemptDocument } from './meiliIndex.js';
 import type {
   ExamType,
   SearchIndexStatusResult,
@@ -12,25 +12,14 @@ import type {
   SearchIndexReindexResult,
 } from 'shared';
 
-// Mirrors meiliIndex.ts's own AttemptDocument — this file never writes
-// documents, only reads/reindexes, so it declares its own read-side shape
-// rather than importing a non-exported interface.
-interface AttemptDocument {
-  id: string;
-  importId: number;
-  examType: ExamType;
-  examYear: number;
-  examNo: string;
-  nameFr: string | null;
-  nameAr: string | null;
-  serie: string | null;
-}
-
 function toSearchIndexDocument(doc: AttemptDocument): SearchIndexDocument {
   return {
     slug: doc.id,
     importId: doc.importId,
-    examType: doc.examType,
+    // The index only ever stores the two real exam types (buildNameIndex
+    // writes examType from the attempts.exam_type column); this cast just
+    // narrows the shared document's plain-string field back to the enum.
+    examType: doc.examType as ExamType,
     examYear: doc.examYear,
     examNo: doc.examNo,
     nameFr: doc.nameFr,
