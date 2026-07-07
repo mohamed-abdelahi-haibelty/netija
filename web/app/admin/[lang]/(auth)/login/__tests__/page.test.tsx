@@ -1,6 +1,9 @@
 import { render, waitFor } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import { I18nProvider } from '@/components/I18nProvider';
 import AdminLoginPage from '../page';
+
+expect.extend(toHaveNoViolations);
 
 const mockUseSearchParams = jest.fn<URLSearchParams, []>();
 jest.mock('next/navigation', () => ({
@@ -14,9 +17,9 @@ jest.mock('@/lib/analytics', () => ({
   trackAdminAccessAttempt: (route: string) => mockTrackAdminAccessAttempt(route),
 }));
 
-function renderPage() {
+function renderPage(locale = 'fr') {
   return render(
-    <I18nProvider locale="fr">
+    <I18nProvider locale={locale}>
       <AdminLoginPage />
     </I18nProvider>,
   );
@@ -25,6 +28,20 @@ function renderPage() {
 beforeEach(() => {
   mockTrackAdminAccessAttempt.mockClear();
   mockUseSearchParams.mockReturnValue(new URLSearchParams());
+});
+
+describe('A11y — admin login page', () => {
+  it('is axe-clean in French locale', async () => {
+    const { container } = renderPage('fr');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it('is axe-clean in Arabic locale', async () => {
+    const { container } = renderPage('ar');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
 });
 
 describe('Admin login page — admin_access_attempt reporting', () => {
