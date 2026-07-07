@@ -1,17 +1,17 @@
 'use client';
-import i18next from 'i18next';
+import i18next, { type i18n } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { defaultLocale } from './settings';
 import ar from '@/dictionaries/ar.json';
 import fr from '@/dictionaries/fr.json';
 
-const i18nClient = i18next.createInstance();
-
-let initialized = false;
+const instances = new Map<string, i18n>();
 
 export function getI18nClient(locale: string) {
-  if (!initialized) {
-    void i18nClient.use(initReactI18next).init({
+  let instance = instances.get(locale);
+  if (!instance) {
+    instance = i18next.createInstance();
+    void instance.use(initReactI18next).init({
       lng: locale,
       fallbackLng: defaultLocale,
       resources: {
@@ -20,7 +20,7 @@ export function getI18nClient(locale: string) {
       },
       interpolation: { escapeValue: false },
     });
-    initialized = true;
+    instances.set(locale, instance);
   }
-  return i18nClient;
+  return instance;
 }
