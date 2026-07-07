@@ -277,6 +277,9 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
       </TabsContent>
 
       <TabsContent value="name" className="pt-6">
+        <p className="mb-5 text-xs text-muted-foreground text-pretty">
+          {t('home.nameSearchHelp')}
+        </p>
         <NameAutocomplete lang={lang} examType={examType} onSwitchToExam={() => { setActiveTab('exam'); }} />
       </TabsContent>
     </Tabs>

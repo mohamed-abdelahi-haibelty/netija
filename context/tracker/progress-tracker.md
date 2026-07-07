@@ -1246,6 +1246,19 @@ Update this file after every meaningful implementation change.
   - **NameAutocomplete** — Same RTL clear button fix to `end-1`; added `break-words` to birthPlace and serie metadata spans.
   - **PropertyRow** — Added `break-words` to value container for long text protection.
 
+- **Home page clarifying text** (2026-07-06): Added `examTypeHelp` and `nameSearchHelp` translation keys in FR/AR. `ExamTypeSwitcher` now shows a small muted `text-xs` hint below the buttons. The name tab in `SearchTabs` shows a similar hint above the autocomplete.
+
+- **Clarify pass (2026-07-06)**: Systematic UX copy review for non-technical audience. Changes:
+  - Subtitle now dynamic per exam type (`subtitle_bac` / `subtitle_brevet`) — no longer shows "Baccalauréat" when viewing Brevet
+  - `examHelp`: "Trouvable sur votre convocation" → "Ce numéro se trouve sur votre convocation d'examen" (complete sentence, less formal)
+  - `errorNetwork` / `nameSearchErrorNetwork`: removed "serveur" jargon ("Impossible de contacter le serveur" → "Connexion impossible. Vérifiez votre connexion internet et réessayez.")
+  - `errorGeneric`: "Le serveur a rencontré une erreur" → "Un problème est survenu" (non-technical)
+  - `yearsError`: "années publiées" → "années disponibles", "connexion" → "connexion internet"
+  - `examSwitchToName`: "Recherchez par nom" → "Essayez la recherche par nom" (more encouraging)
+  - `examTypeHelp`: Now contextual per exam type (shows the opposite exam to click — "Cliquez sur « Brevet (BEPC) » pour voir les résultats du BEPC" on Bac page, and vice versa) instead of a generic "choose" instruction
+  - `nameSearchHelp`: Rewritten with concrete year example ("par exemple en 2024 puis en 2025") instead of abstract language
+  - Arabic equivalents updated for all keys
+
 ## Design Decisions
 
 - **Admin UI language is English.** The admin dashboard (`/admin/fr/...`) uses English, not French. Arabic locale (`/admin/ar/...`) stays in Arabic. This applies to: `fr.json` admin keys, hardcoded strings in admin components, field labels, aria-labels, and any future admin pages. Never add French text to the admin UI.
