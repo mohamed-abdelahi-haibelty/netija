@@ -9,9 +9,18 @@ import '@/app/globals.css';
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
+  const isAr = lang === 'ar';
   return {
     title: 'Netija',
-    description: lang === 'ar' ? 'نتائج البكالوريا الموريتانية' : 'Résultats du Baccalauréat mauritanien',
+    description: isAr
+      ? 'نتائج البكالوريا الموريتانية ومسابقة ختم دروس الإعدادية - ابحث بنجاح عن نتائج الامتحانات الوطنية'
+      : 'Résultats du Baccalauréat mauritanien et du Brevet (BEPC) — recherchez vos résultats aux examens nationaux',
+    alternates: {
+      languages: {
+        ar: '/ar',
+        fr: '/fr',
+      },
+    },
   };
 }
 

@@ -32,7 +32,22 @@ export async function generateMetadata({
     lang === "ar"
       ? student.nameAr ?? student.nameFr
       : student.nameFr ?? student.nameAr;
-  return { title: name ? `${name} — Netija` : "Netija" };
+  const isAr = lang === "ar";
+  const description = name
+    ? isAr
+      ? `${name} — ${student.decision} — ${student.moyenne ?? "—"}/20 — ${student.examYear}`
+      : `${name} — ${student.decision} — ${student.moyenne ?? "—"}/20 — ${student.examYear}`
+    : isAr
+      ? "نتيجة الامتحان الوطني — البكالوريا أو مسابقة ختم دروس الإعدادية"
+      : "Résultat de l'examen national — Bac ou Brevet (BEPC)";
+  return {
+    title: name ? `${name} — Netija` : "Netija",
+    description,
+    robots: { index: false, follow: false },
+    alternates: {
+      canonical: `/${lang}/results/${slug}`,
+    },
+  };
 }
 
 export default async function ResultPage({

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { hasLocale } from '@/lib/i18n/settings';
 import { getTranslations } from '@/lib/i18n/server';
@@ -23,6 +24,26 @@ const PUBLISHED_YEARS_TAG = 'published-years';
 function resolveExamType(raw: string | string[] | undefined): ExamType {
   const value = Array.isArray(raw) ? raw[0] : raw;
   return isExamType(value) ? value : 'bac';
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const isAr = lang === 'ar';
+  return {
+    alternates: {
+      canonical: `/${lang}`,
+    },
+    openGraph: {
+      title: 'Netija',
+      description: isAr
+        ? 'نتائج البكالوريا الموريتانية ومسابقة ختم دروس الإعدادية'
+        : 'Résultats du Baccalauréat mauritanien et du Brevet (BEPC)',
+      url: `/${lang}`,
+      siteName: 'Netija',
+      locale: isAr ? 'ar_MR' : 'fr_FR',
+      type: 'website',
+    },
+  };
 }
 
 async function getPublishedYears(examType: ExamType): Promise<PublishedYears> {
