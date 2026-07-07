@@ -20,7 +20,7 @@ export function ExamTypeSwitcher({ lang, examType }: Props) {
 
   return (
     <div className="mb-6">
-      <div role="group" aria-label={t('home.examTypeLabel')} className="flex items-center gap-1">
+      <div role="group" aria-label={t('home.examTypeLabel')} className="flex flex-wrap items-center gap-1">
         {EXAM_TYPES.map((type) => {
           const active = type === examType;
           return (
@@ -34,11 +34,12 @@ export function ExamTypeSwitcher({ lang, examType }: Props) {
                 router.replace(`/${lang}?type=${type}`, { scroll: false });
               }}
               className={[
-                'h-9 rounded-md px-3 text-sm transition-colors duration-150',
+                'h-9 rounded-md px-3 text-sm transition-colors duration-short',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'active:scale-[0.96]',
                 active
                   ? 'bg-muted text-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground',
+                  : 'text-muted-foreground hover:text-foreground active:bg-muted/50',
               ].join(' ')}
             >
               {t(`home.examType_${type}`)}

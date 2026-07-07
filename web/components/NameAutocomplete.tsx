@@ -238,7 +238,7 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={t('home.nameSearchPlaceholder')}
-          className="h-12 rounded-md bg-transparent text-base pe-12"
+          className="h-12 rounded-md bg-transparent text-base pe-12 scroll-mt-24"
         />
 
         <ClearButton
@@ -253,7 +253,7 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
               id={listboxId}
               role="listbox"
               aria-label={t('home.nameSearchInputLabel')}
-              className="max-h-56 md:max-h-72 overflow-y-auto"
+              className="max-h-56 md:max-h-72 touch:max-h-[45vh] overflow-y-auto"
             >
               {status === 'loading' ? (
                 <SkeletonRows />
@@ -271,7 +271,7 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
                       type="button"
                       onPointerDown={(e) => { e.preventDefault(); }}
                       onClick={() => { setStatus('loading'); void fetchSuggestions(query.trim()); }}
-                      className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                      className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 touch:active:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                     >
                       {t('common.retry')}
                     </button>
@@ -290,7 +290,7 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
                       type="button"
                       onPointerDown={(e) => { e.preventDefault(); }}
                       onClick={onSwitchToExam}
-                      className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                      className="text-sm text-primary underline underline-offset-2 hover:no-underline active:opacity-70 touch:active:opacity-50 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                     >
                       {t('home.nameSearchSwitchToExam')}
                     </button>
@@ -310,7 +310,8 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
                     onMouseEnter={() => { setActiveIndex(i); }}
                     className={[
                       'flex flex-col gap-0.5 px-4 py-3 cursor-pointer select-none',
-                      'transition-colors active:bg-muted',
+                      'transition-colors duration-short active:bg-muted',
+                      'touch:active:bg-muted/80',
                       i === activeIndex ? 'bg-muted' : 'hover:bg-muted/60',
                     ].join(' ')}
                   >

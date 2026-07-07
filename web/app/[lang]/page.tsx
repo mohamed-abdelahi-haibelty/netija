@@ -82,11 +82,11 @@ export default async function HomePage({
   ]);
 
   return (
-    <div className="mx-auto max-w-140 min-h-[calc(100vh-var(--nav-height))] px-6 pt-[9vh] pb-20">
+    <div className="mx-auto max-w-140 min-h-[calc(100vh-var(--nav-height))] px-6 pt-[max(9vh,2.5rem)] max-sm:pt-[max(5vh,1.5rem)] pb-[max(5rem,env(safe-area-inset-bottom))]">
       <h1 className="font-heading text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance">
         {i18n.t('home.title')}
       </h1>
-      <p className="mt-2 mb-8 text-base text-muted-foreground text-pretty">
+      <p className="mt-2 mb-8 text-base text-muted-foreground text-pretty max-w-prose">
         {i18n.t('home.subtitle')}
       </p>
 
