@@ -87,7 +87,10 @@
       "passwordPlaceholder": "••••••••",
       "submit": "Sign in",
       "submitting": "Signing in…",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
       "errorInvalid": "Incorrect credentials. Check your email and password.",
+      "errorEmailInvalid": "Email format is invalid",
       "errorGeneric": "Something went wrong. Please try again."
     },
     "imports": {
@@ -137,6 +140,7 @@
       "errorRequired": "Select a file before continuing.",
       "errorUpload": "Something went wrong uploading the file. Please try again.",
       "cancel": "Cancel",
+      "removeFile": "Remove file",
       "success": "Import created successfully"
     },
     "mapping": {

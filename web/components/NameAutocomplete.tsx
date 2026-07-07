@@ -74,9 +74,10 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
   }, []);
 
   async function fetchSuggestions(q: string) {
-    // Skip firing another request while cooling down — avoids re-triggering
-    // the same limit on every remaining debounced keystroke.
-    if (rateLimitedFor !== null && rateLimitedFor > 0) return;
+    if (rateLimitedFor !== null && rateLimitedFor > 0) {
+      setStatus('error');
+      return;
+    }
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -137,7 +138,9 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
       return;
     }
 
-    setStatus('loading');
+    if (!(rateLimitedFor !== null && rateLimitedFor > 0)) {
+      setStatus('loading');
+    }
     setOpen(true);
     debounceRef.current = setTimeout(() => { void fetchSuggestions(val.trim()); }, 300);
   }

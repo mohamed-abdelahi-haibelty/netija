@@ -24,7 +24,7 @@ export default function Error({
     >
       <h2 className="text-2xl font-bold">خطأ / Erreur</h2>
       {error.digest && (
-        <p className="text-sm text-muted-foreground">ID: {error.digest}</p>
+        <p className="text-sm text-muted-foreground break-all max-w-full">ID: {error.digest}</p>
       )}
       <button
         onClick={unstable_retry}

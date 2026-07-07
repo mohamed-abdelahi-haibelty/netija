@@ -61,6 +61,9 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
   }, [rateLimitedFor]);
 
   function handleTabChange(value: string) {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
     setActiveTab(value as TabId);
     setFieldError(null);
     setNotFound(null);

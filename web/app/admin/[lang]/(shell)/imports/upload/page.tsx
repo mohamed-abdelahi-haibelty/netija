@@ -179,10 +179,10 @@ export default function UploadPage() {
                     {(file.size / 1024 / 1024).toFixed(1)} Mo
                   </p>
                 </div>
-                <button
-                  type="button"
-                  aria-label="Retirer le fichier"
-                  onClick={(e) => {
+                  <button
+                    type="button"
+                    aria-label={t('admin.upload.removeFile')}
+                    onClick={(e) => {
                     e.stopPropagation();
                     setFile(null);
                   }}

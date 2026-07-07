@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { locales, hasLocale, getDirection } from '@/lib/i18n/settings';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { geistSans, thmanyahSans, thmanyahSerifDisplay, thmanyahSerifText } from '@/lib/fonts';
+import { geistSans, thmanyahSans, thmanyahSerifDisplay } from '@/lib/fonts';
 import '@/app/globals.css';
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
@@ -49,7 +49,6 @@ export default async function LocaleLayout({
         geistSans.variable,
         thmanyahSans.variable,
         thmanyahSerifDisplay.variable,
-        thmanyahSerifText.variable,
       ].join(' ')}
     >
       <body className="min-h-screen flex flex-col antialiased">

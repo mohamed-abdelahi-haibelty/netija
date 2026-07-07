@@ -165,7 +165,7 @@ export function StudentResultCard({
           <h1
             lang={name.lng}
             dir={name.dir}
-            className="text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance wrap-break-word hyphens-auto"
+            className="text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground text-balance wrap-break-word hyphens-auto max-w-full"
             style={{ fontFamily: name.font }}
           >
             {name.text}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -35,12 +36,19 @@ export default function AdminLoginPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const email = emailRef.current?.value.trim() ?? '';
     const password = passwordRef.current?.value ?? '';
 
     if (!email || !password) return;
+
+    if (!EMAIL_RE.test(email)) {
+      setError(t('admin.login.errorEmailInvalid'));
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -159,9 +167,9 @@ export default function AdminLoginPage() {
                     'focus:ring-2 focus:ring-ring focus:border-ring',
                   )}
                 />
-                <button
+                  <button
                   type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('admin.login.hidePassword') : t('admin.login.showPassword')}
                   onClick={() => {
                     setShowPassword((v) => !v);
                   }}
@@ -200,12 +208,12 @@ export default function AdminLoginPage() {
 
         {/* ── Back link ── */}
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          <a
+          <Link
             href={`/${lang}`}
             className="hover:text-foreground transition-colors duration-150"
           >
             {lang === 'ar' ? '← العودة للموقع' : '← Back to site'}
-          </a>
+          </Link>
         </p>
       </div>
     </div>
