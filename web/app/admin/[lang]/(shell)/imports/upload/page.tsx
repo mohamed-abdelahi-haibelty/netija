@@ -3,8 +3,10 @@
 import { useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { Upload, FileSpreadsheet, X, Loader2, ChevronLeft } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
+import { BackLink } from '@/components/ui/back-link';
 import type { ImportUploadResult } from 'shared';
 
 const ACCEPTED_TYPES = [
@@ -106,21 +108,12 @@ export default function UploadPage() {
 
   return (
     <section aria-labelledby="upload-title" className="max-w-xl">
-      {/* ── Back ── */}
-      <a
+      <BackLink
         href={`/admin/${lang}/imports`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 mb-5"
-      >
-        <ChevronLeft className="size-4" aria-hidden />
-        {t('admin.imports.pageTitle')}
-      </a>
+        label={t('admin.imports.pageTitle')}
+      />
 
-      <h1
-        id="upload-title"
-        className="text-lg font-semibold text-foreground tracking-tight mb-6"
-      >
-        {t('admin.upload.pageTitle')}
-      </h1>
+      <PageHeader title={t('admin.upload.pageTitle')} />
 
       <form
         onSubmit={(e) => {
