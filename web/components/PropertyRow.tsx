@@ -17,7 +17,7 @@ export const PropertyRow = memo(function PropertyRow({
         {Icon && <Icon className="size-3.5 shrink-0" aria-hidden />}
         {label}
       </span>
-      <div className="text-sm text-foreground pt-0.5 min-w-0 wrap-break-word">
+      <div className="text-sm text-foreground pt-0.5 min-w-0 break-words">
         {children}
       </div>
     </div>

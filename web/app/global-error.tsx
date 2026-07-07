@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
+import '@/app/globals.css';
 
 export default function GlobalError({
   error,
@@ -17,25 +18,28 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="ar" dir="rtl">
-      <body>
+    <html lang="ar" dir="rtl" className="antialiased">
+      <body className="m-0 p-0 bg-background text-foreground font-sans">
         <div
           role="alert"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            gap: '1rem',
-            padding: '2rem',
-            textAlign: 'center',
-            fontFamily: 'sans-serif',
-          }}
+          className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 text-center"
         >
-          <h1>خطأ عام / Erreur Globale</h1>
-          {error.digest && <p>ID: {error.digest}</p>}
-          <button onClick={unstable_retry}>
+          <h1 className="font-heading text-[clamp(1.875rem,7vw,2.5rem)] font-bold leading-tight tracking-[-0.01em] text-foreground">
+            {error.digest ? (
+              <>
+                خطأ عام / Erreur Globale
+                <span className="block mt-2 text-sm font-normal text-muted-foreground break-all max-w-full">
+                  ID: {error.digest}
+                </span>
+              </>
+            ) : (
+              'خطأ عام / Erreur Globale'
+            )}
+          </h1>
+          <button
+            onClick={unstable_retry}
+            className="rounded-md bg-primary text-primary-foreground h-12 px-6 text-base font-medium hover:bg-primary/85 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             إعادة المحاولة / Réessayer
           </button>
         </div>

@@ -6,6 +6,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import { trackAdminAccessAttempt } from '@/lib/analytics';
 
 // Reports a redirect-from-(shell)-layout probe of the admin area (the
@@ -127,7 +128,7 @@ export default function AdminLoginPage() {
               >
                 {t('admin.login.emailLabel')}
               </label>
-              <input
+              <Input
                 ref={emailRef}
                 id="email"
                 type="email"
@@ -136,12 +137,7 @@ export default function AdminLoginPage() {
                 spellCheck={false}
                 required
                 placeholder={t('admin.login.emailPlaceholder')}
-                className={cn(
-                  'w-full h-10 px-3 rounded-md border border-border bg-background',
-                  'text-sm text-foreground placeholder:text-muted-foreground',
-                  'outline-none transition-shadow duration-150',
-                  'focus:ring-2 focus:ring-ring focus:border-ring',
-                )}
+                className="h-10"
               />
             </div>
 
@@ -153,19 +149,14 @@ export default function AdminLoginPage() {
                 {t('admin.login.passwordLabel')}
               </label>
               <div className="relative">
-                <input
+                <Input
                   ref={passwordRef}
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
                   placeholder={t('admin.login.passwordPlaceholder')}
-                  className={cn(
-                    'w-full h-10 px-3 pr-10 rounded-md border border-border bg-background',
-                    'text-sm text-foreground placeholder:text-muted-foreground',
-                    'outline-none transition-shadow duration-150',
-                    'focus:ring-2 focus:ring-ring focus:border-ring',
-                  )}
+                  className="h-10 pe-10"
                 />
                   <button
                   type="button"
