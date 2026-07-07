@@ -62,15 +62,13 @@ export default async function ResultPage({
   if (!student) notFound();
 
   return (
-    <div className="min-h-[calc(100vh-var(--nav-height))] flex flex-col">
+    <div className="min-h-[calc(100vh-var(--nav-height))]">
       <ResultOpenedTracker
         examType={student.examType}
         serie={student.serie ?? undefined}
       />
-      <div className="flex-1 flex flex-col justify-center px-6 pt-0 pb-[9vh] sm:py-[9vh]">
-        <div className="mx-auto w-full max-w-140">
-          <StudentResultCard student={student} lang={lang} />
-        </div>
+      <div className="mx-auto max-w-140 px-6 pt-[9vh] pb-20">
+        <StudentResultCard student={student} lang={lang} />
       </div>
     </div>
   );

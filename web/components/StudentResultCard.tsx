@@ -161,7 +161,7 @@ export function StudentResultCard({
     <div style={{ contain: "layout style" }}>
       {/* ── Name — current language, falling back to the other ── */}
       {name.text && (
-        <header className="mb-12 text-center">
+        <header className="mb-10">
           <h1
             lang={name.lng}
             dir={name.dir}
@@ -174,7 +174,7 @@ export function StudentResultCard({
       )}
 
       {/* ── Properties — flat Notion rows ── */}
-      <div className="w-fit max-w-full mx-auto">
+      <div>
         <PropertyRow label={t("student.examTypeLabel")}>
           <span className="inline-block whitespace-nowrap rounded bg-muted px-2 text-sm leading-6">
             {t(`home.examType_${student.examType}`)}
@@ -206,17 +206,17 @@ export function StudentResultCard({
         </PropertyRow>
       </div>
 
-      <hr className="my-6 border-border" />
+      <hr className="my-8 border-border" />
 
       {/* ── Moyenne — plain text in the page body ── */}
       {moyenneNumber && (
-        <div className="text-center">
-          <p className="mb-1 text-sm text-muted-foreground">
+        <div>
+          <p className="mb-1.5 text-sm text-muted-foreground">
             {t("student.moyenneLabel")}
           </p>
           <p
             dir="ltr"
-            className="inline-block text-[clamp(1.875rem,7vw,2.375rem)] font-bold leading-[1.2] tracking-[-0.02em] tabular-nums text-foreground"
+            className="text-[clamp(1.875rem,7vw,2.375rem)] font-bold leading-[1.2] tracking-[-0.02em] tabular-nums text-foreground"
           >
             {moyenneNumber}
             <span className="text-[0.5em] font-normal text-muted-foreground">
@@ -228,7 +228,7 @@ export function StudentResultCard({
       )}
 
       {/* ── Quiet actions ── */}
-      <div className="mt-11 flex gap-2 justify-center">
+      <div className="mt-11 flex gap-2">
         <button
           type="button"
           onClick={copyLink}

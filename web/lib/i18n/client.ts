@@ -21,8 +21,6 @@ export function getI18nClient(locale: string) {
       interpolation: { escapeValue: false },
     });
     initialized = true;
-  } else {
-    void i18nClient.changeLanguage(locale);
   }
   return i18nClient;
 }
