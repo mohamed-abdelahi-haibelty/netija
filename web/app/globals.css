@@ -303,3 +303,9 @@
     print-color-adjust: exact;
   }
 }
+
+/* ── Touch variant — larger targets for coarse pointers ── */
+
+@custom-variant touch (@media (pointer: coarse));
+
+

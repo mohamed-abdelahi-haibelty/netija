@@ -91,7 +91,7 @@ function formatMoyenne(value: number): string {
 }
 
 const BTN_CLASSES =
-  "inline-flex items-center rounded-md border border-border px-3.5 py-1.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-150 cursor-pointer";
+  "inline-flex items-center rounded-md border border-border px-3.5 py-1.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 transition-colors duration-150 cursor-pointer touch:min-h-[44px] touch:px-4 touch:py-2.5 touch:text-sm";
 
 // ─── Main component ───────────────────────────────────────────────
 

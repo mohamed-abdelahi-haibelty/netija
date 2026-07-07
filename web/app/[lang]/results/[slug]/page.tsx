@@ -67,7 +67,15 @@ export default async function ResultPage({
         examType={student.examType}
         serie={student.serie ?? undefined}
       />
-      <div className="mx-auto max-w-140 px-6 pt-[9vh] pb-20">
+      <div
+        className="mx-auto max-w-140"
+        style={{
+          paddingLeft: 'max(1.5rem, env(safe-area-inset-left, 0px))',
+          paddingRight: 'max(1.5rem, env(safe-area-inset-right, 0px))',
+          paddingTop: 'max(9vh, env(safe-area-inset-top, 0px))',
+          paddingBottom: 'max(5rem, env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         <StudentResultCard student={student} lang={lang} />
       </div>
     </div>
