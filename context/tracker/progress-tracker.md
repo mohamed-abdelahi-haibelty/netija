@@ -12,9 +12,9 @@ Update this file after every meaningful implementation change.
 
 ## Open Questions
 
-Found during the `chore/refactor-cleanup` pass (2026-07-08). Flagged only,
-deliberately not fixed there (refactor-only branch; these are real
-behavior/data questions, not messiness) — each needs its own task.
+Found during the `chore/refactor-cleanup` pass (2026-07-08). Still open —
+each needs its own task (data-model change, out of scope for a code-only
+branch).
 
 - **`worker/mapping.py`'s `BUILTIN_CANONICAL_ALIASES` is missing `NOM_FR` for
   `name_fr`, while its counterpart `NOM_AR` is present for `name_ar`.**
@@ -26,29 +26,31 @@ behavior/data questions, not messiness) — each needs its own task.
   were made, but this alias looks like it was missed. Impact: a real
   2025-format Bac file's French name column shows "unrecognized" at
   preview and needs a manual admin remap every time.
-- **`web/app/[lang]/results/[slug]/page.tsx`'s metadata `description`
-  ternary branches on `isAr` but both branches produce the identical
-  string** (lines ~36-42) — the AR/non-AR cases were presumably meant to
-  localize the description differently and never actually diverged. Also
-  currently fails `@typescript-eslint/restrict-template-expressions` lint
-  (a `number` interpolated directly into the template literal) —
-  pre-existing, predates the refactor-cleanup branch.
 - **`api/src/db/schema.ts`'s `imports.summaryNewPeople` column is dead** —
   grepped across `api/`, `worker/`, `web/`; never read or written by any
   code. Looks like a leftover from an earlier "new people" concept removed
   when the schema went attempts-only. Removing it needs a migration
   (a data-model change), so it wasn't touched during the code-only refactor
   pass; fold into a future schema change instead of a standalone migration.
-- **`SearchTabs.test.tsx`/`NameAutocomplete.test.tsx`'s rate-limit-countdown
-  assertions expect "Xs" text, but the actual `home.rateLimitedRetry` i18n
-  string renders "X seconde(s)"** — 3 failing tests, confirmed pre-existing
-  before the refactor-cleanup branch (`git stash` against the prior commit
-  reproduces the same 3 failures). Already noted in the Task 027 entry
-  below ("3 pre-existing rate-limit test failures... unchanged and
-  unrelated to this task") but never tracked as an open item until now.
-  Needs a decision: fix the i18n string to say "Xs", or fix the tests to
-  match "X seconde(s)" — not done here since either fix changes observable
-  behavior (copy or test assertions).
+
+Resolved on `chore/refactor-cleanup` (2026-07-08), after being flagged here
+first:
+
+- ~~`results/[slug]/page.tsx`'s metadata description ternary produced
+  identical AR/FR text~~ — fixed: both branches now render genuinely
+  different, labeled text (`القرار`/`المعدل`/`سنة` vs `Décision`/`Moyenne`/
+  `Année`), and `examYear` is wrapped in `String(...)` (was the source of
+  the `@typescript-eslint/restrict-template-expressions` lint error).
+- ~~`pagination.tsx`'s `total` prop was declared but never read~~ — fixed:
+  removed from the component and its 3 call sites (cache, search-index,
+  rows pages); `totalLabel` already carries the formatted count string, so
+  nothing else changed.
+- ~~`SearchTabs.test.tsx`/`NameAutocomplete.test.tsx` expected "Xs" text but
+  the shipped copy renders "X seconde(s)"~~ — fixed: `git log -S` traced the
+  copy change to `5616e5f` ("clarify home page copy for non-technical
+  audience" — deliberately expanded "60s" to "60 seconde(s)"), so the tests
+  were stale, not the copy. Updated the 3 assertions to match the shipped
+  French text instead of reverting the copy.
 
 ## Completed
 
