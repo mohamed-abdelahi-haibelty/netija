@@ -1,3 +1,4 @@
+import { mockApiModule as mockCreateApiModule } from '@/lib/testUtils/mockApi';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
@@ -23,21 +24,10 @@ jest.mock('@/lib/analytics', () => ({
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
 
-jest.mock('@/lib/api', () => {
-  class MockApiClientError extends Error {
-    code: string;
-    constructor(code: string, message: string) {
-      super(message);
-      this.code = code;
-      this.name = 'ApiClientError';
-    }
-  }
-  return {
-    apiRequest: (path: string, options?: RequestInit) =>
-      mockApiRequest(path, options),
-    ApiClientError: MockApiClientError,
-  };
-});
+jest.mock('@/lib/api', () => ({
+  ...mockCreateApiModule(),
+  apiRequest: (path: string, options?: RequestInit) => mockApiRequest(path, options),
+}));
 
 const COMPLETED_UNPUBLISHED_PASSED: ImportStatusResult = {
   originalFilename: 'bac_2024.xlsx',
