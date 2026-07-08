@@ -350,7 +350,6 @@ export default function ImportRowsPage() {
           <Pagination
             page={page}
             totalPages={totalPages}
-            total={result.total}
             onPageChange={setPage}
             prevLabel={t('admin.rows.prevPage')}
             nextLabel={t('admin.rows.nextPage')}

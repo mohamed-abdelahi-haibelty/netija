@@ -312,7 +312,6 @@ export default function SearchIndexPage() {
             <Pagination
               page={page}
               totalPages={totalPages}
-              total={docs.total}
               onPageChange={setPage}
               prevLabel={t('admin.rows.prevPage')}
               nextLabel={t('admin.rows.nextPage')}

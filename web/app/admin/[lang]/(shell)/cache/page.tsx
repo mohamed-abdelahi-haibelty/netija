@@ -295,7 +295,6 @@ export default function CachePage() {
             <Pagination
               page={page}
               totalPages={totalPages}
-              total={keys.total}
               onPageChange={setPage}
               prevLabel={t('admin.rows.prevPage')}
               nextLabel={t('admin.rows.nextPage')}
