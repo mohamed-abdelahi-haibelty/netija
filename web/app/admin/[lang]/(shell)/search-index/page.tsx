@@ -1,12 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, RotateCw } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { useDebouncedSetter } from '@/lib/useDebouncedSetter';
 import { PropertyRow } from '@/components/PropertyRow';
 import { ReindexDialog } from '@/components/admin/ReindexDialog';
+import { AdminStatusPanel } from '@/components/admin/AdminStatusPanel';
 import { PageHeader } from '@/components/ui/page-header';
 import { Pagination } from '@/components/ui/pagination';
 import { LoadingState, ErrorState, NotFoundState, EmptyState as BaseEmptyState } from '@/components/ui/load-states';
@@ -40,7 +42,10 @@ export default function SearchIndexPage() {
   const [importId, setImportId] = useState<number | undefined>(undefined);
   const [searchInput, setSearchInput] = useState('');
   const [q, setQ] = useState<string | undefined>(undefined);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A single shared debounce (not one per filter): importId and q are
+  // mutually exclusive, so typing into one must cancel the other's still-
+  // pending debounce rather than letting both eventually fire.
+  const debounce = useDebouncedSetter(FILTER_DEBOUNCE_MS);
 
   const loadStatus = useCallback(async () => {
     setStatusLoad('loading');
@@ -90,12 +95,6 @@ export default function SearchIndexPage() {
     void loadDocuments(page);
   }, [loadDocuments, page]);
 
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
   // importId and q are mutually exclusive (the API rejects both at once) —
   // typing into one immediately clears the other's input, rather than
   // letting a stale value silently fire an ambiguous request.
@@ -105,12 +104,11 @@ export default function SearchIndexPage() {
       setSearchInput('');
       setQ(undefined);
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounce(() => {
       setPage(1);
       const trimmed = value.trim();
       setImportId(trimmed === '' ? undefined : Number(trimmed));
-    }, FILTER_DEBOUNCE_MS);
+    });
   };
 
   const handleSearchChange = (value: string) => {
@@ -119,12 +117,11 @@ export default function SearchIndexPage() {
       setImportIdInput('');
       setImportId(undefined);
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounce(() => {
       setPage(1);
       const trimmed = value.trim();
       setQ(trimmed === '' ? undefined : trimmed);
-    }, FILTER_DEBOUNCE_MS);
+    });
   };
 
   const totalPages = docs ? Math.max(1, Math.ceil(docs.total / docs.pageSize)) : 1;
@@ -152,40 +149,17 @@ export default function SearchIndexPage() {
         </p>
       )}
 
-      {/* ── Status panel ── */}
-      <div className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">{t('admin.searchIndex.statusTitle')}</h2>
-          {statusLoad === 'loaded' && (
-            <button
-              type="button"
-              onClick={() => void loadStatus()}
-              aria-label={t('admin.searchIndex.refresh')}
-              className={cn(
-                'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium',
-                'border border-border text-muted-foreground',
-                'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              )}
-            >
-              <RefreshCw className="size-3" aria-hidden />
-              {t('admin.searchIndex.refresh')}
-            </button>
-          )}
-        </div>
-
-        {statusLoad === 'loading' && <LoadingState label={t('admin.searchIndex.statusLoading')} />}
-
-        {statusLoad === 'error' && (
-          <ErrorState
-            label={t('admin.searchIndex.statusLoadError')}
-            onRetry={() => void loadStatus()}
-            retryLabel={t('common.retry')}
-          />
-        )}
-
-        {statusLoad === 'loaded' && status && (
-          <div className="border-t border-border pt-1">
+      <AdminStatusPanel
+        title={t('admin.searchIndex.statusTitle')}
+        refreshLabel={t('admin.searchIndex.refresh')}
+        loadState={statusLoad}
+        loadingLabel={t('admin.searchIndex.statusLoading')}
+        errorLabel={t('admin.searchIndex.statusLoadError')}
+        retryLabel={t('common.retry')}
+        onRefresh={() => void loadStatus()}
+      >
+        {status && (
+          <>
             <PropertyRow label={t('admin.searchIndex.colHealth')}>
               <span
                 className={cn(
@@ -211,9 +185,9 @@ export default function SearchIndexPage() {
             <PropertyRow label={t('admin.searchIndex.colFilterable')}>
               {status.filterableAttributes.join(', ') || '—'}
             </PropertyRow>
-          </div>
+          </>
         )}
-      </div>
+      </AdminStatusPanel>
 
       {/* ── Document inspector ── */}
       <div>
@@ -338,7 +312,6 @@ export default function SearchIndexPage() {
             <Pagination
               page={page}
               totalPages={totalPages}
-              total={docs.total}
               onPageChange={setPage}
               prevLabel={t('admin.rows.prevPage')}
               nextLabel={t('admin.rows.nextPage')}

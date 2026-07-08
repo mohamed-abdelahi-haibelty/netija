@@ -12,6 +12,7 @@ import {
   trackAutocompleteShown,
   trackResultSearched,
 } from '@/lib/analytics';
+import { useRateLimitCountdown } from '@/lib/useRateLimitCountdown';
 import { ClearButton } from '@/components/ClearButton';
 import type { ExamType, NameSearchSuggestion } from 'shared';
 
@@ -36,25 +37,12 @@ export function NameAutocomplete({ lang, examType, onSwitchToExam }: Props) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [liveMessage, setLiveMessage] = useState('');
-  const [rateLimitedFor, setRateLimitedFor] = useState<number | null>(null);
+  const [rateLimitedFor, setRateLimitedFor] = useRateLimitCountdown();
 
   const close = useCallback(() => {
     setOpen(false);
     setActiveIndex(-1);
   }, []);
-
-  // Ticks the rate-limit countdown down to zero, one second at a time.
-  useEffect(() => {
-    if (rateLimitedFor === null) return;
-    if (rateLimitedFor <= 0) {
-      setRateLimitedFor(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      setRateLimitedFor((seconds) => (seconds === null ? null : seconds - 1));
-    }, 1000);
-    return () => { clearTimeout(timer); };
-  }, [rateLimitedFor]);
 
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {

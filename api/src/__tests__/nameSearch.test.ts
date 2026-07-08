@@ -40,7 +40,6 @@ vi.mock('../lib/meili.js', () => ({ meili: {}, ATTEMPTS_INDEX: 'attempts' }));
 vi.mock('../services/examSearch.js', () => ({
   searchByExamNo: vi.fn(),
   getPublishedYears: vi.fn(),
-  invalidateExamCache: vi.fn(),
   invalidateYearsCache: vi.fn(),
 }));
 

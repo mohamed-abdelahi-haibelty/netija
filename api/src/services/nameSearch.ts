@@ -1,19 +1,9 @@
 import type { MeiliClient } from '../lib/meili.js';
 import { ATTEMPTS_INDEX } from '../lib/meili.js';
+import type { AttemptDocument } from './meiliIndex.js';
 import type { ExamType, NameSearchSuggestion } from 'shared';
 
 const MAX_RESULTS = 10;
-
-// The Meili document id IS the attempt's public slug.
-interface AttemptDocument {
-  id: string;
-  examType: ExamType;
-  examYear: number;
-  examNo: string;
-  nameFr: string | null;
-  nameAr: string | null;
-  serie: string | null;
-}
 
 export async function searchByName(
   meili: MeiliClient,
@@ -32,7 +22,10 @@ export async function searchByName(
 
   return results.hits.map((hit) => ({
     slug: hit.id,
-    examType: hit.examType,
+    // The index is filtered to this exact examType above, and only ever
+    // stores the two real exam types — this cast just narrows the shared
+    // document's plain-string field back to the enum.
+    examType: hit.examType as ExamType,
     examYear: hit.examYear,
     examNo: hit.examNo,
     nameFr: hit.nameFr,

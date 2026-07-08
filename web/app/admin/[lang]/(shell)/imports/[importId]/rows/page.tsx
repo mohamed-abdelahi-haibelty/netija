@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { useDebouncedSetter } from '@/lib/useDebouncedSetter';
 import {
   Select,
   SelectContent,
@@ -55,7 +56,7 @@ export default function ImportRowsPage() {
   const [decision, setDecision] = useState(ALL_DECISIONS);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<DeleteAttemptsTarget | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounce = useDebouncedSetter(SEARCH_DEBOUNCE_MS);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(
@@ -99,12 +100,6 @@ export default function ImportRowsPage() {
   }, [load, page]);
 
   useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!selectAllRef.current || !result) return;
     const allSelected = result.rows.length > 0 && result.rows.every((r) => selectedIds.has(r.id));
     const someSelected = result.rows.some((r) => selectedIds.has(r.id));
@@ -113,11 +108,10 @@ export default function ImportRowsPage() {
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounce(() => {
       setPage(1);
       setSearch(value.trim());
-    }, SEARCH_DEBOUNCE_MS);
+    });
   };
 
   const toggleRow = (id: number) => {
@@ -356,7 +350,6 @@ export default function ImportRowsPage() {
           <Pagination
             page={page}
             totalPages={totalPages}
-            total={result.total}
             onPageChange={setPage}
             prevLabel={t('admin.rows.prevPage')}
             nextLabel={t('admin.rows.nextPage')}

@@ -4,8 +4,8 @@ import type { RedisClient } from '../lib/redis.js';
 import type { MeiliClient } from '../lib/meili.js';
 import { attempts, imports } from '../db/schema.js';
 import { buildNameIndex } from './meiliIndex.js';
-import { examCacheKey, invalidateYearsCache } from './examSearch.js';
-import { resultCacheKey } from './studentPage.js';
+import { invalidateYearsCache } from './examSearch.js';
+import { invalidateAttemptCaches } from './cacheInvalidation.js';
 import { purgeCloudflareCache } from '../lib/cloudflare.js';
 import type { ImportPublishResult } from 'shared';
 
@@ -20,10 +20,8 @@ export class SmokeNotPassedError extends Error {
   }
 }
 
-// Every attempt row belonging to this import has its own Redis cache entries
-// (exam-number lookup + result page); a 50k-row import means tens of
-// thousands of keys, so these are pipelined rather than deleted one round
-// trip at a time. The years-list cache is a single key, invalidated once.
+// The years-list cache is a single key, invalidated once alongside every
+// affected attempt's own cache entries (invalidateAttemptCaches).
 async function invalidateImportCaches(db: Db, redis: RedisClient, importId: number): Promise<void> {
   const rows = await db
     .select({
@@ -35,15 +33,7 @@ async function invalidateImportCaches(db: Db, redis: RedisClient, importId: numb
     .from(attempts)
     .where(eq(attempts.importId, importId));
 
-  if (rows.length > 0) {
-    const pipeline = redis.pipeline();
-    for (const row of rows) {
-      pipeline.del(examCacheKey(row.examType, row.examYear, row.examNo));
-      pipeline.del(resultCacheKey(row.slug));
-    }
-    await pipeline.exec();
-  }
-
+  await invalidateAttemptCaches(redis, rows);
   await invalidateYearsCache(redis);
 }
 

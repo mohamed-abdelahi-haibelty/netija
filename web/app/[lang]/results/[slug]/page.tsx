@@ -33,10 +33,12 @@ export async function generateMetadata({
       ? student.nameAr ?? student.nameFr
       : student.nameFr ?? student.nameAr;
   const isAr = lang === "ar";
+  const moyenneText = student.moyenne ?? "—";
+  const examYear = String(student.examYear);
   const description = name
     ? isAr
-      ? `${name} — ${student.decision} — ${student.moyenne ?? "—"}/20 — ${student.examYear}`
-      : `${name} — ${student.decision} — ${student.moyenne ?? "—"}/20 — ${student.examYear}`
+      ? `${name} — القرار: ${student.decision} — المعدل: ${moyenneText}/20 — سنة ${examYear}`
+      : `${name} — Décision : ${student.decision} — Moyenne : ${moyenneText}/20 — Année ${examYear}`
     : isAr
       ? "نتيجة الامتحان الوطني — البكالوريا أو مسابقة ختم دروس الإعدادية"
       : "Résultat de l'examen national — Bac ou Brevet (BEPC)";

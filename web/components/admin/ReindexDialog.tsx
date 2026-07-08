@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { ApiClientError, apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { SearchIndexReindexResult } from 'shared';
 

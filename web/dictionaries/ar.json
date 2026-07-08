@@ -73,11 +73,6 @@
   },
   "admin": {
     "siteTitle": "نتيجة — الإدارة",
-    "nav": {
-      "imports": "الاستيرادات",
-      "logout": "تسجيل الخروج",
-      "backToSite": "العودة للموقع"
-    },
     "login": {
       "title": "نتيجة",
       "subtitle": "لوحة الإدارة",

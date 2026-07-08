@@ -13,6 +13,7 @@ import {
   noStoreCache,
   RESULT_PAGE_CACHE_MAX_AGE_SECONDS,
 } from '../middleware/cacheControl.js';
+import { validationErrorHook } from '../lib/validation.js';
 
 // The public result page is addressed by its random `slug`. Internally the
 // result is still one attempt keyed by (exam_year, exam_no).
@@ -30,23 +31,7 @@ results.get(
   '/:slug',
   createRateLimiter(redis, 'results'),
   publicCache(RESULT_PAGE_CACHE_MAX_AGE_SECONDS),
-  zValidator('param', paramsSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid result identifier',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', paramsSchema, validationErrorHook('Invalid result identifier')),
   async (c) => {
     const { slug } = c.req.valid('param');
     const result = await getStudentPage(db, redis, slug);
@@ -68,23 +53,7 @@ results.get(
   '/:slug/admin',
   requireSession,
   noStoreCache,
-  zValidator('param', paramsSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid result identifier',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', paramsSchema, validationErrorHook('Invalid result identifier')),
   async (c) => {
     const { slug } = c.req.valid('param');
     const result = await getAdminResultPreview(db, slug);

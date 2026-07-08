@@ -11,6 +11,7 @@ import {
   reindexSearchIndex,
 } from '../services/searchIndexAdmin.js';
 import { listSearchIndexDocumentsQuerySchema } from '../schemas/searchIndex.js';
+import { validationErrorHook } from '../lib/validation.js';
 
 const searchIndex = new Hono<AppEnv>();
 
@@ -24,23 +25,7 @@ searchIndex.get('/status', async (c) => {
 
 searchIndex.get(
   '/documents',
-  zValidator('query', listSearchIndexDocumentsQuerySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid query parameters',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('query', listSearchIndexDocumentsQuerySchema, validationErrorHook('Invalid query parameters')),
   async (c) => {
     const query = c.req.valid('query');
     const result = await listSearchIndexDocuments(db, meili, query);

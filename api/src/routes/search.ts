@@ -11,6 +11,7 @@ import { redis } from '../lib/redis.js';
 import { meili } from '../lib/meili.js';
 import { createRateLimiter } from '../lib/rateLimit.js';
 import { publicCache, SEARCH_CACHE_MAX_AGE_SECONDS } from '../middleware/cacheControl.js';
+import { validationErrorHook } from '../lib/validation.js';
 
 const search = new Hono<AppEnv>();
 
@@ -21,23 +22,7 @@ search.use('*', publicCache(SEARCH_CACHE_MAX_AGE_SECONDS));
 
 search.get(
   '/exam',
-  zValidator('query', examSearchQuerySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid query parameters',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('query', examSearchQuerySchema, validationErrorHook('Invalid query parameters')),
   async (c) => {
     const { no, year, type } = c.req.valid('query');
     const result = await searchByExamNo(db, redis, type, no, year);
@@ -53,23 +38,7 @@ search.get(
 
 search.get(
   '/years',
-  zValidator('query', examTypeQuerySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid query parameters',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('query', examTypeQuerySchema, validationErrorHook('Invalid query parameters')),
   async (c) => {
     const { type } = c.req.valid('query');
     const years = await getPublishedYears(db, redis, type);
@@ -79,23 +48,7 @@ search.get(
 
 search.get(
   '/name',
-  zValidator('query', nameSearchQuerySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid query parameters',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('query', nameSearchQuerySchema, validationErrorHook('Invalid query parameters')),
   async (c) => {
     const { q, type } = c.req.valid('query');
     const suggestions = await searchByName(meili, q, type);

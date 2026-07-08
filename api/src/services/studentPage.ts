@@ -10,6 +10,21 @@ export function resultCacheKey(slug: string): string {
   return `result:${slug}`;
 }
 
+// Shared by getStudentPage and getAdminResultPreview — same 9-column
+// projection, differing only in whether the published filter is applied.
+const STUDENT_RESULT_COLUMNS = {
+  slug: attempts.publicSlug,
+  examType: attempts.examType,
+  examYear: attempts.examYear,
+  examNo: attempts.examNo,
+  nameFr: attempts.nameFr,
+  nameAr: attempts.nameAr,
+  serie: attempts.serie,
+  moyenne: attempts.moyenne,
+  decision: attempts.decision,
+  decisionRaw: attempts.decisionRaw,
+};
+
 // The public result page is addressed by `slug` (a random, non-enumerable
 // handle). Internally a result is still one attempt row keyed by
 // (exam_year, exam_no); the slug is just the public alias. Only published
@@ -24,18 +39,7 @@ export async function getStudentPage(
   if (cached !== null) return JSON.parse(cached) as StudentResult;
 
   const rows = await db
-    .select({
-      slug: attempts.publicSlug,
-      examType: attempts.examType,
-      examYear: attempts.examYear,
-      examNo: attempts.examNo,
-      nameFr: attempts.nameFr,
-      nameAr: attempts.nameAr,
-      serie: attempts.serie,
-      moyenne: attempts.moyenne,
-      decision: attempts.decision,
-      decisionRaw: attempts.decisionRaw,
-    })
+    .select(STUDENT_RESULT_COLUMNS)
     .from(attempts)
     .innerJoin(imports, eq(imports.id, attempts.importId))
     .where(and(eq(attempts.publicSlug, slug), eq(imports.published, true)))
@@ -48,10 +52,6 @@ export async function getStudentPage(
   return result;
 }
 
-export async function invalidateStudentCache(redis: RedisClient, slug: string): Promise<void> {
-  await redis.del(resultCacheKey(slug));
-}
-
 // Auth-gated admin lookup (architecture.md: "auth-gated admin preview can see
 // unpublished data"): the same attempt-by-slug query as getStudentPage but
 // without the `imports.published` filter, and never touching the public
@@ -59,18 +59,7 @@ export async function invalidateStudentCache(redis: RedisClient, slug: string): 
 // DB state, not a stale (or wrongly-shared) cache entry.
 export async function getAdminResultPreview(db: Db, slug: string): Promise<StudentResult | null> {
   const rows = await db
-    .select({
-      slug: attempts.publicSlug,
-      examType: attempts.examType,
-      examYear: attempts.examYear,
-      examNo: attempts.examNo,
-      nameFr: attempts.nameFr,
-      nameAr: attempts.nameAr,
-      serie: attempts.serie,
-      moyenne: attempts.moyenne,
-      decision: attempts.decision,
-      decisionRaw: attempts.decisionRaw,
-    })
+    .select(STUDENT_RESULT_COLUMNS)
     .from(attempts)
     .innerJoin(imports, eq(imports.id, attempts.importId))
     .where(eq(attempts.publicSlug, slug))

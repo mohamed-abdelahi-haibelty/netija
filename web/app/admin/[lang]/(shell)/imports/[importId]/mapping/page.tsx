@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
   CheckCircle,
-  ChevronLeft,
   EyeOff,
   Loader2,
 } from 'lucide-react';
@@ -20,6 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PageHeader } from '@/components/ui/page-header';
+import { BackLink } from '@/components/ui/back-link';
+import { LoadingState, ErrorState, NotFoundState } from '@/components/ui/load-states';
 import {
   EXAM_TYPES,
   isExamType,
@@ -175,62 +177,30 @@ export default function MappingPage() {
 
   return (
     <section aria-labelledby="mapping-title">
-      <a
+      <BackLink
         href={`/admin/${lang}/imports`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 mb-5"
-      >
-        <ChevronLeft className="size-4" aria-hidden />
-        {t('admin.imports.pageTitle')}
-      </a>
+        label={t('admin.imports.pageTitle')}
+      />
 
-      <div className="mb-6">
-        <h1
-          id="mapping-title"
-          className="text-lg font-semibold text-foreground tracking-tight"
-        >
-          {t('admin.mapping.pageTitle')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('admin.mapping.subtitle')}
-        </p>
-      </div>
+      <PageHeader
+        title={t('admin.mapping.pageTitle')}
+        subtitle={t('admin.mapping.subtitle')}
+      />
 
-      {loadStatus === 'loading' && (
-        <p
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-          role="status"
-        >
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-          {t('admin.mapping.loading')}
-        </p>
-      )}
+      {loadStatus === 'loading' && <LoadingState label={t('admin.mapping.loading')} />}
 
-      {loadStatus === 'notFound' && (
-        <p role="alert" className="text-sm text-status-fail-fg">
-          {t('admin.mapping.notFound')}
-        </p>
-      )}
+      {loadStatus === 'notFound' && <NotFoundState label={t('admin.mapping.notFound')} />}
 
       {loadStatus === 'unsupportedFileType' && (
-        <p role="alert" className="text-sm text-status-fail-fg">
-          {t('admin.mapping.unsupportedFileType')}
-        </p>
+        <NotFoundState label={t('admin.mapping.unsupportedFileType')} />
       )}
 
       {loadStatus === 'error' && (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 text-sm text-status-fail-fg"
-        >
-          <p>{t('admin.mapping.loadError')}</p>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          >
-            {t('common.retry')}
-          </button>
-        </div>
+        <ErrorState
+          label={t('admin.mapping.loadError')}
+          onRetry={() => void load()}
+          retryLabel={t('common.retry')}
+        />
       )}
 
       {loadStatus === 'loaded' && (

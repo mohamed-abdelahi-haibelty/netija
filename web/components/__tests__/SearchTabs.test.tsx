@@ -1,3 +1,4 @@
+import { mockApiModule as mockCreateApiModule } from '@/lib/testUtils/mockApi';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -10,23 +11,10 @@ jest.mock('next/navigation', () => ({
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
 
-jest.mock('@/lib/api', () => {
-  class MockApiClientError extends Error {
-    code: string;
-    retryAfterSeconds?: number;
-    constructor(code: string, message: string, retryAfterSeconds?: number) {
-      super(message);
-      this.code = code;
-      this.retryAfterSeconds = retryAfterSeconds;
-      this.name = 'ApiClientError';
-    }
-  }
-  return {
-    apiRequest: (path: string, options?: RequestInit) => mockApiRequest(path, options),
-    ApiClientError: MockApiClientError,
-    DEFAULT_RATE_LIMIT_RETRY_SECONDS: 60,
-  };
-});
+jest.mock('@/lib/api', () => ({
+  ...mockCreateApiModule(true),
+  apiRequest: (path: string, options?: RequestInit) => mockApiRequest(path, options),
+}));
 
 function renderTabs() {
   return render(
@@ -51,7 +39,7 @@ describe('SearchTabs — rate limited state', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Trop de recherches/);
-    expect(screen.getByText(/3s/)).toBeInTheDocument();
+    expect(screen.getByText(/3 seconde/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rechercher' })).toBeDisabled();
   });
 
@@ -65,6 +53,6 @@ describe('SearchTabs — rate limited state', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Trop de recherches/);
-    expect(screen.getByText(/60s/)).toBeInTheDocument();
+    expect(screen.getByText(/60 seconde/)).toBeInTheDocument();
   });
 });

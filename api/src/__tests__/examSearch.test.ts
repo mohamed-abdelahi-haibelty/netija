@@ -22,7 +22,6 @@ vi.mock('../lib/healthChecks.js', () => ({
 vi.mock('../services/examSearch.js', () => ({
   searchByExamNo: vi.fn(),
   getPublishedYears: vi.fn(),
-  invalidateExamCache: vi.fn(),
   invalidateYearsCache: vi.fn(),
 }));
 

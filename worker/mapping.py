@@ -19,8 +19,6 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Literal
 
-CANONICAL_FIELDS = ("exam_no", "name_fr", "name_ar", "serie", "moyenne", "decision")
-
 # A file is only guaranteed to have an exam number and at least one name
 # column (architecture.md's "never trust the file's schema" invariant).
 # serie/moyenne/decision may be absent in older files without failing the
@@ -145,6 +143,19 @@ def banned_pii_headers(headers: list[str]) -> set[str]:
     }
 
 
+def missing_required_fields(mapped_fields: set[str]) -> list[str]:
+    """The guaranteed-floor check shared by `analyze_headers` (preview time)
+    and `loader.check_mapping_floor` (load time, the last line of defense):
+    a mapping only ever needs exam_no and at least one of NAME_FIELDS.
+    """
+    missing: list[str] = []
+    if "exam_no" not in mapped_fields:
+        missing.append("exam_no")
+    if not mapped_fields.intersection(NAME_FIELDS):
+        missing.append("name")
+    return missing
+
+
 def build_alias_dictionary(learned_aliases: dict[str, str] | None = None) -> dict[str, str]:
     """Merge the built-in canonical-header dictionary with learned aliases
     from the `column_aliases` table. Learned aliases win on conflict — an
@@ -211,11 +222,7 @@ def analyze_headers(
             unrecognized.append(header)
 
     mapped_fields = set(mapping.values())
-    missing_required: list[str] = []
-    if "exam_no" not in mapped_fields:
-        missing_required.append("exam_no")
-    if not mapped_fields.intersection(NAME_FIELDS):
-        missing_required.append("name")
+    missing_required = missing_required_fields(mapped_fields)
 
     return MappingAnalysis(
         columns=columns,

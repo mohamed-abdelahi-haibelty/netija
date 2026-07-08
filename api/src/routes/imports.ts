@@ -27,6 +27,7 @@ import { importIdParamSchema } from '../schemas/preview.js';
 import { confirmImportBodySchema } from '../schemas/confirm.js';
 import { listImportAttemptsQuerySchema, deleteImportAttemptsBodySchema } from '../schemas/attempts.js';
 import { noStoreCache } from '../middleware/cacheControl.js';
+import { validationErrorHook } from '../lib/validation.js';
 
 // Shared volume between api and worker (see architecture.md). Defaults to the
 // repo-root `uploads/` folder for local dev, where both processes run with
@@ -76,23 +77,7 @@ imports.post('/', async (c) => {
 
 imports.get(
   '/:id/preview',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
     let result;
@@ -123,40 +108,8 @@ imports.get(
 
 imports.post(
   '/:id/confirm',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
-  zValidator('json', confirmImportBodySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid confirm payload',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
+  zValidator('json', confirmImportBodySchema, validationErrorHook('Invalid confirm payload')),
   async (c) => {
     const { id } = c.req.valid('param');
     const body = c.req.valid('json');
@@ -186,23 +139,7 @@ imports.post(
 
 imports.get(
   '/:id/status',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
     const result = await getImportStatus(db, id);
@@ -218,23 +155,7 @@ imports.get(
 
 imports.get(
   '/:id/rejects',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
     const rows = await getRejectReport(db, id);
@@ -252,40 +173,8 @@ imports.get(
 
 imports.get(
   '/:id/attempts',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
-  zValidator('query', listImportAttemptsQuerySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid query parameters',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
+  zValidator('query', listImportAttemptsQuerySchema, validationErrorHook('Invalid query parameters')),
   async (c) => {
     const { id } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -302,40 +191,8 @@ imports.get(
 
 imports.delete(
   '/:id/attempts',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
-  zValidator('json', deleteImportAttemptsBodySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request body',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
+  zValidator('json', deleteImportAttemptsBodySchema, validationErrorHook('Invalid request body')),
   async (c) => {
     const { id } = c.req.valid('param');
     const { attemptIds } = c.req.valid('json');
@@ -365,23 +222,7 @@ imports.delete(
 
 imports.post(
   '/:id/publish',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
 
@@ -410,23 +251,7 @@ imports.post(
 
 imports.post(
   '/:id/unpublish',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
     const result = await unpublishImport(db, meili, redis, id);
@@ -442,23 +267,7 @@ imports.post(
 
 imports.post(
   '/:id/cancel',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
 
@@ -487,23 +296,7 @@ imports.post(
 
 imports.delete(
   '/:id',
-  zValidator('param', importIdParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid import id',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', importIdParamSchema, validationErrorHook('Invalid import id')),
   async (c) => {
     const { id } = c.req.valid('param');
 

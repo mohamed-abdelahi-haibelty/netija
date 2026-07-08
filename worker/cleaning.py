@@ -26,12 +26,6 @@ from typing import NamedTuple
 
 import pandas as pd
 
-# A file is only guaranteed to have exam_no and at least one name column
-# (architecture.md's "never trust the file's schema" invariant); serie,
-# moyenne, and decision may be absent in some files without preventing the
-# module from running — a row missing one of them is simply rejected below.
-DECISION_VALUES = ("Admis", "Ajourné", "Sessionnaire", "Absent", "Délibérable", "Annulé")
-
 # Sane bound, not a hardcoded exact length: every real historical export
 # uses 5-digit exam numbers, but the validation must not assume that stays
 # true forever (architecture.md).
@@ -87,6 +81,12 @@ DECISION_ALIASES: dict[str, str] = {
     # other combining mark, so the raw "إلغاء" folds to "الغاء" (no hamza).
     "الغاء الامتحان": "Annulé",
 }
+
+# The fixed enum of normalized decision values, derived from
+# DECISION_ALIASES rather than hand-typed, so a newly added alias target
+# can never silently drift out of sync with this set (dict.fromkeys
+# dedupes while preserving first-seen order).
+DECISION_VALUES = tuple(dict.fromkeys(DECISION_ALIASES.values()))
 
 # "Examen annulé CT (...)" carries a variable reason in parentheses (e.g.
 # "Usage du Téléphone"); matched by prefix so any cancellation reason still

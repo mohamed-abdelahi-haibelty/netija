@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ApiClientError, apiRequest, DEFAULT_RATE_LIMIT_RETRY_SECONDS } from '@/lib/api';
 import { recordSearchAttempt, trackResultSearched } from '@/lib/analytics';
+import { useRateLimitCountdown } from '@/lib/useRateLimitCountdown';
 import { Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/NameAutocomplete';
 import { ClearButton } from '@/components/ClearButton';
@@ -41,25 +42,12 @@ export function SearchTabs({ lang, examType, years, yearsError }: Props) {
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const [rateLimitedFor, setRateLimitedFor] = useState<number | null>(null);
+  const [rateLimitedFor, setRateLimitedFor] = useRateLimitCountdown();
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
-
-  // Ticks the rate-limit countdown down to zero, one second at a time.
-  useEffect(() => {
-    if (rateLimitedFor === null) return;
-    if (rateLimitedFor <= 0) {
-      setRateLimitedFor(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      setRateLimitedFor((seconds) => (seconds === null ? null : seconds - 1));
-    }, 1000);
-    return () => { clearTimeout(timer); };
-  }, [rateLimitedFor]);
 
   function handleTabChange(value: string) {
     abortRef.current?.abort();

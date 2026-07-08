@@ -1,6 +1,7 @@
 import { desc } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { imports } from '../db/schema.js';
+import { toImportSummary } from './importSummary.js';
 import type { ImportListItem } from 'shared';
 
 // Every import for the admin dashboard (task 024), newest upload first — an
@@ -33,14 +34,7 @@ export async function listImports(db: Db): Promise<ImportListItem[]> {
     examYear: row.examYear,
     status: row.status,
     progress: row.progress,
-    summary:
-      row.summaryInserted === null
-        ? null
-        : {
-            inserted: row.summaryInserted,
-            rejected: row.summaryRejected ?? 0,
-            duplicatesSkipped: row.summaryDuplicatesSkipped ?? 0,
-          },
+    summary: toImportSummary(row),
     smokePassed: row.smokePassed,
     published: row.published,
     failureReason: row.failureReason,

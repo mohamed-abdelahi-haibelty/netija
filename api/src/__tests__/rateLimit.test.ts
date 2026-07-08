@@ -40,7 +40,6 @@ vi.mock('../lib/healthChecks.js', () => ({
 vi.mock('../services/examSearch.js', () => ({
   searchByExamNo: vi.fn(),
   getPublishedYears: vi.fn().mockResolvedValue([]),
-  invalidateExamCache: vi.fn(),
   invalidateYearsCache: vi.fn(),
 }));
 
@@ -51,7 +50,6 @@ vi.mock('../services/nameSearch.js', () => ({
 vi.mock('../services/studentPage.js', () => ({
   getStudentPage: vi.fn(),
   getAdminResultPreview: vi.fn().mockResolvedValue(null),
-  invalidateStudentCache: vi.fn(),
   resultCacheKey: (slug: string) => `result:${slug}`,
 }));
 

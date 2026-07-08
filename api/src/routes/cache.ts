@@ -13,6 +13,7 @@ import {
   CacheKeyOutOfScopeError,
 } from '../services/cacheAdmin.js';
 import { listCacheKeysQuerySchema, cacheKeyParamSchema, flushCacheBodySchema } from '../schemas/cache.js';
+import { validationErrorHook } from '../lib/validation.js';
 
 const cache = new Hono<AppEnv>();
 
@@ -26,23 +27,7 @@ cache.get('/status', async (c) => {
 
 cache.get(
   '/keys',
-  zValidator('query', listCacheKeysQuerySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid query parameters',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('query', listCacheKeysQuerySchema, validationErrorHook('Invalid query parameters')),
   async (c) => {
     const query = c.req.valid('query');
 
@@ -63,23 +48,7 @@ cache.get(
 
 cache.get(
   '/keys/:key',
-  zValidator('param', cacheKeyParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid cache key',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', cacheKeyParamSchema, validationErrorHook('Invalid cache key')),
   async (c) => {
     const { key } = c.req.valid('param');
 
@@ -106,23 +75,7 @@ cache.get(
 
 cache.delete(
   '/keys/:key',
-  zValidator('param', cacheKeyParamSchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid cache key',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('param', cacheKeyParamSchema, validationErrorHook('Invalid cache key')),
   async (c) => {
     const { key } = c.req.valid('param');
 
@@ -143,23 +96,7 @@ cache.delete(
 
 cache.post(
   '/flush',
-  zValidator('json', flushCacheBodySchema, (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request body',
-            issues: result.error.issues.map((i) => ({
-              path: i.path.join('.'),
-              message: i.message,
-            })),
-          },
-        },
-        400,
-      );
-    }
-  }),
+  zValidator('json', flushCacheBodySchema, validationErrorHook('Invalid request body')),
   async (c) => {
     const { pattern } = c.req.valid('json');
 

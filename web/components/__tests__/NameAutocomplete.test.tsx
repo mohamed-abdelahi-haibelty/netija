@@ -1,3 +1,4 @@
+import { mockApiModule as mockCreateApiModule } from '@/lib/testUtils/mockApi';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -10,23 +11,10 @@ jest.mock('next/navigation', () => ({
 
 const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
 
-jest.mock('@/lib/api', () => {
-  class MockApiClientError extends Error {
-    code: string;
-    retryAfterSeconds?: number;
-    constructor(code: string, message: string, retryAfterSeconds?: number) {
-      super(message);
-      this.code = code;
-      this.retryAfterSeconds = retryAfterSeconds;
-      this.name = 'ApiClientError';
-    }
-  }
-  return {
-    apiRequest: (path: string, options?: RequestInit) => mockApiRequest(path, options),
-    ApiClientError: MockApiClientError,
-    DEFAULT_RATE_LIMIT_RETRY_SECONDS: 60,
-  };
-});
+jest.mock('@/lib/api', () => ({
+  ...mockCreateApiModule(true),
+  apiRequest: (path: string, options?: RequestInit) => mockApiRequest(path, options),
+}));
 
 function renderAutocomplete(examType: 'bac' | 'brevet' = 'bac') {
   return render(
@@ -55,7 +43,7 @@ describe('NameAutocomplete — rate limited state', () => {
     await user.type(screen.getByRole('combobox'), 'ahmed');
     await act(async () => { await jest.advanceTimersByTimeAsync(300); }); // clears the search debounce
 
-    expect(await screen.findByText(/5s/)).toBeInTheDocument();
+    expect(await screen.findByText(/5 seconde/)).toBeInTheDocument();
     expect(mockApiRequest).toHaveBeenCalledTimes(1);
 
     // A further keystroke would normally re-debounce and re-fetch — while

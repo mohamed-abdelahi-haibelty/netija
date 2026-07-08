@@ -1,13 +1,14 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Loader2, RefreshCw, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ChevronDown, ChevronUp, Loader2, Trash2 } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api';
+import { useDebouncedSetter } from '@/lib/useDebouncedSetter';
 import { PropertyRow } from '@/components/PropertyRow';
 import { InvalidateCacheKeyDialog } from '@/components/admin/InvalidateCacheKeyDialog';
 import { FlushCacheDialog } from '@/components/admin/FlushCacheDialog';
+import { AdminStatusPanel } from '@/components/admin/AdminStatusPanel';
 import { PageHeader } from '@/components/ui/page-header';
 import { Pagination } from '@/components/ui/pagination';
 import { LoadingState, ErrorState, NotFoundState, EmptyState as BaseEmptyState } from '@/components/ui/load-states';
@@ -39,7 +40,7 @@ export default function CachePage() {
   const [page, setPage] = useState(1);
   const [patternInput, setPatternInput] = useState('');
   const [pattern, setPattern] = useState<string | undefined>(undefined);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounce = useDebouncedSetter(FILTER_DEBOUNCE_MS);
 
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [inspectLoad, setInspectLoad] = useState<InspectLoadState>('loading');
@@ -94,20 +95,13 @@ export default function CachePage() {
     void loadKeys(page);
   }, [loadKeys, page]);
 
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
   const handlePatternChange = (value: string) => {
     setPatternInput(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounce(() => {
       setPage(1);
       const trimmed = value.trim();
       setPattern(trimmed === '' ? undefined : trimmed);
-    }, FILTER_DEBOUNCE_MS);
+    });
   };
 
   const toggleInspect = async (key: string) => {
@@ -158,46 +152,23 @@ export default function CachePage() {
         </p>
       )}
 
-      {/* ── Status panel ── */}
-      <div className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">{t('admin.cache.statusTitle')}</h2>
-          {statusLoad === 'loaded' && (
-            <button
-              type="button"
-              onClick={() => void loadStatus()}
-              aria-label={t('admin.cache.refresh')}
-              className={cn(
-                'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium',
-                'border border-border text-muted-foreground',
-                'hover:bg-muted hover:text-foreground transition-colors duration-150',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              )}
-            >
-              <RefreshCw className="size-3" aria-hidden />
-              {t('admin.cache.refresh')}
-            </button>
-          )}
-        </div>
-
-        {statusLoad === 'loading' && <LoadingState label={t('admin.cache.statusLoading')} />}
-
-        {statusLoad === 'error' && (
-          <ErrorState
-            label={t('admin.cache.statusLoadError')}
-            onRetry={() => void loadStatus()}
-            retryLabel={t('common.retry')}
-          />
-        )}
-
-        {statusLoad === 'loaded' && status && (
-          <div className="border-t border-border pt-1">
+      <AdminStatusPanel
+        title={t('admin.cache.statusTitle')}
+        refreshLabel={t('admin.cache.refresh')}
+        loadState={statusLoad}
+        loadingLabel={t('admin.cache.statusLoading')}
+        errorLabel={t('admin.cache.statusLoadError')}
+        retryLabel={t('common.retry')}
+        onRefresh={() => void loadStatus()}
+      >
+        {status && (
+          <>
             <PropertyRow label={t('admin.cache.colExamKeys')}>{status.examKeyCount}</PropertyRow>
             <PropertyRow label={t('admin.cache.colResultKeys')}>{status.resultKeyCount}</PropertyRow>
             <PropertyRow label={t('admin.cache.colTotalKeys')}>{status.totalKeyCount}</PropertyRow>
-          </div>
+          </>
         )}
-      </div>
+      </AdminStatusPanel>
 
       {/* ── Key list ── */}
       <div>
@@ -324,7 +295,6 @@ export default function CachePage() {
             <Pagination
               page={page}
               totalPages={totalPages}
-              total={keys.total}
               onPageChange={setPage}
               prevLabel={t('admin.rows.prevPage')}
               nextLabel={t('admin.rows.nextPage')}

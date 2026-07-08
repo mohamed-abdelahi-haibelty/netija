@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 interface PaginationProps {
   page: number;
   totalPages: number;
-  total: number;
   onPageChange: (page: number) => void;
   prevLabel: string;
   nextLabel: string;
@@ -25,7 +24,6 @@ const btnBase = cn(
 export function Pagination({
   page,
   totalPages,
-  total,
   onPageChange,
   prevLabel,
   nextLabel,

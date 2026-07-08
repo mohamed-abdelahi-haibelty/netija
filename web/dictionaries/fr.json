@@ -73,11 +73,6 @@
   },
   "admin": {
     "siteTitle": "Netija Admin",
-    "nav": {
-      "imports": "Imports",
-      "logout": "Sign out",
-      "backToSite": "Back to site"
-    },
     "login": {
       "title": "Netija",
       "subtitle": "Admin",

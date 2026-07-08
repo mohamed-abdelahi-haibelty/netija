@@ -156,7 +156,11 @@ df["moyenne"] = pd.to_numeric(df["moyenne"], errors="coerce")
   only derived, rebuildable data.
 - Every DB query goes through Drizzle with typed schema; no raw
   SQL strings in routes (raw SQL allowed only in the Python
-  loader and migrations).
+  loader and migrations, or in an api/src/services/ function via
+  Drizzle's `sql` tag for a query shape the builder can't express
+  cleanly — e.g. `meiliIndex.ts#PUBLISHED_ATTEMPTS_SQL`'s joined
+  projection with a `bigint::int` cast — provided it's isolated in
+  one named, commented function, never inlined in a route).
 - All writes that can conflict use upsert/ON CONFLICT consistent
   with the uniqueness invariants (see architecture.md).
 - Original uploaded Excel files are kept on the uploads volume;

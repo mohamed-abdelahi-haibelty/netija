@@ -21,7 +21,6 @@ vi.mock('../lib/healthChecks.js', () => ({
 vi.mock('../services/studentPage.js', () => ({
   getStudentPage: vi.fn(),
   getAdminResultPreview: vi.fn(),
-  invalidateStudentCache: vi.fn(),
   resultCacheKey: (slug: string) => `result:${slug}`,
 }));
 

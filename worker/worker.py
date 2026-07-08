@@ -147,6 +147,19 @@ def validate(args: argparse.Namespace) -> ValidationResult:
     return ValidationResult(True, None, None)
 
 
+def _redact_banned_pii(df: pd.DataFrame) -> dict[int, dict[str, object]]:
+    """Raw rows kept for the reject audit trail must never carry NNI/birth
+    date/birth place/school/wilaya any more than a successfully inserted
+    attempt does (architecture.md: "never written to the database ... at
+    all") — drop those columns before the raw copy is kept.
+    """
+    banned_headers = header_mapping.banned_pii_headers(list(df.columns))
+    return {
+        row_number: {k: v for k, v in row.items() if k not in banned_headers}
+        for row_number, row in enumerate(df.to_dict(orient="records"), start=1)
+    }
+
+
 def run_import(
     dsn: str, import_id: int, exam_type: str, exam_year: int, mapping: dict[str, str]
 ) -> ImportOutcome:
@@ -185,15 +198,10 @@ def run_import(
     # the caller (api/src/services/importJob.ts) sets 100% on success.
     loader.report_progress(dsn, import_id, 10)
 
-    # The reject audit trail keeps the raw row for troubleshooting, but must
-    # never carry NNI/birth date/birth place/school/wilaya any more than a
-    # successfully inserted attempt does (architecture.md: "never written to
-    # the database ... at all") — redact those columns before they're kept.
-    banned_headers = header_mapping.banned_pii_headers(list(df.columns))
-    raw_rows_by_number = {
-        row_number: {k: v for k, v in row.items() if k not in banned_headers}
-        for row_number, row in enumerate(df.to_dict(orient="records"), start=1)
-    }
+    # The reject audit trail keeps the raw row for troubleshooting, but see
+    # `_redact_banned_pii`'s docstring for why banned columns are stripped
+    # from it first.
+    raw_rows_by_number = _redact_banned_pii(df)
     cleaning_result = clean_dataframe(df, mapping, exam_year, exam_type)
     loader.report_progress(dsn, import_id, 20)
 

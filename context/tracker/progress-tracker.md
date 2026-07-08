@@ -10,6 +10,48 @@ Update this file after every meaningful implementation change.
 
 - None — tasks 025, 031, 032, 033, 034, 035, and 036 are complete.
 
+## Open Questions
+
+Found during the `chore/refactor-cleanup` pass (2026-07-08). Still open —
+each needs its own task (data-model change, out of scope for a code-only
+branch).
+
+- **`worker/mapping.py`'s `BUILTIN_CANONICAL_ALIASES` is missing `NOM_FR` for
+  `name_fr`, while its counterpart `NOM_AR` is present for `name_ar`.**
+  Verified by running `analyze_headers(["NODOSS","NOM_FR","NOM_AR","Moy
+  Bac","Decision"])`: `NOM_AR` maps to `name_ar`, `NOM_FR` lands in
+  `unrecognized`. `worker/tests/fixtures/README.md` (lines 60-63) documents
+  `NOM_FR`/`NOM_AR` as a real 2025 `bac_2025` header pair found in
+  production; the three decision-variant fixes from that same discovery
+  were made, but this alias looks like it was missed. Impact: a real
+  2025-format Bac file's French name column shows "unrecognized" at
+  preview and needs a manual admin remap every time.
+- **`api/src/db/schema.ts`'s `imports.summaryNewPeople` column is dead** —
+  grepped across `api/`, `worker/`, `web/`; never read or written by any
+  code. Looks like a leftover from an earlier "new people" concept removed
+  when the schema went attempts-only. Removing it needs a migration
+  (a data-model change), so it wasn't touched during the code-only refactor
+  pass; fold into a future schema change instead of a standalone migration.
+
+Resolved on `chore/refactor-cleanup` (2026-07-08), after being flagged here
+first:
+
+- ~~`results/[slug]/page.tsx`'s metadata description ternary produced
+  identical AR/FR text~~ — fixed: both branches now render genuinely
+  different, labeled text (`القرار`/`المعدل`/`سنة` vs `Décision`/`Moyenne`/
+  `Année`), and `examYear` is wrapped in `String(...)` (was the source of
+  the `@typescript-eslint/restrict-template-expressions` lint error).
+- ~~`pagination.tsx`'s `total` prop was declared but never read~~ — fixed:
+  removed from the component and its 3 call sites (cache, search-index,
+  rows pages); `totalLabel` already carries the formatted count string, so
+  nothing else changed.
+- ~~`SearchTabs.test.tsx`/`NameAutocomplete.test.tsx` expected "Xs" text but
+  the shipped copy renders "X seconde(s)"~~ — fixed: `git log -S` traced the
+  copy change to `5616e5f` ("clarify home page copy for non-technical
+  audience" — deliberately expanded "60s" to "60 seconde(s)"), so the tests
+  were stale, not the copy. Updated the 3 assertions to match the shipped
+  French text instead of reverting the copy.
+
 ## Completed
 
 - **Task 036 — Second exam type: Brevet (BEPC) alongside Bac**
