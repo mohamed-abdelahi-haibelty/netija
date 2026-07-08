@@ -43,7 +43,7 @@ describe('NameAutocomplete — rate limited state', () => {
     await user.type(screen.getByRole('combobox'), 'ahmed');
     await act(async () => { await jest.advanceTimersByTimeAsync(300); }); // clears the search debounce
 
-    expect(await screen.findByText(/5s/)).toBeInTheDocument();
+    expect(await screen.findByText(/5 seconde/)).toBeInTheDocument();
     expect(mockApiRequest).toHaveBeenCalledTimes(1);
 
     // A further keystroke would normally re-debounce and re-fetch — while

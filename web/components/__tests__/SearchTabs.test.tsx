@@ -39,7 +39,7 @@ describe('SearchTabs — rate limited state', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Trop de recherches/);
-    expect(screen.getByText(/3s/)).toBeInTheDocument();
+    expect(screen.getByText(/3 seconde/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rechercher' })).toBeDisabled();
   });
 
@@ -53,6 +53,6 @@ describe('SearchTabs — rate limited state', () => {
     await user.click(screen.getByRole('button', { name: 'Rechercher' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Trop de recherches/);
-    expect(screen.getByText(/60s/)).toBeInTheDocument();
+    expect(screen.getByText(/60 seconde/)).toBeInTheDocument();
   });
 });
