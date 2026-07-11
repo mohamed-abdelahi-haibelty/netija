@@ -20,12 +20,14 @@
 | POSTGRES_PASSWORD | docker | Postgres password | 002 |
 | DATABASE_URL | api, worker | Postgres connection DSN | 002 |
 | REDIS_URL | api | Redis connection URL | 002 |
-| MEILI_HOST | api, worker | Meilisearch base URL | 002 |
-| MEILI_MASTER_KEY | docker, api, worker | Meilisearch master key | 002 |
+| MEILI_HOST | api | Meilisearch base URL (api/src/lib/meili.ts) | 002 |
+| MEILISEARCH_URL | api | Meilisearch base URL for `/health/ready` ONLY (api/src/routes/health.ts) — a separate variable from MEILI_HOST above, not a typo for it. Both must be set to the same value or `/health/ready` reports Meilisearch down even when it's fine. Found during the deploy runbook grep (2026-07-08); not fixed, since this is a code-only inconsistency and the runbook task was documentation-only. | 002 |
+| MEILI_MASTER_KEY | docker, api | Meilisearch master key | 002 |
 | API_URL | web (server-side) | Internal API base URL | 002 |
 | NEXT_PUBLIC_API_URL | web (browser) | Public API base URL | 002 |
+| WEB_URL | api | Web app origin — CORS (api/src/app.ts) and Better Auth trustedOrigins | 002 (undocumented until the deploy runbook grep, 2026-07-08) |
 | BETTER_AUTH_SECRET | api | Session signing secret | 002 |
-| BETTER_AUTH_URL | api, web | Auth server base URL | 002 |
+| BETTER_AUTH_URL | api | Auth server base URL | 002 |
 | SENTRY_DSN | api, web (server), worker | Sentry DSN (server) | 002 |
 | NEXT_PUBLIC_SENTRY_DSN | web | Sentry DSN (browser) | 002 |
 | NEXT_PUBLIC_POSTHOG_KEY | web | PostHog project key | 002 |
@@ -41,22 +43,43 @@
 
 | Service | Purpose | Where the key lives | Added in task |
 | ------- | ------- | ------------------- | ------------- |
-| (e.g. Sentry, PostHog, Cloudflare API token) | | server .env only | |
+| Sentry (sentry.io) | Error monitoring — api, web, worker | `.env.production` (`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`) | 002 |
+| PostHog (posthog.com, EU) | Anonymous product analytics — web only | `.env.production` (`NEXT_PUBLIC_POSTHOG_KEY`) | 002 |
+| Cloudflare | DNS, DDoS, edge cache, cache purge on publish | `.env.production` (`CLOUDFLARE_API_TOKEN` scoped to Zone → Cache Purge, `CLOUDFLARE_ZONE_ID`) | 002 |
+| Hetzner Cloud | VPS hosting | Hetzner Cloud Console (SSH key, no app-level key) | 029 |
+| UptimeRobot | Uptime monitoring against `/health` | UptimeRobot dashboard only, no app-level key | 029 |
 
 ## Deploy steps (current)
 
-1. SSH to the VPS as the deploy user.
-2. `git pull` the verified tag (production deploys only from tags).
-3. Run pending migrations (command: …).
-4. `docker compose -f <env file> up -d --build`.
-5. Verify `/health/ready` returns ok.
-6. Ensure the import queue worker process (`npm run queue:worker` in
-   `api/`, task 019) is running continuously alongside the api
-   server — confirmed imports enqueue a job but nothing drains the
-   queue without this process. Not yet containerized/supervised;
-   task 029 will define how it runs in production (own compose
-   service, pm2, or systemd unit).
-(Refine as tasks 029/030 finalize scripts.)
+Full step-by-step instructions (first deploy + ongoing updates) live in
+`DEPLOYMENT-RUNBOOK.md` at the repo root — this section is the short
+version.
+
+**Production topology** (task 029, resolved 2026-07-08): one Docker Compose
+stack on a single Hetzner VPS. `postgres`/`redis`/`meilisearch` publish no
+ports at all (architecture.md invariant 2); `caddy` is the only service
+publishing 80/443 and handles TLS automatically. The api and queue-worker
+services share one image (`api/Dockerfile`) that bundles a Python venv with
+`worker/requirements.txt` installed, so `api/src/lib/pythonRunner.ts` can
+keep spawning `worker/*.py` as a subprocess exactly like it does in local
+dev — resolving the "bundle Python into the api image or run api directly
+on the VPS" question left open below in favor of the former.
+`worker/Dockerfile` is NOT used in production (see the runbook's gap
+analysis for why).
+
+1. SSH to the VPS as the `deploy` user (never root).
+2. `git fetch --tags && git checkout <verified tag>` (production deploys
+   only from annotated tags, per git-conventions.md).
+3. `docker compose --env-file .env.production -f docker-compose.prod.yml build`
+4. Run pending migrations: `docker compose --env-file .env.production -f docker-compose.prod.yml run --rm api npm run db:migrate --workspace=api`
+5. `docker compose --env-file .env.production -f docker-compose.prod.yml up -d`
+6. Verify `/health/ready` returns 200 with all three deps `true` (watch
+   for the MEILI_HOST/MEILISEARCH_URL trap above).
+7. The `queue-worker` service (this repo's containerized equivalent of
+   `npm run queue:worker`) is started by step 5 alongside `api` and
+   `web` — confirmed imports enqueue a job but nothing drains the queue if
+   this container isn't running; `docker compose ... ps` should show it
+   healthy/running same as `api`.
 
 ## Things that must run after specific deploys
 
