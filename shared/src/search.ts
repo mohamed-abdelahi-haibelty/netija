@@ -14,10 +14,6 @@ export interface ExamSearchResult {
   serie: string | null;
 }
 
-export interface ExamSearchResponse {
-  data: ExamSearchResult;
-}
-
 export interface PublishedYearsResponse {
   data: { years: number[] };
 }

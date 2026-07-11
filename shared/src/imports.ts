@@ -4,10 +4,6 @@ export interface ImportUploadResult {
   importId: number;
 }
 
-export interface ImportUploadResponse {
-  data: ImportUploadResult;
-}
-
 // The only fields the pipeline ever stores (see architecture.md's minimal
 // data model) — the single set of remap targets the admin can choose from.
 export type CanonicalField = 'exam_no' | 'name_fr' | 'name_ar' | 'serie' | 'moyenne' | 'decision';
@@ -34,10 +30,6 @@ export interface ImportPreviewResult {
   missingRequired: MissingRequiredField[];
 }
 
-export interface ImportPreviewResponse {
-  data: ImportPreviewResult;
-}
-
 // The confirm payload: the admin's (possibly corrected) mapping plus the
 // exam type and year for this file. Matches worker/mapping.py's shape — every
 // header not listed here was left "— Ignore —" in the mapping UI.
@@ -49,10 +41,6 @@ export interface ImportConfirmPayload {
 
 export interface ImportConfirmResult {
   status: ImportStatus;
-}
-
-export interface ImportConfirmResponse {
-  data: ImportConfirmResult;
 }
 
 // Mirrors the db's import_status enum (schema.ts) — the coarse lifecycle
@@ -88,16 +76,8 @@ export interface ImportStatusResult {
   failureReason: string | null;
 }
 
-export interface ImportStatusResponse {
-  data: ImportStatusResult;
-}
-
 export interface ImportPublishResult {
   published: boolean;
-}
-
-export interface ImportPublishResponse {
-  data: ImportPublishResult;
 }
 
 // One row per uploaded file for the admin imports dashboard (task 024) —
@@ -117,19 +97,11 @@ export interface ImportListItem {
   createdAt: string;
 }
 
-export interface ImportListResponse {
-  data: ImportListItem[];
-}
-
 // Result of deleting an import (task 031): the import row, its rejects, and
 // every attempt it produced are gone; deletedAttempts is how many attempt
 // rows were removed, for the admin UI's post-delete confirmation.
 export interface ImportDeleteResult {
   deletedAttempts: number;
-}
-
-export interface ImportDeleteResponse {
-  data: ImportDeleteResult;
 }
 
 // All 6 canonical decision values (mirrors api/src/db/schema.ts's
@@ -164,20 +136,12 @@ export interface ImportAttemptsListResult {
   availableSeries: string[];
 }
 
-export interface ImportAttemptsListResponse {
-  data: ImportAttemptsListResult;
-}
-
 // Result of deleting one or several attempt rows within an import (task
 // 033) — a single attempt is just a one-element selection through the same
 // endpoint. deletedAttempts is how many rows actually matched and were
 // removed, for the confirmation UI's outcome message.
 export interface ImportAttemptsDeleteResult {
   deletedAttempts: number;
-}
-
-export interface ImportAttemptsDeleteResponse {
-  data: ImportAttemptsDeleteResult;
 }
 
 // Result of requesting cancellation (task 032). 'cancelled' means the
@@ -189,8 +153,4 @@ export interface ImportAttemptsDeleteResponse {
 // status poll.
 export interface ImportCancelResult {
   status: 'cancelling' | 'cancelled';
-}
-
-export interface ImportCancelResponse {
-  data: ImportCancelResult;
 }

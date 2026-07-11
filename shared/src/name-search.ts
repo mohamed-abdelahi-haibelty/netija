@@ -13,9 +13,3 @@ export interface NameSearchSuggestion {
   // null for Brevet (no track).
   serie: string | null;
 }
-
-export interface NameSearchResponse {
-  data: {
-    suggestions: NameSearchSuggestion[];
-  };
-}

@@ -9,10 +9,6 @@ export interface CacheStatusResult {
   totalKeyCount: number;
 }
 
-export interface CacheStatusResponse {
-  data: CacheStatusResult;
-}
-
 export interface CacheKeyEntry {
   key: string;
   ttl: number;
@@ -25,32 +21,16 @@ export interface CacheKeysListResult {
   pageSize: number;
 }
 
-export interface CacheKeysListResponse {
-  data: CacheKeysListResult;
-}
-
 export interface CacheKeyInspectResult {
   key: string;
   ttl: number;
   value: unknown;
 }
 
-export interface CacheKeyInspectResponse {
-  data: CacheKeyInspectResult;
-}
-
 export interface CacheInvalidateResult {
   deleted: boolean;
 }
 
-export interface CacheInvalidateResponse {
-  data: CacheInvalidateResult;
-}
-
 export interface CacheFlushResult {
   deletedCount: number;
-}
-
-export interface CacheFlushResponse {
-  data: CacheFlushResult;
 }

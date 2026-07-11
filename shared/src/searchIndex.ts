@@ -13,10 +13,6 @@ export interface SearchIndexStatusResult {
   filterableAttributes: string[];
 }
 
-export interface SearchIndexStatusResponse {
-  data: SearchIndexStatusResult;
-}
-
 // One indexed document — mirrors meiliIndex.ts's AttemptDocument (one row per
 // published attempt; `slug` is the same public_slug the document id IS).
 export interface SearchIndexDocument {
@@ -37,14 +33,6 @@ export interface SearchIndexDocumentsResult {
   pageSize: number;
 }
 
-export interface SearchIndexDocumentsResponse {
-  data: SearchIndexDocumentsResult;
-}
-
 export interface SearchIndexReindexResult {
   documentCount: number;
-}
-
-export interface SearchIndexReindexResponse {
-  data: SearchIndexReindexResult;
 }
