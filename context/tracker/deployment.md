@@ -62,9 +62,10 @@ services share one image (`api/Dockerfile`) that bundles a Python venv with
 `worker/requirements.txt` installed, so `api/src/lib/pythonRunner.ts` can
 keep spawning `worker/*.py` as a subprocess exactly like it does in local
 dev — resolving the "bundle Python into the api image or run api directly
-on the VPS" question left open below in favor of the former.
-`worker/Dockerfile` is NOT used in production (see the runbook's gap
-analysis for why).
+on the VPS" question left open below in favor of the former. There is no
+standalone worker image (the earlier `worker/Dockerfile`, which modeled the
+worker as its own container, was removed as dead/misleading — the worker
+has always run as an api subprocess, never its own service).
 
 1. SSH to the VPS as the `deploy` user (never root).
 2. `git fetch --tags && git checkout <verified tag>` (production deploys

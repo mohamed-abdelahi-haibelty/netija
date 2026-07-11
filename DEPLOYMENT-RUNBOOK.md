@@ -90,8 +90,11 @@ Skip this section if you already know hosting/networking basics. Otherwise, read
 | `.dockerignore` (new) | Keeps `node_modules`, `.git`, `.env*`, `uploads/*`, and Python cruft out of build contexts. |
 | `.env.production.example` (new) | Every production env var, grouped, with generation instructions (section 2). |
 
-No existing application code was changed. `docker-compose.yml`, the local
-`.env.example`, and `worker/Dockerfile` are untouched.
+No existing application code was changed at the time. `docker-compose.yml`
+and the local `.env.example` are still untouched; `worker/Dockerfile` was
+later deleted (2026-07-11) as dead, misleading tooling now that this
+runbook's "bundle Python into the api image" decision is final — see
+`api/Dockerfile`'s header comment.
 
 ### Production topology decision
 

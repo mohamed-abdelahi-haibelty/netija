@@ -7,8 +7,8 @@
 # pythonRunner.ts) rather than calling it over the network, so this image
 # bundles a real Python interpreter + worker/'s dependencies alongside
 # Node — the "bundle Python into the api image" option deployment.md left
-# open. worker/Dockerfile (a bare python:3.12-slim ENTRYPOINT) is NOT used
-# in production for this reason; it's unused tooling, kept as-is.
+# open. There is no standalone worker image; worker/ is never deployed as
+# its own container.
 FROM node:22-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
