@@ -10,7 +10,7 @@ health.get('/ready', async (c) => {
   const [postgres, redis, meilisearch] = await Promise.all([
     checkPostgres(process.env['DATABASE_URL'] ?? ''),
     checkRedis(process.env['REDIS_URL'] ?? ''),
-    checkMeilisearch(process.env['MEILISEARCH_URL'] ?? ''),
+    checkMeilisearch(process.env['MEILI_HOST'] ?? ''),
   ]);
 
   const allOk = postgres && redis && meilisearch;

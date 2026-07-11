@@ -327,13 +327,6 @@ Grepped from the codebase (`process.env[...]` / `process.env.X` in
 guessed. A ready-to-fill template is at `.env.production.example`
 (repo root).
 
-**Known app bug to route around**: `api/src/lib/meili.ts` reads
-`MEILI_HOST`, but `api/src/routes/health.ts`'s `/health/ready` check reads
-a *different* variable, `MEILISEARCH_URL`. Nothing else in the app uses
-`MEILISEARCH_URL`. This wasn't touched (out of scope — "don't change
-existing application code"), but the env template sets **both** to the same
-value so `/health/ready` doesn't falsely report Meilisearch as down.
-
 ### PostgreSQL
 
 | Variable | Secret? | Example | Notes |
@@ -355,8 +348,7 @@ value so `/health/ready` doesn't falsely report Meilisearch as down.
 | Variable | Secret? | Example | Notes |
 | --- | --- | --- | --- |
 | `MEILI_MASTER_KEY` | **Yes** | — | Generate: `openssl rand -hex 32`. |
-| `MEILI_HOST` | No | `http://meilisearch:7700` | Read by `api/src/lib/meili.ts`. |
-| `MEILISEARCH_URL` | No | `http://meilisearch:7700` | Read by `api/src/routes/health.ts` only — see the bug note above. Set identically to `MEILI_HOST`. |
+| `MEILI_HOST` | No | `http://meilisearch:7700` | Read by `api/src/lib/meili.ts` and `api/src/routes/health.ts`'s `/health/ready` check. |
 
 ### Uploads & worker invocation
 
@@ -692,10 +684,7 @@ nc -zv -w3 <server-ip> 7700
 ```
 
 `/health/ready` should return `{"postgres":true,"redis":true,"meilisearch":true}`
-with HTTP 200. If `meilisearch` shows `false` despite Meilisearch clearly
-working (e.g. name search returns results on the site), see the
-`MEILI_HOST`/`MEILISEARCH_URL` note in section 2 — you likely only set one
-of the two.
+with HTTP 200.
 
 ### 3.9 UptimeRobot
 
@@ -952,11 +941,6 @@ docker compose --env-file .env.production -f docker-compose.prod.yml logs <servi
   docker compose --env-file .env.production -f docker-compose.prod.yml build web
   docker compose --env-file .env.production -f docker-compose.prod.yml up -d web
   ```
-
-**`/health/ready` reports Meilisearch down but search works fine on the site**
-- The `MEILI_HOST` vs. `MEILISEARCH_URL` app inconsistency documented in
-  section 2 — confirm both are set in `.env.production` to the same value
-  (`http://meilisearch:7700`).
 
 **Forgot `--env-file .env.production` on a command**
 - Compose silently substitutes empty strings for every `${VAR}` and (for

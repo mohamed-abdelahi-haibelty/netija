@@ -20,8 +20,7 @@
 | POSTGRES_PASSWORD | docker | Postgres password | 002 |
 | DATABASE_URL | api, worker | Postgres connection DSN | 002 |
 | REDIS_URL | api | Redis connection URL | 002 |
-| MEILI_HOST | api | Meilisearch base URL (api/src/lib/meili.ts) | 002 |
-| MEILISEARCH_URL | api | Meilisearch base URL for `/health/ready` ONLY (api/src/routes/health.ts) — a separate variable from MEILI_HOST above, not a typo for it. Both must be set to the same value or `/health/ready` reports Meilisearch down even when it's fine. Found during the deploy runbook grep (2026-07-08); not fixed, since this is a code-only inconsistency and the runbook task was documentation-only. | 002 |
+| MEILI_HOST | api | Meilisearch base URL — read by both api/src/lib/meili.ts and api/src/routes/health.ts's `/health/ready` check. (Until 2026-07-11, health.ts read a separate `MEILISEARCH_URL` instead, found during the deploy runbook grep on 2026-07-08 and consolidated onto this one variable; guarded by api/src/__tests__/health.test.ts.) | 002 |
 | MEILI_MASTER_KEY | docker, api | Meilisearch master key | 002 |
 | API_URL | web (server-side) | Internal API base URL | 002 |
 | NEXT_PUBLIC_API_URL | web (browser) | Public API base URL | 002 |
@@ -73,8 +72,7 @@ analysis for why).
 3. `docker compose --env-file .env.production -f docker-compose.prod.yml build`
 4. Run pending migrations: `docker compose --env-file .env.production -f docker-compose.prod.yml run --rm api npm run db:migrate --workspace=api`
 5. `docker compose --env-file .env.production -f docker-compose.prod.yml up -d`
-6. Verify `/health/ready` returns 200 with all three deps `true` (watch
-   for the MEILI_HOST/MEILISEARCH_URL trap above).
+6. Verify `/health/ready` returns 200 with all three deps `true`.
 7. The `queue-worker` service (this repo's containerized equivalent of
    `npm run queue:worker`) is started by step 5 alongside `api` and
    `web` — confirmed imports enqueue a job but nothing drains the queue if
