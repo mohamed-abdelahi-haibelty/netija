@@ -1,6 +1,7 @@
 # Environment variables
 .env*
 !.env.example
+!.env.production.example
 
 # Dependencies
 node_modules/

@@ -1,0 +1,40 @@
+# Applies to both api/Dockerfile and web/Dockerfile (build context is the
+# repo root for both, so npm workspaces resolve correctly).
+
+.git
+.github
+
+**/node_modules
+**/.next
+**/.swc
+**/dist
+**/*.tsbuildinfo
+
+# Env files and secrets — never baked into an image layer. Runtime env
+# comes from docker-compose's env_file/--env-file, not COPY.
+.env
+.env.*
+!.env.example
+
+# Uploaded files are a runtime volume, not build input.
+uploads/*
+!uploads/.gitkeep
+
+# Python
+**/__pycache__
+**/*.py[cod]
+worker/.venv
+worker/.pytest_cache
+worker/.ruff_cache
+
+# Docs, tooling, editor state — irrelevant to the runtime image
+context/
+.agents/
+.claude/
+.impeccable/
+web/.impeccable/
+*.md
+!README.md
+.vscode/
+.idea/
+.DS_Store
