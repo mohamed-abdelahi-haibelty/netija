@@ -357,9 +357,9 @@ guessed. A ready-to-fill template is at `.env.production.example`
 
 | Variable | Secret? | Example | Notes |
 | --- | --- | --- | --- |
-| `UPLOADS_DIR` | No | `/app/uploads` | **Must be absolute in production.** The code's own default (`resolve(process.cwd(), '../uploads')`, `api/src/routes/imports.ts`) assumes `api/` as cwd, which is true in local dev but not in this container (cwd is `/app`) — an unset value here would resolve to a nonsense path outside the app entirely. |
+| `UPLOADS_DIR` | No | `/app/uploads` | **Must be absolute in production**, and as of 2026-07-11 the app enforces this itself: `api/src/lib/env.ts#requiredPathEnv` throws at startup if unset while `APP_ENV=production`, rather than silently falling back to a cwd-relative default that would resolve to a nonsense path outside the container. |
 | `PYTHON_BIN` | No | `/opt/venv/bin/python3` | Points at the venv `api/Dockerfile` builds, not the system `python3`. |
-| `WORKER_DIR` | No | `/app/worker` | Absolute path to the bundled `worker/` package inside the image. |
+| `WORKER_DIR` | No | `/app/worker` | Absolute path to the bundled `worker/` package inside the image. Same required-in-production guard as `UPLOADS_DIR` above. |
 
 ### Application URLs
 

@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { zValidator } from '@hono/zod-validator';
 import type { AppEnv } from '../types.js';
 import { requireSession } from '../middleware/requireSession.js';
+import { requiredPathEnv } from '../lib/env.js';
 import { db } from '../db/client.js';
 import {
   MAX_UPLOAD_BYTES,
@@ -31,8 +32,8 @@ import { validationErrorHook } from '../lib/validation.js';
 
 // Shared volume between api and worker (see architecture.md). Defaults to the
 // repo-root `uploads/` folder for local dev, where both processes run with
-// api/ as cwd.
-const UPLOADS_DIR = process.env['UPLOADS_DIR'] ?? resolve(process.cwd(), '../uploads');
+// api/ as cwd; required (no fallback) in production — see lib/env.ts.
+const UPLOADS_DIR = requiredPathEnv('UPLOADS_DIR', resolve(process.cwd(), '../uploads'));
 
 const imports = new Hono<AppEnv>();
 

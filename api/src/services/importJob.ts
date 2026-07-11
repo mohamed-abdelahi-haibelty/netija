@@ -4,13 +4,14 @@ import { and, eq, notInArray } from 'drizzle-orm';
 import { resolve } from 'node:path';
 import type { Db } from '../db/client.js';
 import { imports } from '../db/schema.js';
+import { requiredPathEnv } from '../lib/env.js';
 import { runPythonScript } from '../lib/pythonRunner.js';
 import type { ImportJobData } from '../lib/queue.js';
 import { runSmokeVerification } from './smokeVerification.js';
 
 const PYTHON_BIN = process.env['PYTHON_BIN'] ?? 'python3';
 // Same convention as preview.ts's WORKER_DIR/PYTHON_BIN.
-const WORKER_DIR = process.env['WORKER_DIR'] ?? resolve(process.cwd(), '../worker');
+const WORKER_DIR = requiredPathEnv('WORKER_DIR', resolve(process.cwd(), '../worker'));
 const WORKER_SCRIPT = resolve(WORKER_DIR, 'worker.py');
 
 interface PythonWorkerSuccess {

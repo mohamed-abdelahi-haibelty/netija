@@ -33,9 +33,9 @@
 | NEXT_PUBLIC_POSTHOG_HOST | web | PostHog ingest host | 002 |
 | CLOUDFLARE_API_TOKEN | api | Cloudflare cache purge token | 002 |
 | CLOUDFLARE_ZONE_ID | api | Cloudflare zone ID | 002 |
-| UPLOADS_DIR | api, worker | Absolute path to the shared uploads volume; defaults to the repo-root `uploads/` folder when unset | 014 |
+| UPLOADS_DIR | api, worker | Absolute path to the shared uploads volume; defaults to a repo-root-relative `uploads/` folder in local dev only — **required** (throws at startup, `api/src/lib/env.ts#requiredPathEnv`) when `APP_ENV=production`, since the cwd-relative default resolves to a nonsense path outside a container | 014, fixed 2026-07-11 |
 | PYTHON_BIN | api | Python interpreter used to spawn `worker/` CLI scripts (e.g. mapping preview); defaults to `python3` on PATH | 018 |
-| WORKER_DIR | api | Absolute path to the `worker/` package; defaults to the repo-root `worker/` folder when unset | 018 |
+| WORKER_DIR | api | Absolute path to the `worker/` package; same local-dev-only default / required-in-production rule as `UPLOADS_DIR` above | 018, fixed 2026-07-11 |
 | (append as tasks add them) | | | |
 
 ## External services & accounts needed

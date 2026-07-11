@@ -2,14 +2,16 @@ import { eq } from 'drizzle-orm';
 import { resolve } from 'node:path';
 import type { Db } from '../db/client.js';
 import { imports, columnAliases } from '../db/schema.js';
+import { requiredPathEnv } from '../lib/env.js';
 import { runPythonScript } from '../lib/pythonRunner.js';
 import type { ImportPreviewColumn, ImportPreviewResult, MissingRequiredField } from 'shared';
 
 const PYTHON_BIN = process.env['PYTHON_BIN'] ?? 'python3';
 // Shared volume/sibling package with the worker (see architecture.md).
 // Defaults to the repo-root `worker/` folder for local dev, where the api
-// process runs with api/ as cwd — same convention as UPLOADS_DIR.
-const WORKER_DIR = process.env['WORKER_DIR'] ?? resolve(process.cwd(), '../worker');
+// process runs with api/ as cwd; required (no fallback) in production —
+// same convention as UPLOADS_DIR, see lib/env.ts.
+const WORKER_DIR = requiredPathEnv('WORKER_DIR', resolve(process.cwd(), '../worker'));
 const PREVIEW_SCRIPT = resolve(WORKER_DIR, 'preview.py');
 
 interface PythonPreviewSuccess {
