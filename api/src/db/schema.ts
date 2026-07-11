@@ -61,7 +61,6 @@ export const imports = pgTable('imports', {
   progress: integer('progress'),
   summaryInserted: integer('summary_inserted'),
   summaryRejected: integer('summary_rejected'),
-  summaryNewPeople: integer('summary_new_people'),
   summaryDuplicatesSkipped: integer('summary_duplicates_skipped'),
   smokePassed: boolean('smoke_passed'),
   published: boolean('published').notNull().default(false),

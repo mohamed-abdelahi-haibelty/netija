@@ -8,6 +8,13 @@
       "when": 1783311165901,
       "tag": "0000_rare_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783762963614,
+      "tag": "0001_amazing_power_man",
+      "breakpoints": true
     }
   ]
 }

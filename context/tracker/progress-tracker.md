@@ -12,20 +12,20 @@ Update this file after every meaningful implementation change.
 
 ## Open Questions
 
-Found during the `chore/refactor-cleanup` pass (2026-07-08). Still open —
-each needs its own task (data-model change, out of scope for a code-only
-branch).
-
-- **`api/src/db/schema.ts`'s `imports.summaryNewPeople` column is dead** —
-  grepped across `api/`, `worker/`, `web/`; never read or written by any
-  code. Looks like a leftover from an earlier "new people" concept removed
-  when the schema went attempts-only. Removing it needs a migration
-  (a data-model change), so it wasn't touched during the code-only refactor
-  pass; fold into a future schema change instead of a standalone migration.
+None open at the moment.
 
 Resolved on `fix/deployment-runbook-inconsistencies` (2026-07-11), after
 being flagged here first:
 
+- ~~`api/src/db/schema.ts`'s `imports.summaryNewPeople` column was dead~~ —
+  fixed: dropped via its own migration (`api/drizzle/0001_amazing_power_man.sql`,
+  `ALTER TABLE imports DROP COLUMN summary_new_people`), kept as a separate
+  commit from the rest of this branch's code-only fixes per
+  ai-workflow-rules.md (schema/migration changes split from feature logic).
+  A leftover from an earlier "new people" concept removed when the schema
+  went attempts-only; grepped across `api/`, `worker/`, `web/` immediately
+  before dropping to confirm still zero references beyond the migration/
+  snapshot files themselves.
 - ~~`worker/mapping.py`'s `BUILTIN_CANONICAL_ALIASES` was missing `NOM_FR`
   for `name_fr`, while its counterpart `NOM_AR` was present for
   `name_ar`~~ — fixed: added `"nom fr": "name_fr"` alongside the existing
