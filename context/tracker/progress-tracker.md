@@ -16,22 +16,24 @@ Found during the `chore/refactor-cleanup` pass (2026-07-08). Still open —
 each needs its own task (data-model change, out of scope for a code-only
 branch).
 
-- **`worker/mapping.py`'s `BUILTIN_CANONICAL_ALIASES` is missing `NOM_FR` for
-  `name_fr`, while its counterpart `NOM_AR` is present for `name_ar`.**
-  Verified by running `analyze_headers(["NODOSS","NOM_FR","NOM_AR","Moy
-  Bac","Decision"])`: `NOM_AR` maps to `name_ar`, `NOM_FR` lands in
-  `unrecognized`. `worker/tests/fixtures/README.md` (lines 60-63) documents
-  `NOM_FR`/`NOM_AR` as a real 2025 `bac_2025` header pair found in
-  production; the three decision-variant fixes from that same discovery
-  were made, but this alias looks like it was missed. Impact: a real
-  2025-format Bac file's French name column shows "unrecognized" at
-  preview and needs a manual admin remap every time.
 - **`api/src/db/schema.ts`'s `imports.summaryNewPeople` column is dead** —
   grepped across `api/`, `worker/`, `web/`; never read or written by any
   code. Looks like a leftover from an earlier "new people" concept removed
   when the schema went attempts-only. Removing it needs a migration
   (a data-model change), so it wasn't touched during the code-only refactor
   pass; fold into a future schema change instead of a standalone migration.
+
+Resolved on `fix/deployment-runbook-inconsistencies` (2026-07-11), after
+being flagged here first:
+
+- ~~`worker/mapping.py`'s `BUILTIN_CANONICAL_ALIASES` was missing `NOM_FR`
+  for `name_fr`, while its counterpart `NOM_AR` was present for
+  `name_ar`~~ — fixed: added `"nom fr": "name_fr"` alongside the existing
+  `nompl`/`nom`/`nom complet` entries. Regression test
+  `test_nom_fr_and_nom_ar_both_map_builtin_no_manual_remap_needed`
+  (`worker/tests/test_mapping.py`) asserts both `NOM_FR` and `NOM_AR` map
+  correctly from a single synthetic header list (no fixture — the real
+  2025 file needs real student data, which fixtures can't contain).
 
 Resolved on `chore/refactor-cleanup` (2026-07-08), after being flagged here
 first:

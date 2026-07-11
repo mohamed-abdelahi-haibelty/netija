@@ -227,6 +227,18 @@ def test_a_genuinely_unknown_header_is_reported_as_unrecognized() -> None:
     assert "SOME_FUTURE_COLUMN" not in analysis.ignored
 
 
+def test_nom_fr_and_nom_ar_both_map_builtin_no_manual_remap_needed() -> None:
+    # Regression test: NOM_FR/NOM_AR is a real 2025 Bac header pair
+    # (fixtures/README.md) — NOM_AR mapped to name_ar already, but NOM_FR
+    # was missing from BUILTIN_CANONICAL_ALIASES and fell through to
+    # unrecognized, forcing a manual admin remap on every 2025 import.
+    analysis = analyze_headers(["NODOSS", "NOM_FR", "NOM_AR", "Moy Bac", "Decision"])
+
+    assert analysis.mapping["NOM_FR"] == "name_fr"
+    assert analysis.mapping["NOM_AR"] == "name_ar"
+    assert analysis.unrecognized == []
+
+
 def test_learned_alias_maps_a_header_the_builtin_dictionary_does_not_know() -> None:
     # Simulates an admin's manual remap from a prior import being persisted
     # to column_aliases and honored on the next file with the same header —

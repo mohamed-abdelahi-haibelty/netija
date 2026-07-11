@@ -62,6 +62,7 @@ BUILTIN_CANONICAL_ALIASES: dict[str, str] = {
     "nompl": "name_fr",
     "nom": "name_fr",
     "nom complet": "name_fr",
+    "nom fr": "name_fr",
     # name_ar
     "nompa": "name_ar",
     "nom ar": "name_ar",
