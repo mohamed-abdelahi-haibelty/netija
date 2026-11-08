@@ -1,0 +1,496 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createApp } from '../app.js';
+
+// ---------------------------------------------------------------------------
+// Module-level mocks (hoisted before any imports)
+// ---------------------------------------------------------------------------
+
+vi.mock('../lib/auth.js', () => ({
+  auth: {
+    handler: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })),
+    api: { getSession: vi.fn() },
+  },
+}));
+
+vi.mock('../lib/healthChecks.js', () => ({
+  checkPostgres: vi.fn().mockResolvedValue(true),
+  checkRedis: vi.fn().mockResolvedValue(true),
+  checkMeilisearch: vi.fn().mockResolvedValue(true),
+}));
+
+vi.mock('../services/nameSearch.js', () => ({
+  searchByName: vi.fn(),
+}));
+
+vi.mock('../services/meiliIndex.js', () => ({
+  buildNameIndex: vi.fn(),
+}));
+
+vi.mock('../db/client.js', () => ({ db: {} }));
+// incr/expire back the rate-limit middleware (all /api/search routes go
+// through it now); the actual rate-limit behavior is covered in
+// rateLimit.test.ts, so a permissive stub here keeps these route tests
+// focused on the search behavior itself.
+vi.mock('../lib/redis.js', () => ({
+  redis: { incr: vi.fn().mockResolvedValue(1), expire: vi.fn().mockResolvedValue(1) },
+}));
+vi.mock('../lib/meili.js', () => ({ meili: {}, ATTEMPTS_INDEX: 'attempts' }));
+
+// Also mock the other search services to prevent side effects
+vi.mock('../services/examSearch.js', () => ({
+  searchByExamNo: vi.fn(),
+  getPublishedYears: vi.fn(),
+  invalidateYearsCache: vi.fn(),
+}));
+
+import { searchByName } from '../services/nameSearch.js';
+import type { NameSearchSuggestion } from 'shared';
+
+const mockSearchByName = vi.mocked(searchByName);
+
+// ---------------------------------------------------------------------------
+// Fixtures — one suggestion per attempt; the same name may appear in several
+// years as separate rows.
+// ---------------------------------------------------------------------------
+
+const SUGGESTIONS: NameSearchSuggestion[] = [
+  {
+    slug: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac',
+    examYear: 2023,
+    examNo: '00101',
+    nameFr: 'Ahmed Ould Mohamed',
+    nameAr: 'أحمد ولد محمد',
+    serie: 'SN',
+  },
+  {
+    slug: 'slug2022dddd3333eeee4444ffff5555', examType: 'bac',
+    examYear: 2022,
+    examNo: '00202',
+    nameFr: 'Ahmed Ould Mohamed',
+    nameAr: null,
+    serie: 'LM',
+  },
+];
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// Route integration tests — Meili client is mocked via the service mock
+// ---------------------------------------------------------------------------
+
+describe('GET /api/search/name', () => {
+  it('returns 200 with suggestions on a valid query', async () => {
+    mockSearchByName.mockResolvedValue(SUGGESTIONS);
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=ahmed');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
+    expect(body.data.suggestions).toHaveLength(2);
+    expect(body.data.suggestions[0]).toMatchObject({
+      slug: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac',
+      examYear: 2023,
+      examNo: '00101',
+      nameFr: 'Ahmed Ould Mohamed',
+      serie: 'SN',
+    });
+    expect(mockSearchByName).toHaveBeenCalledOnce();
+  });
+
+  it('returns 200 with an empty suggestions array when Meilisearch has no hits', async () => {
+    mockSearchByName.mockResolvedValue([]);
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=zzz');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
+    expect(body.data.suggestions).toEqual([]);
+  });
+
+  it('returns 400 when query is a single character (below minimum length)', async () => {
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=a');
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; issues: unknown[] } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.issues).toBeDefined();
+    expect(mockSearchByName).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when query param is missing', async () => {
+    const app = createApp();
+    const res = await app.request('/api/search/name');
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockSearchByName).not.toHaveBeenCalled();
+  });
+
+  it('returns each matching year as a separate, newest-first row (no merging)', async () => {
+    // Same name in three years — returned as three independent rows, newest first,
+    // each carrying its own year + serie.
+    const threeYears: NameSearchSuggestion[] = [
+      { slug: 'slug25aaaa0000bbbb1111cccc222233', examType: 'bac', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
+      { slug: 'slug24dddd3333eeee4444ffff555566', examType: 'bac', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
+      { slug: 'slug23gggg7777hhhh8888iiii999900', examType: 'bac', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
+    ];
+    mockSearchByName.mockResolvedValue(threeYears);
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=ahmed');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
+    // Three separate rows for the same name — no merging into one person.
+    expect(body.data.suggestions).toHaveLength(3);
+    expect(body.data.suggestions.map((s) => s.nameFr)).toEqual([
+      'Ahmed Ould Mohamed',
+      'Ahmed Ould Mohamed',
+      'Ahmed Ould Mohamed',
+    ]);
+    // Newest year first.
+    expect(body.data.suggestions.map((s) => s.examYear)).toEqual([2025, 2024, 2023]);
+    // Each row carries year + serie so the user can disambiguate.
+    expect(body.data.suggestions.map((s) => s.serie)).toEqual(['TS', 'LM', 'SN']);
+    // Each row carries its own distinct slug link.
+    expect(new Set(body.data.suggestions.map((s) => s.slug)).size).toBe(3);
+  });
+
+  it('returns at most 10 suggestions (enforced by the service)', async () => {
+    const tenSuggestions: NameSearchSuggestion[] = Array.from({ length: 10 }, (_, i) => ({
+      slug: `slug${String(i + 1).padStart(4, '0')}00000000000000000000000000`,
+      examType: 'bac' as const,
+      examYear: 2023,
+      examNo: String(i + 1).padStart(5, '0'),
+      nameFr: `Person ${String(i + 1)}`,
+      nameAr: null,
+      serie: 'SN',
+    }));
+    mockSearchByName.mockResolvedValue(tenSuggestions);
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=person');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { suggestions: NameSearchSuggestion[] } };
+    expect(body.data.suggestions).toHaveLength(10);
+  });
+
+  it('accepts Arabic query input', async () => {
+    mockSearchByName.mockResolvedValue(SUGGESTIONS);
+    const app = createApp();
+    const encoded = encodeURIComponent('أحمد');
+    const res = await app.request(`/api/search/name?q=${encoded}`);
+    expect(res.status).toBe(200);
+    expect(mockSearchByName).toHaveBeenCalledOnce();
+  });
+
+  it('defaults type to bac and forwards a requested type to the service', async () => {
+    mockSearchByName.mockResolvedValue([]);
+    const app = createApp();
+
+    await app.request('/api/search/name?q=ahmed');
+    expect(mockSearchByName).toHaveBeenLastCalledWith(expect.anything(), 'ahmed', 'bac');
+
+    await app.request('/api/search/name?q=ahmed&type=brevet');
+    expect(mockSearchByName).toHaveBeenLastCalledWith(expect.anything(), 'ahmed', 'brevet');
+  });
+
+  it('returns 400 for an unknown exam type', async () => {
+    const app = createApp();
+    const res = await app.request('/api/search/name?q=ahmed&type=licence');
+    expect(res.status).toBe(400);
+    expect(mockSearchByName).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Service unit test — index builder produces one document per published attempt
+// ---------------------------------------------------------------------------
+
+describe('buildNameIndex service', () => {
+  it('passes one document per published attempt to Meilisearch', async () => {
+    const { buildNameIndex: realBuildNameIndex } =
+      await vi.importActual<typeof import('../services/meiliIndex.js')>(
+        '../services/meiliIndex.js',
+      );
+
+    // The SQL selects `public_slug AS id` and WHERE i.published = true excludes
+    // unpublished attempts before they reach the mapper. The document id IS the slug.
+    const dbRows = [
+      { id: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: 'أحمد ولد محمد', serie: 'SN' },
+      { id: 'slug2022dddd3333eeee4444ffff5555', examType: 'bac', examYear: 2022, examNo: '00202', nameFr: 'Fatima Mint Ali', nameAr: null, serie: 'LM' },
+    ];
+    const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
+
+    const addDocumentsMock = vi.fn().mockResolvedValue({ taskUid: 1 });
+    const deleteAllMock = vi.fn().mockResolvedValue({ taskUid: 2 });
+    const updateSettingsMock = vi.fn().mockResolvedValue({ taskUid: 3 });
+    const indexMock = {
+      updateSettings: updateSettingsMock,
+      deleteAllDocuments: deleteAllMock,
+      addDocuments: addDocumentsMock,
+    };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
+
+    expect(count).toBe(2);
+
+    // Correct index is addressed
+    expect(mockMeili.index).toHaveBeenCalledWith('attempts');
+
+    // Settings configure both searchable fields and sort field
+    expect(updateSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        searchableAttributes: ['nameFr', 'nameAr'],
+        sortableAttributes: ['examYear'],
+      }),
+    );
+
+    // Full rebuild: clear before pushing
+    expect(deleteAllMock).toHaveBeenCalledOnce();
+
+    const [capturedDocs] = addDocumentsMock.mock.calls[0] as [
+      Array<{ id: string; examYear: number; examNo: string; nameFr: string | null; nameAr: string | null; serie: string }>,
+      ...unknown[]
+    ];
+    expect(capturedDocs).toHaveLength(2);
+    // The Meili document id is the attempt's public slug.
+    expect(capturedDocs.map((d) => d.id)).toEqual([
+      'slug2023aaaa0000bbbb1111cccc2222',
+      'slug2022dddd3333eeee4444ffff5555',
+    ]);
+
+    const [firstDoc] = capturedDocs;
+    if (!firstDoc) throw new Error('expected at least one captured document');
+    expect(firstDoc).toMatchObject({
+      id: 'slug2023aaaa0000bbbb1111cccc2222', examType: 'bac',
+      examYear: 2023,
+      examNo: '00101',
+      nameFr: 'Ahmed Ould Mohamed',
+      nameAr: 'أحمد ولد محمد',
+      serie: 'SN',
+    });
+  });
+
+  it('produces one document per year for a name appearing in three years', async () => {
+    const { buildNameIndex: realBuildNameIndex } =
+      await vi.importActual<typeof import('../services/meiliIndex.js')>(
+        '../services/meiliIndex.js',
+      );
+
+    // The SQL returns one row per published attempt, newest year first. The same
+    // name in 2025/2024/2023 is three independent attempts → three documents.
+    const dbRows = [
+      { id: 'slug25aaaa0000bbbb1111cccc222233', examType: 'bac', examYear: 2025, examNo: '00301', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'TS' },
+      { id: 'slug24dddd3333eeee4444ffff555566', examType: 'bac', examYear: 2024, examNo: '00202', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'LM' },
+      { id: 'slug23gggg7777hhhh8888iiii999900', examType: 'bac', examYear: 2023, examNo: '00101', nameFr: 'Ahmed Ould Mohamed', nameAr: null, serie: 'SN' },
+    ];
+    const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
+
+    const addDocumentsMock = vi.fn().mockResolvedValue({ taskUid: 1 });
+    const indexMock = {
+      updateSettings: vi.fn().mockResolvedValue({ taskUid: 3 }),
+      deleteAllDocuments: vi.fn().mockResolvedValue({ taskUid: 2 }),
+      addDocuments: addDocumentsMock,
+    };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
+
+    expect(count).toBe(3);
+    const [capturedDocs] = addDocumentsMock.mock.calls[0] as [
+      Array<{ id: string; examYear: number }>,
+      ...unknown[]
+    ];
+    // Three documents with distinct slug ids — never collapsed into one.
+    expect(capturedDocs).toHaveLength(3);
+    expect(capturedDocs.map((d) => d.id)).toEqual([
+      'slug25aaaa0000bbbb1111cccc222233',
+      'slug24dddd3333eeee4444ffff555566',
+      'slug23gggg7777hhhh8888iiii999900',
+    ]);
+    expect(new Set(capturedDocs.map((d) => d.id)).size).toBe(3);
+  });
+
+  it('handles empty DB result (no published attempts) without pushing documents', async () => {
+    const { buildNameIndex: realBuildNameIndex } =
+      await vi.importActual<typeof import('../services/meiliIndex.js')>(
+        '../services/meiliIndex.js',
+      );
+
+    const mockDb = { execute: vi.fn().mockResolvedValue({ rows: [] }) };
+    const addDocumentsMock = vi.fn();
+    const indexMock = {
+      updateSettings: vi.fn().mockResolvedValue({ taskUid: 3 }),
+      deleteAllDocuments: vi.fn().mockResolvedValue({ taskUid: 2 }),
+      addDocuments: addDocumentsMock,
+    };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
+
+    expect(count).toBe(0);
+    // Nothing to chunk — addDocuments is never called with an empty batch.
+    expect(addDocumentsMock).not.toHaveBeenCalled();
+  });
+
+  it('chunks a document set larger than one batch into multiple sequential addDocuments calls', async () => {
+    const {
+      buildNameIndex: realBuildNameIndex,
+      MEILI_INDEX_BATCH_SIZE,
+    } = await vi.importActual<typeof import('../services/meiliIndex.js')>('../services/meiliIndex.js');
+
+    // Reproduces the production MeilisearchApiError failure mode: a published
+    // document set large enough that a single addDocuments call would exceed
+    // Meilisearch's payload limit. Just over 2x the batch size forces exactly
+    // three batches (full, full, partial).
+    const totalDocs = MEILI_INDEX_BATCH_SIZE * 2 + 1234;
+    const dbRows = Array.from({ length: totalDocs }, (_, i) => ({
+      id: `slug${String(i).padStart(8, '0')}`,
+      importId: 1,
+      examType: 'bac',
+      examYear: 2024,
+      examNo: String(i).padStart(6, '0'),
+      nameFr: `Name ${String(i)}`,
+      nameAr: null,
+      serie: 'SN',
+    }));
+    const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
+
+    const addDocumentsMock = vi.fn().mockResolvedValue({ taskUid: 1 });
+    const indexMock = {
+      updateSettings: vi.fn().mockResolvedValue({ taskUid: 3 }),
+      deleteAllDocuments: vi.fn().mockResolvedValue({ taskUid: 2 }),
+      addDocuments: addDocumentsMock,
+    };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    const count = await realBuildNameIndex(mockDb as never, mockMeili as never);
+
+    expect(count).toBe(totalDocs);
+    expect(addDocumentsMock).toHaveBeenCalledTimes(3);
+
+    const batchSizes = addDocumentsMock.mock.calls.map(
+      ([batch]) => (batch as unknown[]).length,
+    );
+    expect(batchSizes).toEqual([MEILI_INDEX_BATCH_SIZE, MEILI_INDEX_BATCH_SIZE, 1234]);
+    expect(batchSizes.every((size) => size <= MEILI_INDEX_BATCH_SIZE)).toBe(true);
+
+    // Every document across every batch is indexed exactly once — no drops,
+    // no duplicates at the batch boundaries.
+    const allIds = addDocumentsMock.mock.calls.flatMap(([batch]) =>
+      (batch as { id: string }[]).map((d) => d.id),
+    );
+    expect(new Set(allIds).size).toBe(totalDocs);
+
+    // deleteAllDocuments still runs exactly once, before any batch (a full
+    // rebuild, not an incremental one), regardless of how many batches follow.
+    expect(indexMock.deleteAllDocuments).toHaveBeenCalledOnce();
+  });
+
+  it('propagates a mid-rebuild batch failure so the admin Reindex retry sees it', async () => {
+    const { buildNameIndex: realBuildNameIndex, MEILI_INDEX_BATCH_SIZE } =
+      await vi.importActual<typeof import('../services/meiliIndex.js')>('../services/meiliIndex.js');
+
+    const totalDocs = MEILI_INDEX_BATCH_SIZE + 10;
+    const dbRows = Array.from({ length: totalDocs }, (_, i) => ({
+      id: `slug${String(i).padStart(8, '0')}`,
+      importId: 1,
+      examType: 'bac',
+      examYear: 2024,
+      examNo: String(i).padStart(6, '0'),
+      nameFr: `Name ${String(i)}`,
+      nameAr: null,
+      serie: 'SN',
+    }));
+    const mockDb = { execute: vi.fn().mockResolvedValue({ rows: dbRows }) };
+
+    // First batch enqueues fine; the second (final, partial) batch fails —
+    // e.g. a transient Meilisearch outage mid-rebuild.
+    const addDocumentsMock = vi
+      .fn()
+      .mockResolvedValueOnce({ taskUid: 1 })
+      .mockRejectedValueOnce(new Error('Meilisearch unreachable'));
+    const indexMock = {
+      updateSettings: vi.fn().mockResolvedValue({ taskUid: 3 }),
+      deleteAllDocuments: vi.fn().mockResolvedValue({ taskUid: 2 }),
+      addDocuments: addDocumentsMock,
+    };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    await expect(realBuildNameIndex(mockDb as never, mockMeili as never)).rejects.toThrow(
+      'Meilisearch unreachable',
+    );
+    // Fail-fast: stops after the failing batch, never attempts a third call.
+    expect(addDocumentsMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Service unit test — searchByName maps Meilisearch hits to NameSearchSuggestion
+// ---------------------------------------------------------------------------
+
+describe('searchByName service', () => {
+  it('calls index.search with limit 10 and sort by examYear:desc, returns mapped suggestions', async () => {
+    const { searchByName: realSearchByName } =
+      await vi.importActual<typeof import('../services/nameSearch.js')>(
+        '../services/nameSearch.js',
+      );
+
+    // The Meili document id is the attempt's slug; searchByName maps it to `slug`.
+    const meiliHits = [
+      { id: 'slug55aaaa0000bbbb1111cccc222233', examType: 'bac', examYear: 2023, examNo: '00055', nameFr: 'Cheikh Ould Brahim', nameAr: null, serie: 'TM' },
+    ];
+    const searchMock = vi.fn().mockResolvedValue({ hits: meiliHits });
+    const indexMock = { search: searchMock };
+    const mockMeili = { index: vi.fn().mockReturnValue(indexMock) };
+
+    const results = await realSearchByName(mockMeili as never, 'cheikh', 'bac');
+
+    // The examType filter is what keeps Bac and Brevet names from intermingling.
+    expect(searchMock).toHaveBeenCalledWith('cheikh', {
+      limit: 10,
+      sort: ['examYear:desc'],
+      filter: 'examType = bac',
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      slug: 'slug55aaaa0000bbbb1111cccc222233',
+      examType: 'bac',
+      examYear: 2023,
+      examNo: '00055',
+      nameFr: 'Cheikh Ould Brahim',
+      nameAr: null,
+      serie: 'TM',
+    });
+  });
+
+  it('scopes the Meili filter to the requested exam type (Brevet returns only Brevet)', async () => {
+    const { searchByName: realSearchByName } =
+      await vi.importActual<typeof import('../services/nameSearch.js')>(
+        '../services/nameSearch.js',
+      );
+
+    const searchMock = vi.fn().mockResolvedValue({ hits: [] });
+    const mockMeili = { index: vi.fn().mockReturnValue({ search: searchMock }) };
+
+    await realSearchByName(mockMeili as never, 'ahmed', 'brevet');
+    expect(searchMock).toHaveBeenCalledWith('ahmed', {
+      limit: 10,
+      sort: ['examYear:desc'],
+      filter: 'examType = brevet',
+    });
+  });
+
+  it('returns an empty array when Meilisearch returns no hits', async () => {
+    const { searchByName: realSearchByName } =
+      await vi.importActual<typeof import('../services/nameSearch.js')>(
+        '../services/nameSearch.js',
+      );
+
+    const searchMock = vi.fn().mockResolvedValue({ hits: [] });
+    const mockMeili = { index: vi.fn().mockReturnValue({ search: searchMock }) };
+
+    const results = await realSearchByName(mockMeili as never, 'zzz', 'bac');
+    expect(results).toEqual([]);
+  });
+});

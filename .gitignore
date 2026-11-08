@@ -1,0 +1,62 @@
+# Environment variables
+.env*
+!.env.example
+!.env.production.example
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+.swc/
+out/
+
+# Uploads (keep directory via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Claude Code agent tooling
+.agents/
+skills-lock.json
+
+.walkthrough
+
+# design-skill scratch output (critique reports, live-preview config) —
+# tooling artifacts, not project source
+.impeccable/
+
+# k6 load-test run output (summaries, raw JSON, monitor.sh logs) — ephemeral
+# per-run artifacts, not project source. See load-tests/README.md.
+load-tests/results/*
+!load-tests/results/.gitkeep
+load-tests/*.log
+
+# Machine-specific agent integrations
+.claude/skills/
+
+# Private data exports and credentials
+*.dump
+*.sql.gz
+*.pem
+*.key
+*.tsbuildinfo

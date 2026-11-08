@@ -1,0 +1,72 @@
+import { mockApiModule as mockCreateApiModule } from '@/lib/testUtils/mockApi';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { TestI18nProvider as I18nProvider } from '@/lib/testUtils/i18n';
+import { NameAutocomplete } from '@/components/NameAutocomplete';
+import { ApiClientError } from '@/lib/api';
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
+const mockApiRequest = jest.fn<Promise<unknown>, [string, RequestInit?]>();
+
+jest.mock('@/lib/api', () => ({
+  ...mockCreateApiModule(true),
+  apiRequest: (path: string, options?: RequestInit) => mockApiRequest(path, options),
+}));
+
+function renderAutocomplete(examType: 'bac' | 'brevet' = 'bac') {
+  return render(
+    <I18nProvider locale="fr">
+      <NameAutocomplete lang="fr" examType={examType} />
+    </I18nProvider>,
+  );
+}
+
+beforeEach(() => {
+  mockApiRequest.mockReset();
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+describe('NameAutocomplete — rate limited state', () => {
+  it('shows the rate-limited message with the countdown and stops issuing further requests while cooling down', async () => {
+    mockApiRequest.mockRejectedValue(new ApiClientError('RATE_LIMITED', 'Too many requests.', 5));
+
+    const user = userEvent.setup({ delay: null });
+    renderAutocomplete();
+
+    await user.type(screen.getByRole('combobox'), 'ahmed');
+    await act(async () => { await jest.advanceTimersByTimeAsync(300); }); // clears the search debounce
+
+    expect(await screen.findByText(/5 seconde/)).toBeInTheDocument();
+    expect(mockApiRequest).toHaveBeenCalledTimes(1);
+
+    // A further keystroke would normally re-debounce and re-fetch — while
+    // still cooling down, fetchSuggestions must short-circuit instead.
+    await user.type(screen.getByRole('combobox'), 'm');
+    await act(async () => { await jest.advanceTimersByTimeAsync(300); });
+
+    expect(mockApiRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('NameAutocomplete — exam-type scoping', () => {
+  it('scopes the name-search request to the active exam type', async () => {
+    mockApiRequest.mockResolvedValue({ suggestions: [] });
+
+    const user = userEvent.setup({ delay: null });
+    renderAutocomplete('brevet');
+
+    await user.type(screen.getByRole('combobox'), 'ahmed');
+    await act(async () => { await jest.advanceTimersByTimeAsync(300); });
+
+    expect(mockApiRequest).toHaveBeenCalledTimes(1);
+    const url = mockApiRequest.mock.calls[0]?.[0];
+    expect(url).toContain('type=brevet');
+  });
+});

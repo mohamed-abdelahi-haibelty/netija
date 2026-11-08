@@ -1,0 +1,311 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * --font-sans and --font-heading live in a plain (non-inline) @theme block on purpose:
+ * @theme inline bakes each variable's declared value directly into the utilities it
+ * generates, which would permanently erase the [dir="ltr"] override further down this
+ * file the moment Tailwind compiles it. A plain @theme block keeps the var(--font-sans)/
+ * var(--font-heading) indirection so the per-locale override still works at runtime.
+ */
+@theme {
+  --font-sans: var(--font-thmanyah-sans);
+  --font-heading: var(--font-thmanyah-serif-display);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Motion — mapped to Tailwind transition-duration-* and ease-* utilities */
+  --transition-duration-short:  var(--duration-short);
+  --transition-duration-medium: var(--duration-medium);
+  --transition-duration-long:   var(--duration-long);
+  --ease-in-out: var(--ease-reveal);
+
+  /* Decision status — use as CSS variables in components */
+  --color-status-pass-bg: var(--status-pass-bg);
+  --color-status-pass-fg: var(--status-pass-fg);
+  --color-status-fail-bg: var(--status-fail-bg);
+  --color-status-fail-fg: var(--status-fail-fg);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-pending-fg: var(--status-pending-fg);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-fg: var(--status-neutral-fg);
+}
+
+:root {
+  /* Layout — nav bar height (h-14.25 = 3.5625rem = 57px including border) */
+  --nav-height: 3.5625rem;
+
+  /* Surface — one flat white canvas everywhere; no card lift */
+  --background:         oklch(1 0 0);   /* #ffffff */
+  --card:               oklch(1 0 0);
+  --popover:            oklch(1 0 0);
+
+  /* Type */
+  --foreground:         oklch(0.13 0.004 80);    /* near-black with slight warmth */
+  --card-foreground:    oklch(0.13 0.004 80);
+  --popover-foreground: oklch(0.13 0.004 80);
+  --muted-foreground:   oklch(0.44 0.008 80);    /* stone — ≥4.5:1 on white */
+
+  /* Brand — primary: black #000000 */
+  --primary:            oklch(0 0 0);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Secondary — sage green #8fad88 */
+  --secondary:            oklch(0.70 0.07 148);
+  --secondary-foreground: oklch(1 0 0);
+
+  /* Accent — warm salmon #ffa07a; L=0.76 is light → dark text required */
+  --accent:             oklch(0.76 0.13 48);
+  --accent-foreground:  oklch(0.13 0.004 80);
+
+  /* Muted — neutral surface for subtle backgrounds */
+  --muted:              oklch(0.94 0.002 80);
+  --muted-foreground:   oklch(0.44 0.008 80);
+
+  /* Semantic */
+  --destructive:        oklch(0.57 0.22 28);
+
+  /* Chrome */
+  --border:             oklch(0.91 0.002 80);    /* #e6e6e6 hairline */
+  --input:              oklch(0.91 0.002 80);
+  --ring:               oklch(0 0 0);             /* black focus ring */
+
+  /* Border radius */
+  --radius: 0.5rem;
+
+  /* Motion — durations */
+  --duration-short:  150ms;
+  --duration-medium: 250ms;
+  --duration-long:   350ms;
+
+  /* Motion — easing */
+  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);    /* ease-out-quint: reveals, panel slides */
+  --ease-exit:   cubic-bezier(0.4, 0, 1, 1);        /* ease-in-quart: exits */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* gentle spring: Admis badge entrance only */
+
+  /* Charts */
+  --chart-1: oklch(0.70 0.07 148);  /* sage green */
+  --chart-2: oklch(0.76 0.13 48);   /* salmon */
+  --chart-3: oklch(0.73 0.14 78);   /* warm amber */
+  --chart-4: oklch(0.55 0.10 225);  /* muted blue */
+  --chart-5: oklch(0.60 0.09 300);  /* soft mauve */
+
+  /* Sidebar (admin) — white, blends into the page canvas; gray (not green) active state */
+  --sidebar:                    oklch(1 0 0);
+  --sidebar-foreground:         oklch(0.13 0.004 80);
+  --sidebar-primary:            oklch(0.13 0.004 80);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent:             oklch(0.91 0.002 80);
+  --sidebar-accent-foreground:  oklch(0.13 0.004 80);
+  --sidebar-border:             oklch(0.91 0.002 80);
+  --sidebar-ring:               oklch(0 0 0);
+
+  /* Decision status badges */
+  --status-pass-bg:    oklch(0.94 0.07 148);     /* warm celebratory green */
+  --status-pass-fg:    oklch(0.30 0.12 148);
+  --status-fail-bg:    oklch(0.94 0.06 55);      /* warm amber, never alarming */
+  --status-fail-fg:    oklch(0.42 0.15 48);
+  --status-pending-bg: oklch(0.95 0.05 78);      /* measured amber */
+  --status-pending-fg: oklch(0.40 0.10 70);
+  --status-neutral-bg: oklch(0.93 0.002 0);
+  --status-neutral-fg: oklch(0.42 0.003 0);
+}
+
+.dark {
+  /* Surface — one flat dark canvas, mirroring the flat light system */
+  --background:         oklch(0.10 0.002 0);
+  --card:               oklch(0.10 0.002 0);
+  --popover:            oklch(0.10 0.002 0);
+
+  /* Type */
+  --foreground:         oklch(0.95 0.002 80);
+  --card-foreground:    oklch(0.95 0.002 80);
+  --popover-foreground: oklch(0.95 0.002 80);
+  --muted-foreground:   oklch(0.63 0.006 80);
+
+  /* Brand — inverted: near-white primary for dark backgrounds */
+  --primary:            oklch(0.95 0 0);
+  --primary-foreground: oklch(0.10 0 0);
+
+  /* Secondary — deeper sage green */
+  --secondary:            oklch(0.40 0.08 148);
+  --secondary-foreground: oklch(0.95 0 0);
+
+  /* Accent — salmon brighter in dark mode so it reads against dark bg; L=0.72 still needs dark text */
+  --accent:             oklch(0.72 0.13 48);
+  --accent-foreground:  oklch(0.13 0.004 80);
+
+  /* Muted */
+  --muted:              oklch(0.20 0.002 0);
+  --muted-foreground:   oklch(0.63 0.006 80);
+
+  /* Semantic */
+  --destructive:        oklch(0.68 0.20 28);
+
+  /* Chrome */
+  --border:             oklch(1 0 0 / 10%);
+  --input:              oklch(1 0 0 / 14%);
+  --ring:               oklch(0.95 0 0);
+
+  /* Charts */
+  --chart-1: oklch(0.70 0.07 148);  /* sage green */
+  --chart-2: oklch(0.76 0.13 48);   /* salmon */
+  --chart-3: oklch(0.78 0.14 78);   /* warm amber */
+  --chart-4: oklch(0.62 0.12 225);  /* muted blue */
+  --chart-5: oklch(0.65 0.09 300);  /* soft mauve */
+
+  /* Sidebar (admin) — matches dark canvas; gray (not green) active state */
+  --sidebar:                    oklch(0.10 0.002 0);
+  --sidebar-foreground:         oklch(0.95 0.002 80);
+  --sidebar-primary:            oklch(0.95 0.002 80);
+  --sidebar-primary-foreground: oklch(0.10 0 0);
+  --sidebar-accent:             oklch(0.20 0.002 0);
+  --sidebar-accent-foreground:  oklch(0.95 0.002 80);
+  --sidebar-border:             oklch(1 0 0 / 10%);
+  --sidebar-ring:               oklch(0.95 0 0);
+
+  /* Decision status badges */
+  --status-pass-bg:    oklch(0.22 0.07 148);
+  --status-pass-fg:    oklch(0.82 0.10 148);
+  --status-fail-bg:    oklch(0.22 0.06 55);
+  --status-fail-fg:    oklch(0.82 0.12 48);
+  --status-pending-bg: oklch(0.22 0.05 78);
+  --status-pending-fg: oklch(0.84 0.09 78);
+  --status-neutral-bg: oklch(0.20 0.002 0);
+  --status-neutral-fg: oklch(0.72 0.003 0);
+}
+
+/* Reduced motion — collapses all animation to a simple opacity fade */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-short:  0ms;
+    --duration-medium: 150ms;
+    --duration-long:   200ms;
+    --ease-reveal: linear;
+    --ease-exit:   linear;
+    --ease-spring: linear;
+  }
+}
+
+/* French (ltr) pages use Geist; Arabic (rtl) pages use Thmanyah Sans (set in @theme) */
+[dir="ltr"] {
+  --font-sans: var(--font-geist-sans);
+  --font-heading: var(--font-geist-sans);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ── Student result page ── */
+
+/* ── Rendering containment ── */
+
+.admin-table {
+  contain: layout style;
+}
+.admin-table tbody {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
+}
+
+/* ── Badge animations ── */
+
+@keyframes netija-badge-spring {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes netija-badge-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Decision tag entrance — spring for Admis, quiet fade otherwise */
+.netija-tag-spring {
+  animation: netija-badge-spring 400ms var(--ease-spring) both;
+}
+.netija-tag-fade {
+  animation: netija-badge-fade 200ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .netija-tag-spring {
+    animation: netija-badge-fade 200ms linear both;
+  }
+}
+
+/* ── Print styles ── */
+
+@media print {
+  header:first-of-type {
+    display: none;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  a {
+    text-decoration: none !important;
+  }
+  [class*="netija-tag"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ── Touch variant — larger targets for coarse pointers ── */
+
+@custom-variant touch (@media (pointer: coarse));
+
+

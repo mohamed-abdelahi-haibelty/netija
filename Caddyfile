@@ -1,0 +1,51 @@
+# Production reverse proxy / TLS termination (architecture.md: "Caddy —
+# TLS termination, routes domains to services"; invariant 2: Caddy is the
+# only thing listening on 80/443).
+#
+# Replace example.com / api.example.com with your real domain before first
+# deploy. Caddy requests and renews
+# Let's Encrypt certificates automatically for every domain listed below —
+# no manual certbot/cron needed — as long as DNS points at this server and
+# Cloudflare's SSL/TLS mode is "Full (strict)".
+
+{
+	email mohamedabdelahi2002@gmail.com
+}
+
+# www redirects to the apex domain. Keeps a single canonical origin so the
+# api's CORS allowlist (WEB_URL=https://netija.com, api/src/app.ts) only
+# ever needs to match one value — without this, requests made from
+# www.netija.com carry a browser Origin the api never whitelists and every
+# fetch fails CORS.
+www.netija.com {
+	redir https://netija.com{uri} permanent
+}
+
+# Public site (web/, Next.js) — everything visitors and admins load in a
+# browser, including /admin.
+netija.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	reverse_proxy web:3000
+}
+
+# API subdomain (api/, Hono) — /api/*, /api/auth/* (Better Auth), /health,
+# /health/ready. Kept on its own origin because Better Auth's session
+# cookie and the api's CORS config (api/src/app.ts, WEB_URL) already treat
+# the web app and the API as two distinct origins.
+api.netija.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+	}
+
+	reverse_proxy api:3001
+}
