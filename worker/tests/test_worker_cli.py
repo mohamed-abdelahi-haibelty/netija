@@ -336,7 +336,9 @@ def test_multi_sheet_workbook_imports_rows_from_every_sheet_not_just_the_first(
     assert out["inserted"] == 2
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("SELECT exam_no FROM attempts WHERE import_id = %s ORDER BY exam_no", [import_id])
+        cur.execute(
+            "SELECT exam_no FROM attempts WHERE import_id = %s ORDER BY exam_no", [import_id]
+        )
         assert [row[0] for row in cur.fetchall()] == ["00001", "00002"]
 
 
