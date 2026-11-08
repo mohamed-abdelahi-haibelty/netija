@@ -48,7 +48,7 @@ jobs:
         ports:
           - 7700:7700
         options: >-
-          --health-cmd "wget -qO- http://localhost:7700/health"
+          --health-cmd "wget -qO- http://127.0.0.1:7700/health"
           --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v4
